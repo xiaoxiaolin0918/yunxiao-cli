@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +25,8 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 
 --repo accepts numeric id or profile.repositories alias. Profile optional when --repo is numeric.
 --target defaults to master. --wip prefixes "WIP: " when target is master.
---reviewer is comma-separated userIds (OpenAPI reviewerUserIds), same as typed mrs create.`,
+--reviewer is comma-separated userIds (OpenAPI reviewerUserIds), same as typed mrs create.
+--work-item is prechecked via workitem get (abort if missing); after create, missing links warn.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 
@@ -64,24 +64,18 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			return
 		}
 
+		expectSpace := ""
+		if pf != nil {
+			expectSpace = strings.TrimSpace(pf.SpaceID)
+		}
 		var workItemIDs []string
-		if strings.TrimSpace(workItem) != "" {
-			wpath, err := c.ProjexPath(cmd.Context(), "/workitems/"+strings.TrimSpace(workItem))
+		if refs := splitWorkItemRefs(workItem); len(refs) > 0 {
+			ids, err := resolveWorkItemIDsForMR(cmd.Context(), c, refs, expectSpace)
 			if err != nil {
 				handleErr(err)
 				return
 			}
-			var item map[string]any
-			if err := c.Get(cmd.Context(), wpath, nil, &item); err != nil {
-				handleErr(fmt.Errorf("resolve --work-item: %w", err))
-				return
-			}
-			internal := zhiyi.InternalID(item)
-			if internal == "" {
-				handleErr(fmt.Errorf("无法解析工作项内部 id: %s", workItem))
-				return
-			}
-			workItemIDs = []string{internal}
+			workItemIDs = ids
 		}
 
 		title = zhiyi.WithWipTitle(title, target, wip)
@@ -115,7 +109,9 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			for k, v := range meta {
 				m[k] = v
 			}
-			zhiyi.EnrichMergeRequestMeta(m, asStringMap(out))
+			mrMap := asStringMap(out)
+			zhiyi.EnrichMergeRequestMeta(m, mrMap)
+			warnMRWorkItemLinks(m, workItemIDs, mrMap)
 			return out, m
 		}))
 	},
@@ -127,7 +123,7 @@ func init() {
 	codeupMrsPlusCreateCmd.Flags().String("target", "master", "target branch (default master)")
 	codeupMrsPlusCreateCmd.Flags().String("title", "", "MR title (required)")
 	codeupMrsPlusCreateCmd.Flags().String("description", "", "MR description")
-	codeupMrsPlusCreateCmd.Flags().String("work-item", "", "ZYPT serial or internal id (resolved to workItemIds)")
+	codeupMrsPlusCreateCmd.Flags().String("work-item", "", "ZYPT serial(s) or id(s), comma-separated; prechecked via workitem get")
 	codeupMrsPlusCreateCmd.Flags().String("reviewer", "", "optional reviewer userId(s), comma-separated (OpenAPI reviewerUserIds; same as mrs create)")
 	codeupMrsPlusCreateCmd.Flags().Bool("wip", false, "prefix WIP: when target is master")
 	codeupMrsCmd.AddCommand(codeupMrsPlusCreateCmd)

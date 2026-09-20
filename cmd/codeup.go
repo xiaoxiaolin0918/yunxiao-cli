@@ -110,7 +110,16 @@ var codeupBranchesListCmd = &cobra.Command{
 var codeupMrsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List merge requests",
-	Long:  "Risk: read\nHTTP: GET .../changeRequests\n\nUse --all to follow pages via client.ListAll (cap 50).\nDefault order: newest first by update/create time. Client-side --sort applies within the current page (or across collected pages with --all). Use --sort asc for oldest first.",
+	Long: `Risk: read
+HTTP: GET .../changeRequests
+
+WARNING (server-ignored params): Codeup list_change_requests may silently ignore
+repositoryId and status. This command sends projectIds (via --repo) and lowercase
+state (via --state). Do not rely on repositoryId/status filters on the raw API.
+
+Use --all to follow pages via client.ListAll (cap 50).
+Default order: newest first by update/create time. Client-side --sort applies within
+the current page (or across collected pages with --all). Use --sort asc for oldest first.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		state, _ := cmd.Flags().GetString("state")
@@ -169,6 +178,9 @@ Requires --yes after explicit user confirmation. Prefer --dry-run first.
 HTTP: POST .../repositories/{repo}/changeRequests
 
 --reviewer accepts comma-separated userIds (OpenAPI reviewerUserIds), same as mrs +create.
+--work-item accepts comma-separated ZYPT serials or internal ids; each is GETed before
+create (abort if missing). After create, the CLI re-checks links and warns if the server
+silently dropped workItemIds (known Codeup trap).
 
   yunxiao codeup mrs create --repo <id> --source feat/x --target master \
     --title "feat: x" --reviewer <userId1,userId2> --dry-run`,
@@ -180,6 +192,7 @@ HTTP: POST .../repositories/{repo}/changeRequests
 		title, _ := cmd.Flags().GetString("title")
 		desc, _ := cmd.Flags().GetString("description")
 		reviewer, _ := cmd.Flags().GetString("reviewer")
+		workItemCSV, _ := cmd.Flags().GetString("work-item")
 		sourceProjectID, _ := cmd.Flags().GetString("source-project-id")
 		targetProjectID, _ := cmd.Flags().GetString("target-project-id")
 		createFrom, _ := cmd.Flags().GetString("create-from")
@@ -225,6 +238,15 @@ HTTP: POST .../repositories/{repo}/changeRequests
 				targetProjectID = idStr
 			}
 		}
+		var workItemIDs []string
+		if refs := splitWorkItemRefs(workItemCSV); len(refs) > 0 {
+			ids, err := resolveWorkItemIDsForMR(cmd.Context(), c, refs, "")
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			workItemIDs = ids
+		}
 		path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests")
 		if err != nil {
 			handleErr(err)
@@ -244,6 +266,9 @@ HTTP: POST .../repositories/{repo}/changeRequests
 		if ids := zhiyi.SplitUserIDs(reviewer); len(ids) > 0 {
 			body["reviewerUserIds"] = ids
 		}
+		if len(workItemIDs) > 0 {
+			body["workItemIds"] = workItemIDs
+		}
 		if globalDryRun {
 			handleErr(output.DryRunResult(string(risk.HighRiskWrite), c.Preview("POST", path, nil, body)))
 			return
@@ -258,7 +283,9 @@ HTTP: POST .../repositories/{repo}/changeRequests
 			return
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite}
-		zhiyi.EnrichMergeRequestMeta(meta, asStringMap(out))
+		mrMap := asStringMap(out)
+		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
+		warnMRWorkItemLinks(meta, workItemIDs, mrMap)
 		handleErr(output.Success(out, meta))
 	},
 }
@@ -1220,6 +1247,7 @@ func init() {
 	codeupMrsCreateCmd.Flags().String("target-project-id", "", "numeric target project id")
 	codeupMrsCreateCmd.Flags().String("create-from", "WEB", "createFrom, default WEB")
 	codeupMrsCreateCmd.Flags().String("reviewer", "", "optional reviewer userId(s), comma-separated (OpenAPI reviewerUserIds; same as mrs +create)")
+codeupMrsCreateCmd.Flags().String("work-item", "", "optional work item serial(s) or id(s), comma-separated; prechecked via workitem get")
 	codeupOpenMrsShortcut.Flags().String("state", "opened", "state")
 	codeupOpenMrsShortcut.Flags().String("search", "", "title search")
 	codeupOpenMrsShortcut.Flags().String("repo", "", "filter by repository id or alias")
