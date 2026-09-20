@@ -103,3 +103,13 @@ func TestWorkItemIDsCSV(t *testing.T) {
 		t.Fatalf("trim: %q", got)
 	}
 }
+
+func TestFormatMissingLinkError(t *testing.T) {
+	msg := FormatMissingLinkError([]string{"abc"}, "https://example/mr/1")
+	if msg == "" {
+		t.Fatal("empty")
+	}
+	if !strings.Contains(msg, "abc") || !strings.Contains(msg, "https://example/mr/1") {
+		t.Fatalf("msg=%q", msg)
+	}
+}

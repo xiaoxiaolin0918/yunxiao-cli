@@ -156,9 +156,12 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 ## Merge requests
 
-### Silent traps (#24)
-- Pass `--work-item` on `mrs create` / `mrs +create`: CLI GETs each id before create; warns if links missing after create.
-- `mrs list` uses `projectIds` (`--repo`) + `state` — not `repositoryId`/`status` (server may ignore those).
+### Silent traps (#24 / #32)
+- Pass --work-item on mrs create / mrs +create: CLI GETs each id before create.
+- From 0.16.12: body sends comma-separated workItemIds string; after create verifies/repairs via extRelationRecords; **fails (ok=false)** if links still missing (see "MR work-item link" below). Older releases only warned.
+- Prefer --repo / --state on mrs list (server may ignore 
+epositoryId / status).
+
 
 ## MR work-item link (0.16.12+)
 

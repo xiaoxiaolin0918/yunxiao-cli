@@ -77,7 +77,7 @@ func warnMRWorkItemLinks(meta map[string]any, wanted []mrlink.ResolvedWorkItem, 
 		return
 	}
 	msg := mrlink.FormatMissingLinkWarning(missing)
-	fmt.Fprintf(os.Stderr, "warning: %s\\n", msg)
+	fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
 	if meta == nil {
 		return
 	}
@@ -157,13 +157,14 @@ func relationMatchesMR(rel map[string]any, projectID, localID string) bool {
 	if proj == "<nil>" {
 		proj = ""
 	}
-	if localID != "" && biz != "" && biz != localID {
+	if localID == "" || biz != localID {
 		return false
 	}
+	// When projectId is present on both sides, require equality (avoid cross-repo false positives).
 	if projectID != "" && proj != "" && proj != projectID {
 		return false
 	}
-	return biz == localID || (localID != "" && biz == localID)
+	return true
 }
 
 // missingWorkItemLinksViaExtRelations returns wanted internal ids not linked to this MR.
@@ -239,7 +240,7 @@ func ensureMRWorkItemLinks(ctx context.Context, c *client.Client, projectID stri
 	if localID != "" {
 		extMissing, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not verify work item links via extRelationRecords: %v\\n", err)
+			fmt.Fprintf(os.Stderr, "warning: could not verify work item links via extRelationRecords: %v\n", err)
 		} else {
 			missing = extMissing
 		}
@@ -255,7 +256,7 @@ func ensureMRWorkItemLinks(ctx context.Context, c *client.Client, projectID stri
 		var still []string
 		for _, id := range missing {
 			if err := createWorkItemMRRelation(ctx, c, id, projectID, localID, title, url, source, target); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: CreateWorkitemExtRelationRecord for %s failed: %v\\n", id, err)
+				fmt.Fprintf(os.Stderr, "warning: CreateWorkitemExtRelationRecord for %s failed: %v\n", id, err)
 				still = append(still, id)
 				continue
 			}
