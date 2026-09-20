@@ -91,3 +91,19 @@ func TestDiffResult_Unchanged(t *testing.T) {
 		t.Fatalf("want changed, got %s", d2.Summary)
 	}
 }
+
+func TestEqualFlowContent(t *testing.T) {
+	a := "sources:\n  - id: 1\nstages:\n  - name: a\n"
+	b := "sources:\n  - id: 1\nstages:\n  - name: a\n"
+	c := "sources:\n  - id: 2\nstages:\n  - name: a\n"
+	if !EqualFlowContent(a, b) {
+		t.Fatal("same content should equal")
+	}
+	if EqualFlowContent(a, c) {
+		t.Fatal("sources change should not equal")
+	}
+	d := "stages:\n  - name: a\nsources:\n  - id: 1\n"
+	if !EqualFlowContent(a, d) {
+		t.Fatal("key order should not matter")
+	}
+}

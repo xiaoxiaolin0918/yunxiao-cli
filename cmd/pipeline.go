@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -599,7 +600,7 @@ Both --name and YAML (--file|--content) are required by the OpenAPI.
 --validate: diff-then-write (STILL WRITES unless paired with --dry-run, or when the structural diff is empty).
 Upstream has no dedicated validate endpoint; this is the client-side safety net.
 High-risk diffs (removed stages/jobs, deploy/script-like edits) require --yes.
-Empty diff (+0 ~0 -0) skips PUT and returns mode=validate_noop (version not bumped).
+Noop (mode=validate_noop) only when structural diff is empty AND full YAML matches (incl. sources/triggers) AND --name matches current; otherwise still PUTs.
 With --validate --dry-run (or --check), only the diff is returned (no PUT).
 Bare --dry-run (without --validate) still only previews the local PUT body (no GET).`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -635,7 +636,7 @@ Bare --dry-run (without --validate) still only previews the local PUT body (no G
 		}
 		var diffResult any
 		if validate {
-			cur, err := fetchPipelineFlowYAML(cmd.Context(), c, id)
+			curName, cur, err := fetchPipelineNameAndFlow(cmd.Context(), c, id)
 			if err != nil {
 				handleErr(fmt.Errorf("validate/diff: get current flow: %w", err))
 				return
@@ -659,7 +660,8 @@ Bare --dry-run (without --validate) still only previews the local PUT body (no G
 				}, meta))
 				return
 			}
-			if diff.Unchanged() {
+			// Noop only when structural units, full YAML (incl. sources/triggers), and name all match.
+			if diff.Unchanged() && pipelineyaml.EqualFlowContent(cur, content) && strings.TrimSpace(name) == strings.TrimSpace(curName) {
 				meta := map[string]any{"risk": risk.Read, "validate": true, "noop": true}
 				if u := zhiyi.PipelineURL(id); u != "" {
 					meta["url"] = u
@@ -669,7 +671,7 @@ Bare --dry-run (without --validate) still only previews the local PUT body (no G
 					"name":        name,
 					"diff":        diff,
 					"mode":        "validate_noop",
-					"message":     "no-op: flow unchanged, version not bumped",
+					"message":     "no-op: flow and name unchanged, version not bumped",
 				}, meta))
 				return
 			}

@@ -25,5 +25,5 @@
 
 ## --validate 空 diff 不写（0.16.11+）
 
-- 结构 diff 为 `+0 ~0 -0` 时跳过 PUT，返回 `mode=validate_noop`（版本号不前进）。
+- 仅当结构 diff 为空、全文 YAML 等价（含 sources/triggers）、且 `--name` 与线上一致时跳过 PUT（`mode=validate_noop`）；只改名或只改非结构字段仍会 PUT。
 - `--validate` 仍表示 diff-then-write；只读请用 `--validate --dry-run` 或 `--check`。

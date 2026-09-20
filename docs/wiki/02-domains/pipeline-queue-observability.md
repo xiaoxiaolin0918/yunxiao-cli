@@ -32,7 +32,7 @@
 
 ## 跨流水线扫描容错（0.16.11+）
 
-`+pending --all-pipelines` 与 `+queue` 对齐：单条流水线 403/5xx 不中断整次扫描。
+`+pending --all-pipelines` 与 `+queue` 同样采用部分成功思路（字段名不必完全相同）：单条流水线 403/5xx 不中断整次扫描。
 
 - `meta.scanned`：尝试过的流水线数
 - `meta.skipped_no_permission`：403 流水线 id 列表

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -66,15 +67,28 @@ or changing deploy/script-like units sets high_risk=true.
 }
 
 func fetchPipelineFlowYAML(ctx context.Context, c *client.Client, id string) (string, error) {
+	_, flow, err := fetchPipelineNameAndFlow(ctx, c, id)
+	return flow, err
+}
+
+func fetchPipelineNameAndFlow(ctx context.Context, c *client.Client, id string) (name, flow string, err error) {
 	path, err := c.FlowPath(ctx, "/pipelines/"+id)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	var out map[string]any
 	if err := c.Get(ctx, path, nil, &out); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return pipelineyaml.ExtractFlowYAML(out)
+	name = strings.TrimSpace(fmt.Sprint(out["name"]))
+	if name == "<nil>" {
+		name = ""
+	}
+	flow, err = pipelineyaml.ExtractFlowYAML(out)
+	if err != nil {
+		return "", "", err
+	}
+	return name, flow, nil
 }
 
 func writePipelineYAMLFile(path, yamlText string) error {

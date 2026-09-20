@@ -1,8 +1,7 @@
 ---
 name: yunxiao-pipeline
-version: 1.2.0
+version: 1.2.1
 description: "云效 Flow 流水线：列表/详情、YAML、运行 list/get/trigger/cancel/watch、+pending 人工卡点、job pass/refuse --yes。"
-- Across pipelines: mid-scan 403 collected into meta.errors / meta.skipped_no_permission (partial success; 0.16.11+).
 metadata:
   requires:
     bins: ["yunxiao"]
@@ -20,7 +19,6 @@ metadata:
 | `+failed` | 某流水线最近失败运行摘要（需 `--pipeline-id`） | read |
 | `+status` | 最近一次运行状态摘要 | read |
 | `+pending` | 列出 WAITING（可选 RUNNING）中未处理人工卡点 | read |
-- Across pipelines: mid-scan 403 collected into meta.errors / meta.skipped_no_permission (partial success; 0.16.11+).
 | `+approve` / `+refuse` | 通过/拒绝人工卡点（等同 job pass/refuse，需 `--yes`） | high-risk-write |
 
 ```bash
@@ -64,9 +62,7 @@ List 分页：`meta.has_more` / `total` / `page`；完整集用 `pipeline list -
 
 ```bash
 yunxiao pipeline +pending --pipeline-id <id>
-- Across pipelines: mid-scan 403 collected into meta.errors / meta.skipped_no_permission (partial success; 0.16.11+).
 yunxiao pipeline +pending --all-pipelines --include-running
-- Across pipelines: mid-scan 403 collected into meta.errors / meta.skipped_no_permission (partial success; 0.16.11+).
 yunxiao pipeline job log --pipeline-id <id> --run-id <rid> --job-id <jid>
 yunxiao pipeline job pass --pipeline-id <id> --run-id <rid> --job-id <jid> --dry-run
 yunxiao pipeline job pass --pipeline-id <id> --run-id <rid> --job-id <jid> --yes   # or -y
@@ -136,9 +132,7 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 - `pipeline get --id <id> --yaml out.yaml` — write `pipelineConfig.flow` to a file
 - `pipeline diff --id <id> --file new.yaml` — stage/job/step summary; `high_risk` on removals/deploy edits
 - `pipeline update --validate ...` — GET+diff before PUT; high-risk needs `--yes`; `--validate --dry-run` is diff-only
-- Empty structural diff skips PUT (mode=validate_noop). --check = --validate --dry-run. Flag still writes unless dry-run/noop (0.16.11+).
 - Bare `--dry-run` (no `--validate`) only previews the local PUT body (no GET)
-- Empty structural diff skips PUT (mode=validate_noop). --check = --validate --dry-run. Flag still writes unless dry-run/noop (0.16.11+).
 - Rename of stage/job/step = remove+add and often `high_risk`; review before `--yes`
 - API YAML validation (`errorCode=1209300`) surfaces `error.details.issues` with path + errorMessage
 
@@ -148,3 +142,8 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 - `pipeline runner-groups status --group private/xxx` — waiting/running counts for that group
 - `pipeline run get` → `meta.queue` for WAITING/RUNNING
 - Note: OpenAPI has no online-executor / queue-depth fields
+
+## 0.16.11 notes
+
+- `+pending --all-pipelines`: mid-scan 403/5xx do not abort; see `meta.scanned`, `meta.skipped_no_permission`, `meta.errors` (and `meta.degraded=true` when any error). Single `--pipeline-id` still hard-fails. Same *idea* as `+queue` partial success; `+queue` still uses its own meta fields.
+- `pipeline update --validate`: still writes unless `--dry-run` / `--check`, or noop. Noop (`mode=validate_noop`) only when structural diff is empty **and** full YAML matches (including sources/triggers) **and** `--name` matches current. `--check` = `--validate --dry-run`.

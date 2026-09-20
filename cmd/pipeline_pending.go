@@ -131,6 +131,9 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 	for k, v := range scanRep.Meta() {
 		meta[k] = v
 	}
+	if n, ok := meta["error_count"].(int); ok && n > 0 {
+		meta["degraded"] = true
+	}
 	handleErr(output.Success(data, meta))
 }
 

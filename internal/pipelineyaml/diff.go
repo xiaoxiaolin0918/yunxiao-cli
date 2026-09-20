@@ -210,3 +210,35 @@ func containsDeployKeywords(fp string) bool {
 	}
 	return false
 }
+
+// equalFlowContent reports whether two Flow YAML strings are equivalent after
+// YAML parse+normalize (catches sources/triggers and other non-stage roots that
+// DiffYAML does not model as structural units).
+func EqualFlowContent(a, b string) bool {
+	na, err := normalizeFlowYAML(a)
+	if err != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	nb, err := normalizeFlowYAML(b)
+	if err != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	return na == nb
+}
+
+func normalizeFlowYAML(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	var doc any
+	if err := yaml.Unmarshal([]byte(raw), &doc); err != nil {
+		return "", err
+	}
+	doc = normalize(doc)
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
