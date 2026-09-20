@@ -72,6 +72,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(browseCmd)
 	rootCmd.AddCommand(whoamiCmd)
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(schemaCmd)

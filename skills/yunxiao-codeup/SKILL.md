@@ -168,3 +168,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 - After create: verify via workitem extRelationRecords (category codeupMergeRequest); repair once if missing; **fail** if still missing.
 - Remediation when failed: close the MR and recreate with 0.16.12+, or link in Codeup web UI (post-create OpenAPI often cannot rely on create response fields alone).
 
+## Browse
+
+- `yunxiao browse mr --repo-url <web> --local-id <n> --print-only`
+- `yunxiao browse repo --repo-url <web> --print-only`

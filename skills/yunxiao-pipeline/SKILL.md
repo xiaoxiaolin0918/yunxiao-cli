@@ -147,3 +147,7 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 
 - `+pending --all-pipelines`: mid-scan 403/5xx do not abort; see `meta.scanned`, `meta.skipped_no_permission`, `meta.errors` (and `meta.degraded=true` when any error). Single `--pipeline-id` still hard-fails. Same *idea* as `+queue` partial success; `+queue` still uses its own meta fields.
 - `pipeline update --validate`: still writes unless `--dry-run` / `--check`, or noop. Noop (`mode=validate_noop`) only when structural diff is empty **and** full YAML matches (including sources/triggers) **and** `--name` matches current. `--check` = `--validate --dry-run`.
+
+## Browse
+
+- `yunxiao browse pipeline --pipeline-id <id> [--run-id <id>] --print-only`
