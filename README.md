@@ -6,6 +6,21 @@ Yunxiao (Alibaba Cloud DevOps) CLI redesigned like Feishu/Lark CLI: progressive 
 
 CLI binary name: **`yunxiao`**.
 
+## Human 30-second quickstart
+
+1. Install (primary): open [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest), download the archive for your OS, put `yunxiao` on PATH.
+2. Optional npm thin wrapper: `npm i -g sanzhi-yunxiao-cli` (fetches GitHub Release binaries; use `./npm` locally if not published yet).
+3. Login: `yunxiao auth login --browser` (CI: `--token`).
+4. Smoke: `yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`.
+5. Open console: `yunxiao browse pipeline --pipeline-id <id> --print-only`.
+6. Completion: `yunxiao completion bash|zsh|powershell` (see [usage index](docs/wiki/01-usage/README.md)).
+
+Writes: `--dry-run` first; high-risk needs `--yes` after confirmation.
+
+More: [docs/wiki/01-usage/README.md](docs/wiki/01-usage/README.md) · migrate from gh/`yx`: [docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md)
+
+---
+
 ## For AI agents
 
 Paste the following into an AI agent (install → auth → skills → list projects read-only → user picks a project → **local-only** profile init):
@@ -14,9 +29,9 @@ Paste the following into an AI agent (install → auth → skills → list proje
 Install and init yunxiao CLI with a LOCAL profile:
 
 1) Install from GitHub Releases (primary):
-   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
+   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest
    Download the archive for the user's OS/arch, extract, put `yunxiao` on PATH.
-   yunxiao --version   # expect 0.16.7
+   yunxiao --version   # should match GitHub latest Release
 
 2) Auth — prefer browser OAuth; use PAT only for CI/headless (never print/paste raw tokens into chat):
    Recommended: yunxiao auth login --browser
@@ -45,9 +60,9 @@ Install and init yunxiao CLI with a LOCAL profile:
 
 ```bash
 # 1) Install from GitHub Releases (primary)
-#    https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
+#    https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest
 #    Download the archive for your OS/arch, extract, put `yunxiao` on PATH.
-yunxiao --version   # expect 0.16.7
+yunxiao --version   # should match GitHub latest Release
 
 yunxiao auth login --browser    # or: yunxiao auth login --token "<PAT>"
 yunxiao auth probe-oauth         # after browser login
@@ -97,12 +112,12 @@ For AI agents, the CLI workflow is Agent paste followed by `yunxiao …`; the MC
 
 ## Install
 
-**Recommended — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7):**
+**Recommended — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest):**
 
 Download the archive for your OS/arch, extract it, and add the `yunxiao` binary to `PATH`.
 
 ```bash
-yunxiao --version          # yunxiao 0.16.7
+yunxiao --version   # should match GitHub latest Release
 ```
 
 This project is maintained on **GitHub only** (`sliverTwo/yunxiao-cli`).
@@ -111,16 +126,16 @@ This project is maintained on **GitHub only** (`sliverTwo/yunxiao-cli`).
 
 ```bash
 make build                 # produces ./yunxiao (injects Version via -ldflags)
-# or (without ldflags, Version falls back to package default 0.16.7)
+# or (without ldflags, Version falls back to package default 0.16.13)
 go build -o yunxiao .
 # pin version explicitly:
-# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.7" -o yunxiao .
+# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=<release>" -o yunxiao .
 make install               # installs to ~/.local/bin/yunxiao
 # or
 go install github.com/yunxiao-cli/yunxiao@latest   # when published
 ```
 
-Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.7`).
+Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.13`).
 
 **Known limitation:** `go install` / a lone binary does **not** ship the repo `skills/` tree, so `yunxiao skills list|read|install` will not find skills unless you run from a source checkout (or an installer that extracts `skills/`), or copy/`npx skills add` the tree. Prefer `make build` from a checkout, then `yunxiao skills install`, for skills-aware workflows.
 
@@ -129,7 +144,7 @@ Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Versio
 
 Releases iterate quickly — use `yunxiao update` to upgrade. The CLI may also print a short **stderr** hint when a newer GitHub Release exists (at most one network check per 24h, cached under `~/.config/yunxiao/update_check.json`). Hints are skipped for `update` / `self-update` / `completion`, when `--format json` (the default), and when disabled via env. Check failures never block or fail your command; nothing is auto-downloaded.
 
-The hint itself is printed in Chinese, for example: `发现新版本 yunxiao：0.16.6 → 0.16.7。运行：yunxiao update`.
+The hint itself is printed in Chinese, for example: `发现新版本 yunxiao：0.16.6 → 0.16.13。运行：yunxiao update`.
 
 **Binary (GitHub Releases) — recommended:**
 
@@ -483,7 +498,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 - **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
-- **0.16.7** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
+- **0.16.13** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
 - **0.16.6** — organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)
 - **0.16.5** — yunxiao codeup mrs reviewers add for existing MRs (#18)
 - **0.16.4** — Chinese `update --help` + yunxiao-shared skill self-update (#15); `codeup mrs create --reviewer` (Fixes #16) + `+create` reviewerUserIds fix (#17)

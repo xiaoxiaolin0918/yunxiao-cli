@@ -6,6 +6,21 @@
 
 CLI 二进制名：**`yunxiao`**。
 
+## 人类 30 秒快速开始
+
+1. 安装（主路径）：打开 [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)，下载对应平台归档，把 `yunxiao` 加入 PATH。
+2. （可选）npm 薄包装：`npm i -g sanzhi-yunxiao-cli`（下载 GitHub Release 二进制；尚未 publish 时用仓库 `npm/` 本地装）。
+3. 登录：`yunxiao auth login --browser`（CI 用 `--token`）。
+4. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`。
+5. 打开控制台页：`yunxiao browse pipeline --pipeline-id <id> --print-only`。
+6. Shell 补全：`yunxiao completion powershell | Out-String | Invoke-Expression`（bash/zsh 见 [usage 索引](docs/wiki/01-usage/README.md)）。
+
+写操作先 `--dry-run`；高风险确认后再加 `--yes`。
+
+详细模块说明：[docs/wiki/01-usage/README.md](docs/wiki/01-usage/README.md) · 从 gh/`yx` 迁移：[docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md)
+
+---
+
 ## 面向 AI Agent
 
 将以下内容粘贴给 AI Agent（安装 → 认证 → 安装 skills → 只读列项目 → 由用户选择项目 → **仅本机**初始化 profile）：
@@ -14,9 +29,9 @@ CLI 二进制名：**`yunxiao`**。
 请帮我安装并初始化 yunxiao CLI（本地 profile）：
 
 1) 安装（主路径：GitHub Releases）：
-   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
+   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest
    按用户系统下载归档、解压，把 `yunxiao` 加入 PATH。
-   yunxiao --version   # 应显示 0.16.7
+   yunxiao --version   # 应与 GitHub latest Release 一致
 
 2) 认证（优先浏览器 OAuth；无图形界面再用 PAT。禁止把完整 token 打到回复/聊天里）
    推荐：yunxiao auth login --browser
@@ -53,9 +68,9 @@ CLI 二进制名：**`yunxiao`**。
 
 ```bash
 # 主路径：从 GitHub Releases 下载对应平台归档，解压后把 yunxiao 加入 PATH
-# https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
+# https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest
 
-yunxiao --version   # 应显示 0.16.7
+yunxiao --version   # 应与 GitHub latest Release 一致
 ```
 
 ### 2. 认证
@@ -125,12 +140,12 @@ yunxiao codeup repos list
 
 ## 安装
 
-**推荐 — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7)：**
+**推荐 — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)：**
 
 按系统下载归档，解压后把 `yunxiao` 加入 `PATH`。
 
 ```bash
-yunxiao --version          # yunxiao 0.16.7
+yunxiao --version   # should match GitHub latest Release
 ```
 
 本项目**仅在 GitHub 上维护**（`sliverTwo/yunxiao-cli`）。
@@ -140,12 +155,12 @@ yunxiao --version          # yunxiao 0.16.7
 ```bash
 make build          # 生成 ./yunxiao（-ldflags 注入 Version）
 make install        # 安装到 ~/.local/bin/yunxiao
-go build -o yunxiao .   # 无 ldflags 时回退包内默认 0.16.7
+go build -o yunxiao .   # 无 ldflags 时回退包内默认见 internal/version 或 ldflags
 # 显式注入：
-# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.7" -o yunxiao .
+# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=<release>" -o yunxiao .
 ```
 
-需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe` 或 `0.16.7`）。
+需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe` 或 git describe / VERSION）。
 
 **已知限制：** `go install` / 单独二进制**不包含**仓库 `skills/` 目录；请在源码检出目录运行（或使用会解压 `skills/` 的安装器），或另行复制 / `npx skills add`。需要技能时优先检出目录 `make build`，再执行 `yunxiao skills install`。
 
@@ -154,7 +169,7 @@ go build -o yunxiao .   # 无 ldflags 时回退包内默认 0.16.7
 
 版本迭代较快——请用 `yunxiao update` 升级。若 GitHub 上有更新的 Release，CLI 偶尔会在 **stderr** 打印一行提示（网络检查最多每 24 小时一次，缓存写在 `~/.config/yunxiao/update_check.json`）。`update` / `self-update` / `completion`、默认的 `--format json`、以及通过环境变量关闭时都会跳过提示。检查失败不会阻塞或导致命令失败；不会自动下载。
 
-提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.7。运行：yunxiao update`
+提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.13。运行：yunxiao update`
 
 **二进制（GitHub Releases）— 推荐：**
 
@@ -447,7 +462,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 - **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
-- **0.16.7** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
+- **0.16.13** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
 - **0.16.6** — `yunxiao codeup mrs reviewers add` 为已有 MR 添加评审人（#18）
 - **0.16.4** — 中文 `update --help` + yunxiao-shared skill 自更新（#15）；`codeup mrs create --reviewer`（Fixes #16）+ `+create` reviewerUserIds 修复（#17）
 - **0.16.3** — 使用时机会性更新提示（中文 stderr、24h 缓存、`YUNXIAO_UPDATE_CHECK=0`）
