@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/mrlink"
+	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
@@ -92,7 +93,9 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			"createFrom":      "WEB",
 			"description":     desc,
 			"reviewerUserIds": reviewerIDs,
-			"workItemIds":     workItemIDs,
+		}
+		if csv := mrlink.WorkItemIDsCSV(workItemIDs); csv != "" {
+			body["workItemIds"] = csv
 		}
 
 		repoID := client.EncodeRepoID(repositoryID)
@@ -107,15 +110,26 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			meta["profile"] = pf.Name
 		}
 
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs +create", risk.HighRiskWrite, "POST", path, nil, body, func(out any, m map[string]any) (any, map[string]any) {
-			for k, v := range meta {
-				m[k] = v
-			}
-			mrMap := asStringMap(out)
-			zhiyi.EnrichMergeRequestMeta(m, mrMap)
-			warnMRWorkItemLinks(m, resolvedWorkItems, mrMap)
-			return out, m
-		}))
+		if globalDryRun {
+			handleErr(output.DryRunResult(string(risk.HighRiskWrite), c.Preview("POST", path, nil, body)))
+			return
+		}
+		if err := risk.CheckHighRisk("codeup mrs +create", globalYes); err != nil {
+			handleErr(err)
+			return
+		}
+		var out any
+		if err := c.Post(cmd.Context(), path, body, &out); err != nil {
+			handleErr(err)
+			return
+		}
+		mrMap := asStringMap(out)
+		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
+		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
+			handleErr(err)
+			return
+		}
+		handleErr(output.Success(out, meta))
 	},
 }
 

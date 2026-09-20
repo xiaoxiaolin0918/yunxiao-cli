@@ -478,6 +478,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.12** — Codeup MR workItemIds as OpenAPI string + fail if link missing
 - **0.16.11** — +pending --all-pipelines soft-fail meta; update --validate noop only when full YAML+name match; --check (#29/#30)
 - **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)

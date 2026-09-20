@@ -160,3 +160,9 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 - Pass `--work-item` on `mrs create` / `mrs +create`: CLI GETs each id before create; warns if links missing after create.
 - `mrs list` uses `projectIds` (`--repo`) + `state` — not `repositoryId`/`status` (server may ignore those).
 
+## MR work-item link (0.16.12+)
+
+- --work-item on mrs create / mrs +create: body sends comma-separated workItemIds string.
+- After create: verify via workitem extRelationRecords (category codeupMergeRequest); repair once if missing; **fail** if still missing.
+- Remediation when failed: close the MR and recreate with 0.16.12+, or link in Codeup web UI (post-create OpenAPI often cannot rely on create response fields alone).
+

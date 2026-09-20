@@ -91,3 +91,15 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+func TestWorkItemIDsCSV(t *testing.T) {
+	if got := WorkItemIDsCSV(nil); got != "" {
+		t.Fatalf("nil: %q", got)
+	}
+	if got := WorkItemIDsCSV([]string{"a", "b"}); got != "a,b" {
+		t.Fatalf("join: %q", got)
+	}
+	if got := WorkItemIDsCSV([]string{" a ", "", "b"}); got != "a,b" {
+		t.Fatalf("trim: %q", got)
+	}
+}
