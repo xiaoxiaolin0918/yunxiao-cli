@@ -180,8 +180,9 @@ HTTP: POST .../repositories/{repo}/changeRequests
 
 --reviewer accepts comma-separated userIds (OpenAPI reviewerUserIds), same as mrs +create.
 --work-item accepts comma-separated ZYPT serials or internal ids; each is GETed before
-create (abort if missing). After create, the CLI re-checks links and warns if the server
-silently dropped workItemIds (known Codeup trap).
+create (abort if missing). Body workItemIds is a comma-separated string (OpenAPI). After create the CLI
+verifies via workitem extRelationRecords, attempts repair if needed, and fails
+(ok=false) if links remain missing.
 
   yunxiao codeup mrs create --repo <id> --source feat/x --target master \
     --title "feat: x" --reviewer <userId1,userId2> --dry-run`,
@@ -268,8 +269,8 @@ silently dropped workItemIds (known Codeup trap).
 		if ids := zhiyi.SplitUserIDs(reviewer); len(ids) > 0 {
 			body["reviewerUserIds"] = ids
 		}
-		if len(workItemIDs) > 0 {
-			body["workItemIds"] = workItemIDs
+		if csv := mrlink.WorkItemIDsCSV(workItemIDs); csv != "" {
+			body["workItemIds"] = csv
 		}
 		if globalDryRun {
 			handleErr(output.DryRunResult(string(risk.HighRiskWrite), c.Preview("POST", path, nil, body)))
@@ -287,7 +288,10 @@ silently dropped workItemIds (known Codeup trap).
 		meta := map[string]any{"risk": risk.HighRiskWrite}
 		mrMap := asStringMap(out)
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
-		warnMRWorkItemLinks(meta, resolvedWorkItems, mrMap)
+		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
+			handleErr(err)
+			return
+		}
 		handleErr(output.Success(out, meta))
 	},
 }

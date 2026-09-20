@@ -23,6 +23,20 @@ func InternalIDs(items []ResolvedWorkItem) []string {
 	return out
 }
 
+// WorkItemIDsCSV formats internal ids for Codeup CreateChangeRequest body field
+// workItemIds, which OpenAPI documents as a comma-separated string (not an array).
+func WorkItemIDsCSV(ids []string) string {
+	var parts []string
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			parts = append(parts, id)
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+
 // AttachedWorkItemIDs extracts work item ids already linked on an MR / changeRequest
 // response. Tolerates several Codeup field shapes (id, workItemId, identifier, serialNumber).
 func AttachedWorkItemIDs(mr map[string]any) []string {
@@ -128,6 +142,15 @@ func FormatMissingLinkWarning(missing []string) string {
 		return ""
 	}
 	return fmt.Sprintf("MR created but work item link(s) missing after create (server may have ignored workItemIds): %s; associate manually in the web UI", strings.Join(missing, ", "))
+}
+
+// FormatMissingLinkError is used when --work-item was required and links did not stick.
+func FormatMissingLinkError(missing []string, mrURL string) string {
+	base := fmt.Sprintf("work item link(s) missing after create (sent workItemIds as comma-separated string per OpenAPI): %s", strings.Join(missing, ", "))
+	if mrURL != "" {
+		return base + "; MR exists at " + mrURL + " — close and recreate with fixed CLI, or link in the web UI"
+	}
+	return base + "; close/recreate the MR or link in the web UI"
 }
 
 // MatchKeysFromWorkItem collects ids/serials from a work item JSON object.

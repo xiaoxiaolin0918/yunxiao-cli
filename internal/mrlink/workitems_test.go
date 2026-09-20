@@ -1,6 +1,9 @@
 package mrlink
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestAttachedWorkItemIDs(t *testing.T) {
 	mr := map[string]any{
@@ -90,4 +93,26 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+func TestWorkItemIDsCSV(t *testing.T) {
+	if got := WorkItemIDsCSV(nil); got != "" {
+		t.Fatalf("nil: %q", got)
+	}
+	if got := WorkItemIDsCSV([]string{"a", "b"}); got != "a,b" {
+		t.Fatalf("join: %q", got)
+	}
+	if got := WorkItemIDsCSV([]string{" a ", "", "b"}); got != "a,b" {
+		t.Fatalf("trim: %q", got)
+	}
+}
+
+func TestFormatMissingLinkError(t *testing.T) {
+	msg := FormatMissingLinkError([]string{"abc"}, "https://example/mr/1")
+	if msg == "" {
+		t.Fatal("empty")
+	}
+	if !strings.Contains(msg, "abc") || !strings.Contains(msg, "https://example/mr/1") {
+		t.Fatalf("msg=%q", msg)
+	}
 }

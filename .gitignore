@@ -13,3 +13,6 @@ npm/releases/
 tmp*.json
 tmp*.yaml
 
+
+_patch*.py
+
