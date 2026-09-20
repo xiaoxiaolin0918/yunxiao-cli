@@ -117,10 +117,22 @@ func runPipelineRunWatch(cmd *cobra.Command, _ []string) {
 			return
 		}
 		if time.Now().After(deadline) {
-			handleErr(output.ExitError{
-				Code: 4,
-				Msg:  fmt.Sprintf("pipeline run watch timed out after %s (last status=%s pending=%d)", timeout, lastStatus, len(lastPending)),
-			})
+			meta := map[string]any{
+				"risk":    risk.Read,
+				"outcome": "timeout",
+				"status":  lastStatus,
+			}
+			zhiyi.EnrichPipelineRunMeta(meta, lastDetail, pid)
+			data := map[string]any{
+				"pipelineId": pid,
+				"runId":      rid,
+				"status":     lastStatus,
+				"outcome":    "timeout",
+				"pending":    lastPending,
+				"run":        zhiyi.AttachPipelineRunURLs(lastDetail, pid),
+			}
+			_ = output.Success(data, meta)
+			processExit(4)
 			return
 		}
 		select {

@@ -916,7 +916,7 @@ func init() {
 	pipelineStatusShortcut.Flags().String("pipeline-id", "", "pipeline id (required)")
 
 	pipelinePendingShortcut.Flags().String("pipeline-id", "", "pipeline id (optional with --all-pipelines)")
-	pipelinePendingShortcut.Flags().Bool("all-pipelines", false, "scan pipelines via ListAll when --pipeline-id is empty")
+	pipelinePendingShortcut.Flags().Bool("all-pipelines", false, "ListAll pipelines when --pipeline-id empty (page budget ~50 pages; hard-cap 50 pipelines)")
 	pipelinePendingShortcut.Flags().Bool("include-running", false, "also scan RUNNING runs (default WAITING only)")
 	pipelinePendingShortcut.Flags().Int("page", 1, "run list page")
 	pipelinePendingShortcut.Flags().Int("per-page", 20, "run list per page")

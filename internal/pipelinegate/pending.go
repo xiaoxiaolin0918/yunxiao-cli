@@ -9,17 +9,17 @@ import (
 
 // PendingJob is one unhandled manual gate found inside a pipeline run.
 type PendingJob struct {
-	PipelineID string   `json:"pipelineId"`
-	RunID      string   `json:"runId"`
-	JobID      string   `json:"jobId"`
-	JobName    string   `json:"jobName,omitempty"`
-	JobSign    string   `json:"jobSign,omitempty"`
-	Status     string   `json:"status,omitempty"`
-	StageName  string   `json:"stageName,omitempty"`
-	Actions    []string `json:"actions,omitempty"`
-	PipelineURL string  `json:"pipelineUrl,omitempty"`
-	RunURL      string  `json:"runUrl,omitempty"`
-	// PassCmd / RefuseCmd are ready-to-copy CLI invocations (without --yes).
+	PipelineID  string   `json:"pipelineId"`
+	RunID       string   `json:"runId"`
+	JobID       string   `json:"jobId"`
+	JobName     string   `json:"jobName,omitempty"`
+	JobSign     string   `json:"jobSign,omitempty"`
+	Status      string   `json:"status,omitempty"`
+	StageName   string   `json:"stageName,omitempty"`
+	Actions     []string `json:"actions,omitempty"`
+	PipelineURL string   `json:"pipelineUrl,omitempty"`
+	RunURL      string   `json:"runUrl,omitempty"`
+	// PassCmd / RefuseCmd are ready-to-copy CLI invocations (include --yes).
 	PassCmd   string `json:"passCmd,omitempty"`
 	RefuseCmd string `json:"refuseCmd,omitempty"`
 }
@@ -117,7 +117,9 @@ func pendingFromJob(job map[string]any, pipelineID, runID, stageName string) (Pe
 	if !actionHit && !nameHit {
 		return PendingJob{}, false
 	}
-	if !actionHit && nameHit && isTerminalDone(status) {
+	if isTerminalDone(status) {
+		// Terminal jobs must not enter +pending even if actions still list pass/refuse
+		// (API often leaves stale actions on SUCCESS/FAIL rows).
 		return PendingJob{}, false
 	}
 	// Name-based fallback only when status is waiting-ish / unknown / running.

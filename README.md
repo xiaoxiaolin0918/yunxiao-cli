@@ -120,7 +120,7 @@ make install               # installs to ~/.local/bin/yunxiao
 go install github.com/yunxiao-cli/yunxiao@latest   # when published
 ```
 
-Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.5`).
+Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.6`).
 
 **Known limitation:** `go install` / a lone binary does **not** ship the repo `skills/` tree, so `yunxiao skills list|read|install` will not find skills unless you run from a source checkout (or an installer that extracts `skills/`), or copy/`npx skills add` the tree. Prefer `make build` from a checkout, then `yunxiao skills install`, for skills-aware workflows.
 

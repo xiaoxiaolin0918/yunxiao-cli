@@ -90,6 +90,33 @@ const fixtureNameOnly = `{
   ]
 }`
 
+const fixtureSuccessWithActions = `{
+  "pipelineId": "9",
+  "pipelineRunId": "10",
+  "status": "RUNNING",
+  "stages": [
+    {
+      "name": "Gate",
+      "jobs": [
+        {
+          "id": "200",
+          "name": "人工确认",
+          "jobSign": "ManualValidate",
+          "status": "SUCCESS",
+          "actions": ["pass", "refuse"]
+        },
+        {
+          "id": "201",
+          "name": "still-waiting",
+          "jobSign": "ManualValidate",
+          "status": "WAITING",
+          "actions": ["pass", "refuse"]
+        }
+      ]
+    }
+  ]
+}`
+
 func mustParse(t *testing.T, raw string) map[string]any {
 	t.Helper()
 	var m map[string]any
@@ -143,6 +170,16 @@ func TestExtractPendingJobs_nameFallback(t *testing.T) {
 	}
 	if jobs[0].JobID != "99" {
 		t.Fatalf("jobId=%q", jobs[0].JobID)
+	}
+}
+
+func TestExtractPendingJobs_terminalWithStaleActions(t *testing.T) {
+	jobs := ExtractPendingJobs(mustParse(t, fixtureSuccessWithActions), "9")
+	if len(jobs) != 1 {
+		t.Fatalf("len=%d want 1 (SUCCESS+actions must be skipped): %+v", len(jobs), jobs)
+	}
+	if jobs[0].JobID != "201" {
+		t.Fatalf("jobId=%q want 201", jobs[0].JobID)
 	}
 }
 

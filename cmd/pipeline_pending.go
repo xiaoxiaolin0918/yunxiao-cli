@@ -11,7 +11,6 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/pipelinegate"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
-	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
 var pipelinePendingShortcut = &cobra.Command{
@@ -24,7 +23,9 @@ extract jobs whose actions include pass/refuse (or ManualValidate / 人工 / Man
 
 Flags:
   --pipeline-id       scan one pipeline (recommended)
-  --all-pipelines     when --pipeline-id is empty, ListAll pipelines (cap 50)
+  --all-pipelines     when --pipeline-id is empty, ListAll pipelines
+                     (ListAll page budget DefaultListAllMaxPages≈50 pages;
+                     hard-caps at 50 pipelines and sets meta.truncated)
   --include-running   also scan RUNNING runs
   --page / --per-page run-list pagination (default 1 / 20)
 
@@ -52,7 +53,7 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	pipelineIDs, err := resolvePendingPipelineIDs(cmd.Context(), c, pid, allPipelines, perPage)
+	pipelineIDs, truncatedPipelines, err := resolvePendingPipelineIDs(cmd.Context(), c, pid, allPipelines, perPage)
 	if err != nil {
 		handleErr(err)
 		return
@@ -100,8 +101,6 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 		}
 	}
 
-	// Attach URLs on each pending row (ExtractPendingJobs already sets them; re-enrich list meta).
-	_ = zhiyi.AttachPipelineRunURLs
 	data := map[string]any{
 		"pending": pending,
 		"count":   len(pending),
@@ -112,34 +111,35 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 		"statuses":        statuses,
 		"scanned_runs":    scanned,
 		"include_running": includeRunning,
+		"truncated":       truncatedPipelines,
 	}
 	handleErr(output.Success(data, meta))
 }
 
-func resolvePendingPipelineIDs(ctx context.Context, c *client.Client, pid string, allPipelines bool, perPage int) ([]string, error) {
+func resolvePendingPipelineIDs(ctx context.Context, c *client.Client, pid string, allPipelines bool, perPage int) ([]string, bool, error) {
 	pid = strings.TrimSpace(pid)
 	if pid != "" {
 		if globalDryRun {
 			path, err := c.FlowPath(ctx, "/pipelines/"+pid+"/runs")
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			q := client.PageQuery(1, perPage)
 			q["status"] = "WAITING"
-			return nil, output.DryRunResult(string(risk.Read), c.Preview("GET", path, q, nil))
+			return nil, false, output.DryRunResult(string(risk.Read), c.Preview("GET", path, q, nil))
 		}
-		return []string{pid}, nil
+		return []string{pid}, false, nil
 	}
 	if !allPipelines {
-		return nil, fmt.Errorf("missing --pipeline-id (or pass --all-pipelines)")
+		return nil, false, fmt.Errorf("missing --pipeline-id (or pass --all-pipelines)")
 	}
 	path, err := c.FlowPath(ctx, "/pipelines")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if globalDryRun {
 		q := client.PageQuery(1, perPage)
-		return nil, output.DryRunResult(string(risk.Read), c.Preview("GET", path, q, nil))
+		return nil, false, output.DryRunResult(string(risk.Read), c.Preview("GET", path, q, nil))
 	}
 	fetch := func(ctx context.Context, q map[string]string) (any, http.Header, error) {
 		var body any
@@ -148,9 +148,16 @@ func resolvePendingPipelineIDs(ctx context.Context, c *client.Client, pid string
 	}
 	res, err := client.ListAll(ctx, 1, perPage, client.DefaultListAllMaxPages, map[string]string{}, fetch)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return pipelineIDsFromItems(res.Items), nil
+	ids := pipelineIDsFromItems(res.Items)
+	const maxPendingPipelines = 50
+	truncated := res.Truncated
+	if len(ids) > maxPendingPipelines {
+		ids = ids[:maxPendingPipelines]
+		truncated = true
+	}
+	return ids, truncated, nil
 }
 
 func fetchRunsByStatus(ctx context.Context, c *client.Client, pipelineID, status string, page, perPage int) ([]any, error) {
@@ -249,7 +256,7 @@ func stringifyAny(v any) string {
 var pipelineApproveShortcut = &cobra.Command{
 	Use:   "+approve",
 	Short: "Shortcut: pass a manual gate (requires --yes)",
-	Long:  "Risk: high-risk-write\nEquivalent to: pipeline job pass … --yes",
+	Long:  "Risk: high-risk-write\nShortcut for pipeline job pass; you must still pass --yes (not auto-confirmed).",
 	Run: func(cmd *cobra.Command, args []string) {
 		pipelineJobPassCmd.Run(cmd, args)
 	},
@@ -258,7 +265,7 @@ var pipelineApproveShortcut = &cobra.Command{
 var pipelineRefuseShortcut = &cobra.Command{
 	Use:   "+refuse",
 	Short: "Shortcut: refuse a manual gate (requires --yes)",
-	Long:  "Risk: high-risk-write\nEquivalent to: pipeline job refuse … --yes",
+	Long:  "Risk: high-risk-write\nShortcut for pipeline job refuse; you must still pass --yes (not auto-confirmed).",
 	Run: func(cmd *cobra.Command, args []string) {
 		pipelineJobRefuseCmd.Run(cmd, args)
 	},
