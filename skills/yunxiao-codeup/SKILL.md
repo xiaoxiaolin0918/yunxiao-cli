@@ -153,3 +153,10 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 - Blame / cherry-pick：无扎实 OpenAPI，勿臆造；需要时用 `yunxiao api`。
 - MR label detach：无 OpenAPI。
+
+## Merge requests
+
+### Silent traps (#24)
+- Pass `--work-item` on `mrs create` / `mrs +create`: CLI GETs each id before create; warns if links missing after create.
+- `mrs list` uses `projectIds` (`--repo`) + `state` — not `repositoryId`/`status` (server may ignore those).
+

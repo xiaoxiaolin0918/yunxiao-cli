@@ -442,6 +442,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
 - **0.16.7** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
 - **0.16.6** — `yunxiao codeup mrs reviewers add` 为已有 MR 添加评审人（#18）
 - **0.16.4** — 中文 `update --help` + yunxiao-shared skill 自更新（#15）；`codeup mrs create --reviewer`（Fixes #16）+ `+create` reviewerUserIds 修复（#17）
