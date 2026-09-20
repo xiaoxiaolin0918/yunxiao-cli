@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/pipelineyaml"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
@@ -474,10 +475,11 @@ var pipelineStatusShortcut = &cobra.Command{
 var pipelineGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get pipeline detail (includes pipelineConfig)",
-	Long:  "Risk: read\nHTTP: GET .../pipelines/{id}\nSource: operations/flow/pipeline.ts getPipelineFunc",
+	Long:  "Risk: read\nHTTP: GET .../pipelines/{id}\nSource: operations/flow/pipeline.ts getPipelineFunc\n\nUse --yaml <file> to write pipelineConfig.flow to a local YAML file.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		id, _ := cmd.Flags().GetString("id")
+		yamlOut, _ := cmd.Flags().GetString("yaml")
 		if err := requireFlags("id", id); err != nil {
 			handleErr(err)
 			return
@@ -490,6 +492,39 @@ var pipelineGetCmd = &cobra.Command{
 		path, err := c.FlowPath(cmd.Context(), "/pipelines/"+id)
 		if err != nil {
 			handleErr(err)
+			return
+		}
+		if yamlOut != "" {
+			var raw map[string]any
+			if globalDryRun {
+				handleErr(output.DryRunResult(string(risk.Read), c.Preview("GET", path, nil, nil)))
+				return
+			}
+			if err := c.Get(cmd.Context(), path, nil, &raw); err != nil {
+				handleErr(err)
+				return
+			}
+			flow, err := pipelineyaml.ExtractFlowYAML(raw)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			if err := writePipelineYAMLFile(yamlOut, flow); err != nil {
+				handleErr(err)
+				return
+			}
+			meta := map[string]any{"risk": risk.Read, "yaml_file": yamlOut, "bytes": len(flow)}
+			zhiyi.EnrichPipelineMeta(meta, raw)
+			if _, ok := meta["url"]; !ok {
+				if u := zhiyi.PipelineURL(id); u != "" {
+					meta["url"] = u
+				}
+			}
+			handleErr(output.Success(map[string]any{
+				"pipeline_id": id,
+				"yaml_file":   yamlOut,
+				"bytes":       len(flow),
+			}, meta))
 			return
 		}
 		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
@@ -557,13 +592,19 @@ var pipelineUpdateCmd = &cobra.Command{
 	Long: `Risk: high-risk-write
 HTTP: PUT .../pipelines/{id}  body {name, content}
 Source: operations/flow/pipeline.ts updatePipelineFunc / UpdatePipelineSchema
-Both --name and YAML (--file|--content) are required by the OpenAPI.`,
+Both --name and YAML (--file|--content) are required by the OpenAPI.
+
+--validate: GET current flow and print a normalized stage/job/step diff before write.
+Upstream has no dedicated validate endpoint; this is the client-side safety net.
+High-risk diffs (removed stages/jobs, deploy/script-like edits) require --yes.
+With --validate --dry-run, only the diff is returned (no PUT).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		id, _ := cmd.Flags().GetString("id")
 		name, _ := cmd.Flags().GetString("name")
 		contentFlag, _ := cmd.Flags().GetString("content")
 		file, _ := cmd.Flags().GetString("file")
+		validate, _ := cmd.Flags().GetBool("validate")
 		if err := requireFlags("id", id, "name", name); err != nil {
 			handleErr(err)
 			return
@@ -583,9 +624,40 @@ Both --name and YAML (--file|--content) are required by the OpenAPI.`,
 			handleErr(err)
 			return
 		}
+		var diffResult any
+		if validate || globalDryRun {
+			cur, err := fetchPipelineFlowYAML(cmd.Context(), c, id)
+			if err != nil {
+				handleErr(fmt.Errorf("validate/diff: get current flow: %w", err))
+				return
+			}
+			diff, err := pipelineyaml.DiffYAML(cur, content)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			diffResult = diff
+			if validate && globalDryRun {
+				meta := map[string]any{"risk": risk.Read, "validate": true}
+				if u := zhiyi.PipelineURL(id); u != "" {
+					meta["url"] = u
+				}
+				handleErr(output.Success(map[string]any{
+					"pipeline_id": id,
+					"name":        name,
+					"diff":        diff,
+					"mode":        "validate_dry_run",
+				}, meta))
+				return
+			}
+			if diff.HighRisk && !globalYes && !globalDryRun {
+				handleErr(fmt.Errorf("validate: high-risk pipeline changes detected (%s); re-run with --yes after review", diff.Summary))
+				return
+			}
+		}
 		body := map[string]any{"name": name, "content": content}
 		preview := c.Preview("PUT", path, nil, map[string]any{
-			"name": name, "content_bytes": len(content), "content_preview": truncateStr(content, 200),
+			"name": name, "content_bytes": len(content), "content_preview": truncateStr(content, 200), "diff": diffResult,
 		})
 		handleErr(runMutating("pipeline update", risk.HighRiskWrite, globalDryRun, globalYes, preview, func() error {
 			var out any
@@ -593,6 +665,10 @@ Both --name and YAML (--file|--content) are required by the OpenAPI.`,
 				return err
 			}
 			meta := map[string]any{"risk": risk.HighRiskWrite}
+			if diffResult != nil {
+				meta["diff"] = diffResult
+				meta["validated"] = validate
+			}
 			zhiyi.EnrichPipelineMeta(meta, asStringMap(out))
 			if _, ok := meta["url"]; !ok {
 				if u := zhiyi.PipelineURL(id); u != "" {
@@ -886,6 +962,7 @@ func pipelineJobAction(action, suffix, method string, level risk.Level) func(*co
 
 func init() {
 	pipelineGetCmd.Flags().String("id", "", "pipeline id (required)")
+	pipelineGetCmd.Flags().String("yaml", "", "write pipelineConfig.flow to this file path")
 	pipelineCreateCmd.Flags().String("name", "", "pipeline name (required, max 60)")
 	pipelineCreateCmd.Flags().String("content", "", "pipeline YAML content")
 	pipelineCreateCmd.Flags().String("file", "", "relative path to YAML file")
@@ -893,6 +970,7 @@ func init() {
 	pipelineUpdateCmd.Flags().String("name", "", "pipeline name (required)")
 	pipelineUpdateCmd.Flags().String("content", "", "pipeline YAML content")
 	pipelineUpdateCmd.Flags().String("file", "", "relative path to YAML file")
+	pipelineUpdateCmd.Flags().Bool("validate", false, "GET+diff current flow before update; high-risk diffs require --yes")
 	pipelineListCmd.Flags().String("name", "", "pipeline name filter")
 	pipelineListCmd.Flags().String("status-list", "", "comma-separated status list")
 	pipelineListCmd.Flags().Int("page", 1, "page")
@@ -970,5 +1048,5 @@ func init() {
 	pipelineHGCmd.AddCommand(pipelineHGListCmd)
 	pipelineFlowVGCmd.AddCommand(pipelineFlowVGListCmd, pipelineFlowVGGetCmd, pipelineFlowVGCreateCmd, pipelineFlowVGUpdateCmd, pipelineFlowVGDeleteCmd)
 	pipelineRMCmd.AddCommand(pipelineRMListCmd)
-	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
+	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineDiffCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
 }

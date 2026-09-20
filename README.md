@@ -478,6 +478,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
 - **0.16.7** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
 - **0.16.6** — organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)

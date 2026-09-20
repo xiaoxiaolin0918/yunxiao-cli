@@ -14,6 +14,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/config"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/pipelineyaml"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
@@ -95,12 +96,20 @@ func handleErr(err error) {
 		processExit(ee.Code)
 	}
 	if ae, ok := err.(*client.APIError); ok {
-		_ = output.Fail(output.ErrorBody{
+		body := output.ErrorBody{
 			Type:    "api",
 			Message: ae.Error(),
 			Hint:    apiErrorHint(ae),
 			Code:    ae.Status,
-		}, 1)
+		}
+		if code, issues, ok := pipelineyaml.ParseYAMLValidationError(ae.Body); ok {
+			body.Subtype = "yaml_validation"
+			if body.Hint == "" {
+				body.Hint = "Flow YAML validation failed; see error.details.issues (path + errorMessage)"
+			}
+			body.Details = map[string]any{"errorCode": code, "issues": issues}
+		}
+		_ = output.Fail(body, 1)
 		processExit(1)
 	}
 	_ = output.Fail(output.ErrorBody{
@@ -228,7 +237,6 @@ func loadJSONBodyFromFlags(data, dataFile string) (any, error) {
 	}
 	return body, nil
 }
-
 
 func apiErrorHint(ae *client.APIError) string {
 	if ae == nil {
@@ -502,7 +510,6 @@ func coalesceSpaceID(flagVal, profileVal string) (string, error) {
 func resolveSpaceIDFlag(flagVal string) (string, error) {
 	return coalesceSpaceID(flagVal, profileSpaceID())
 }
-
 
 // afterSortByTime sorts list payloads by update/modified time (default newest-first) then calls next.
 // sortFlag is the --sort value (asc|desc); empty defaults to desc. Invalid values return an error.

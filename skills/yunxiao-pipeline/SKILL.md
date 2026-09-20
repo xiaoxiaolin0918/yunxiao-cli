@@ -127,3 +127,9 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 ```
 
 用返回的 `aliyunUid`（或 `accountId`）填 YAML。流水线 **resource-members** 权限仍用 hex `userId`，与卡点审批不是同一套 ID。概念见 `docs/wiki/02-domains/pipeline.md`。
+
+## Change safety (#21)
+- `pipeline get --id <id> --yaml out.yaml` — write `pipelineConfig.flow` to a file
+- `pipeline diff --id <id> --file new.yaml` — stage/job/step summary; `high_risk` on removals/deploy edits
+- `pipeline update --validate ...` — GET+diff before PUT; high-risk needs `--yes`; `--validate --dry-run` is diff-only
+- API YAML validation (`errorCode=1209300`) surfaces `error.details.issues` with path + errorMessage
