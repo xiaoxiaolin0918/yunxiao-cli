@@ -1,6 +1,6 @@
 ---
 name: yunxiao-pipeline
-version: 1.2.0
+version: 1.2.1
 description: "云效 Flow 流水线：列表/详情、YAML、运行 list/get/trigger/cancel/watch、+pending 人工卡点、job pass/refuse --yes。"
 metadata:
   requires:
@@ -142,3 +142,8 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 - `pipeline runner-groups status --group private/xxx` — waiting/running counts for that group
 - `pipeline run get` → `meta.queue` for WAITING/RUNNING
 - Note: OpenAPI has no online-executor / queue-depth fields
+
+## 0.16.11 notes
+
+- `+pending --all-pipelines`: mid-scan 403/5xx do not abort; see `meta.scanned`, `meta.skipped_no_permission`, `meta.errors` (and `meta.degraded=true` when any error). Single `--pipeline-id` still hard-fails. Same *idea* as `+queue` partial success; `+queue` still uses its own meta fields.
+- `pipeline update --validate`: still writes unless `--dry-run` / `--check`, or noop. Noop (`mode=validate_noop`) only when structural diff is empty **and** full YAML matches (including sources/triggers) **and** `--name` matches current. `--check` = `--validate --dry-run`.

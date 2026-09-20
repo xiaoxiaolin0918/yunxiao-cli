@@ -25,6 +25,14 @@ type DiffResult struct {
 	Summary     string   `json:"summary"`
 }
 
+// Unchanged reports whether the structural diff has no added/removed/modified units.
+func (d *DiffResult) Unchanged() bool {
+	if d == nil {
+		return true
+	}
+	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Modified) == 0
+}
+
 // DiffYAML compares old and new Flow YAML strings at stage/job/step granularity.
 func DiffYAML(oldYAML, newYAML string) (*DiffResult, error) {
 	oldUnits, err := parseUnits(oldYAML)
@@ -201,4 +209,36 @@ func containsDeployKeywords(fp string) bool {
 		}
 	}
 	return false
+}
+
+// equalFlowContent reports whether two Flow YAML strings are equivalent after
+// YAML parse+normalize (catches sources/triggers and other non-stage roots that
+// DiffYAML does not model as structural units).
+func EqualFlowContent(a, b string) bool {
+	na, err := normalizeFlowYAML(a)
+	if err != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	nb, err := normalizeFlowYAML(b)
+	if err != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	return na == nb
+}
+
+func normalizeFlowYAML(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	var doc any
+	if err := yaml.Unmarshal([]byte(raw), &doc); err != nil {
+		return "", err
+	}
+	doc = normalize(doc)
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
