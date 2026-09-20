@@ -65,7 +65,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalJQ, "jq", "", "jq expression to filter JSON output")
 	rootCmd.PersistentFlags().StringVar(&globalOrg, "organization-id", "", "organization ID (or YUNXIAO_ORGANIZATION_ID)")
 	rootCmd.PersistentFlags().StringVar(&globalProfile, "profile", "", "tenant profile name (or YUNXIAO_PROFILE), e.g. zhiyi")
-	rootCmd.PersistentFlags().BoolVar(&globalYes, "yes", false, "confirm high-risk-write / multi-step write operations")
+	rootCmd.PersistentFlags().BoolVarP(&globalYes, "yes", "y", false, "confirm high-risk-write / multi-step write operations")
 	rootCmd.PersistentFlags().BoolVar(&globalDryRun, "dry-run", false, "preview request without executing")
 
 	rootCmd.AddCommand(authCmd)

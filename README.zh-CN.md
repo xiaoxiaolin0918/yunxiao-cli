@@ -14,9 +14,9 @@ CLI 二进制名：**`yunxiao`**。
 请帮我安装并初始化 yunxiao CLI（本地 profile）：
 
 1) 安装（主路径：GitHub Releases）：
-   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6
+   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
    按用户系统下载归档、解压，把 `yunxiao` 加入 PATH。
-   yunxiao --version   # 应显示 0.16.6
+   yunxiao --version   # 应显示 0.16.7
 
 2) 认证（优先浏览器 OAuth；无图形界面再用 PAT。禁止把完整 token 打到回复/聊天里）
    推荐：yunxiao auth login --browser
@@ -53,9 +53,9 @@ CLI 二进制名：**`yunxiao`**。
 
 ```bash
 # 主路径：从 GitHub Releases 下载对应平台归档，解压后把 yunxiao 加入 PATH
-# https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6
+# https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7
 
-yunxiao --version   # 应显示 0.16.6
+yunxiao --version   # 应显示 0.16.7
 ```
 
 ### 2. 认证
@@ -125,12 +125,12 @@ yunxiao codeup repos list
 
 ## 安装
 
-**推荐 — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6)：**
+**推荐 — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7)：**
 
 按系统下载归档，解压后把 `yunxiao` 加入 `PATH`。
 
 ```bash
-yunxiao --version          # yunxiao 0.16.6
+yunxiao --version          # yunxiao 0.16.7
 ```
 
 本项目**仅在 GitHub 上维护**（`sliverTwo/yunxiao-cli`）。
@@ -140,12 +140,12 @@ yunxiao --version          # yunxiao 0.16.6
 ```bash
 make build          # 生成 ./yunxiao（-ldflags 注入 Version）
 make install        # 安装到 ~/.local/bin/yunxiao
-go build -o yunxiao .   # 无 ldflags 时回退包内默认 0.16.6
+go build -o yunxiao .   # 无 ldflags 时回退包内默认 0.16.7
 # 显式注入：
-# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.6" -o yunxiao .
+# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.7" -o yunxiao .
 ```
 
-需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe` 或 `0.16.6`）。
+需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe` 或 `0.16.7`）。
 
 **已知限制：** `go install` / 单独二进制**不包含**仓库 `skills/` 目录；请在源码检出目录运行（或使用会解压 `skills/` 的安装器），或另行复制 / `npx skills add`。需要技能时优先检出目录 `make build`，再执行 `yunxiao skills install`。
 
@@ -154,7 +154,7 @@ go build -o yunxiao .   # 无 ldflags 时回退包内默认 0.16.6
 
 版本迭代较快——请用 `yunxiao update` 升级。若 GitHub 上有更新的 Release，CLI 偶尔会在 **stderr** 打印一行提示（网络检查最多每 24 小时一次，缓存写在 `~/.config/yunxiao/update_check.json`）。`update` / `self-update` / `completion`、默认的 `--format json`、以及通过环境变量关闭时都会跳过提示。检查失败不会阻塞或导致命令失败；不会自动下载。
 
-提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.6。运行：yunxiao update`
+提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.7。运行：yunxiao update`
 
 **二进制（GitHub Releases）— 推荐：**
 
@@ -442,6 +442,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.7** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
 - **0.16.6** — `yunxiao codeup mrs reviewers add` 为已有 MR 添加评审人（#18）
 - **0.16.4** — 中文 `update --help` + yunxiao-shared skill 自更新（#15）；`codeup mrs create --reviewer`（Fixes #16）+ `+create` reviewerUserIds 修复（#17）
 - **0.16.3** — 使用时机会性更新提示（中文 stderr、24h 缓存、`YUNXIAO_UPDATE_CHECK=0`）

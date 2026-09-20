@@ -21,10 +21,12 @@ var pipelineCmd = &cobra.Command{
 +shortcuts:
   yunxiao pipeline +failed --pipeline-id <id>
   yunxiao pipeline +status --pipeline-id <id>
+  yunxiao pipeline +pending [--pipeline-id <id>|--all-pipelines]
+  yunxiao pipeline +approve|--refuse --pipeline-id <id> --run-id <id> --job-id <id> --yes
 
 Typed:
   yunxiao pipeline list
-  yunxiao pipeline run list|latest|get|failed|trigger|cancel
+  yunxiao pipeline run list|latest|get|failed|trigger|cancel|watch
   yunxiao pipeline job log|stop|retry|skip|rerun|pass|refuse --pipeline-id <id> --run-id <id> --job-id <id>
 
 Risk: reads are read; trigger/cancel/job mutations/gates are high-risk-write.
@@ -913,6 +915,23 @@ func init() {
 	pipelineFailedShortcut.Flags().Int("per-page", 5, "how many failed runs")
 	pipelineStatusShortcut.Flags().String("pipeline-id", "", "pipeline id (required)")
 
+	pipelinePendingShortcut.Flags().String("pipeline-id", "", "pipeline id (optional with --all-pipelines)")
+	pipelinePendingShortcut.Flags().Bool("all-pipelines", false, "scan pipelines via ListAll when --pipeline-id is empty")
+	pipelinePendingShortcut.Flags().Bool("include-running", false, "also scan RUNNING runs (default WAITING only)")
+	pipelinePendingShortcut.Flags().Int("page", 1, "run list page")
+	pipelinePendingShortcut.Flags().Int("per-page", 20, "run list per page")
+
+	pipelineRunWatchCmd.Flags().String("pipeline-id", "", "pipeline id (required)")
+	pipelineRunWatchCmd.Flags().String("run-id", "", "pipeline run id (required)")
+	pipelineRunWatchCmd.Flags().Duration("interval", 0, "poll interval (default 5s)")
+	pipelineRunWatchCmd.Flags().Duration("timeout", 0, "overall timeout (default 30m)")
+
+	for _, sc := range []*cobra.Command{pipelineApproveShortcut, pipelineRefuseShortcut} {
+		sc.Flags().String("pipeline-id", "", "pipeline id (required)")
+		sc.Flags().String("run-id", "", "pipeline run id (required)")
+		sc.Flags().String("job-id", "", "job id (required)")
+	}
+
 	pipelineRunTriggerCmd.Flags().String("pipeline-id", "", "pipeline id (required)")
 	pipelineRunTriggerCmd.Flags().String("branch", "", "optional branch (branchModeBranchs)")
 	pipelineRunTriggerCmd.Flags().String("params", "", "JSON params object or string")
@@ -928,7 +947,7 @@ func init() {
 	pipelineJobCmd.AddCommand(pipelineJobLogCmd, pipelineJobStopCmd, pipelineJobRetryCmd, pipelineJobSkipCmd, pipelineJobRerunCmd, pipelineJobPassCmd, pipelineJobRefuseCmd)
 	pipelineRunCancelCmd.Flags().String("pipeline-id", "", "pipeline id (required)")
 	pipelineRunCancelCmd.Flags().String("run-id", "", "pipeline run id (required)")
-	pipelineRunCmd.AddCommand(pipelineRunListCmd, pipelineRunLatestCmd, pipelineRunGetCmd, pipelineRunFailedCmd, pipelineRunTriggerCmd, pipelineRunCancelCmd)
+	pipelineRunCmd.AddCommand(pipelineRunListCmd, pipelineRunLatestCmd, pipelineRunGetCmd, pipelineRunFailedCmd, pipelineRunTriggerCmd, pipelineRunCancelCmd, pipelineRunWatchCmd)
 	pipelineSCListCmd.Flags().String("type", "", "service connection type (required; query key sericeConnectionType)")
 	pipelineHGListCmd.Flags().String("name", "", "host group name filter")
 	pipelineHGListCmd.Flags().String("ids", "", "comma-separated ids")
@@ -951,5 +970,5 @@ func init() {
 	pipelineHGCmd.AddCommand(pipelineHGListCmd)
 	pipelineFlowVGCmd.AddCommand(pipelineFlowVGListCmd, pipelineFlowVGGetCmd, pipelineFlowVGCreateCmd, pipelineFlowVGUpdateCmd, pipelineFlowVGDeleteCmd)
 	pipelineRMCmd.AddCommand(pipelineRMListCmd)
-	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineFailedShortcut, pipelineStatusShortcut)
+	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
 }
