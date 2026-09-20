@@ -5,8 +5,26 @@ import (
 	"strings"
 )
 
+// ResolvedWorkItem is a prechecked work item ready for MR create.
+type ResolvedWorkItem struct {
+	InternalID string
+	// MatchKeys are ids/serials/refs that should count as "linked" when scanning the MR response.
+	MatchKeys []string
+}
+
+// InternalIDs returns body workItemIds from resolved items.
+func InternalIDs(items []ResolvedWorkItem) []string {
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		if it.InternalID != "" {
+			out = append(out, it.InternalID)
+		}
+	}
+	return out
+}
+
 // AttachedWorkItemIDs extracts work item ids already linked on an MR / changeRequest
-// response. Tolerates several Codeup field shapes.
+// response. Tolerates several Codeup field shapes (id, workItemId, identifier, serialNumber).
 func AttachedWorkItemIDs(mr map[string]any) []string {
 	if mr == nil {
 		return nil
@@ -43,8 +61,9 @@ func AttachedWorkItemIDs(mr map[string]any) []string {
 	return out
 }
 
-// MissingWorkItemIDs returns wanted ids that are not present in attached (order preserved).
-func MissingWorkItemIDs(wanted, attached []string) []string {
+// MissingWorkItemIDs returns wanted internal ids that are not present in attached
+// when matching against any of the resolved MatchKeys (id, serial, original ref).
+func MissingWorkItemIDs(wanted []ResolvedWorkItem, attached []string) []string {
 	have := map[string]struct{}{}
 	for _, id := range attached {
 		id = strings.TrimSpace(id)
@@ -54,19 +73,33 @@ func MissingWorkItemIDs(wanted, attached []string) []string {
 	}
 	var missing []string
 	seen := map[string]struct{}{}
-	for _, id := range wanted {
-		id = strings.TrimSpace(id)
-		if id == "" {
+	for _, w := range wanted {
+		if w.InternalID == "" {
 			continue
 		}
-		if _, ok := have[id]; ok {
+		if _, ok := seen[w.InternalID]; ok {
 			continue
 		}
-		if _, ok := seen[id]; ok {
+		matched := false
+		keys := w.MatchKeys
+		if len(keys) == 0 {
+			keys = []string{w.InternalID}
+		}
+		for _, k := range keys {
+			k = strings.TrimSpace(k)
+			if k == "" {
+				continue
+			}
+			if _, ok := have[k]; ok {
+				matched = true
+				break
+			}
+		}
+		if matched {
 			continue
 		}
-		seen[id] = struct{}{}
-		missing = append(missing, id)
+		seen[w.InternalID] = struct{}{}
+		missing = append(missing, w.InternalID)
 	}
 	return missing
 }
@@ -76,7 +109,7 @@ func SpaceIDFromWorkItem(item map[string]any) string {
 	if item == nil {
 		return ""
 	}
-	for _, key := range []string{"spaceId", "space_id", "projectId", "project_id"} {
+	for _, key := range []string{"spaceId", "space_id"} {
 		if s := stringifyID(item[key]); s != "" {
 			return s
 		}
@@ -95,6 +128,31 @@ func FormatMissingLinkWarning(missing []string) string {
 		return ""
 	}
 	return fmt.Sprintf("MR created but work item link(s) missing after create (server may have ignored workItemIds): %s; associate manually in the web UI", strings.Join(missing, ", "))
+}
+
+// MatchKeysFromWorkItem collects ids/serials from a work item JSON object.
+func MatchKeysFromWorkItem(item map[string]any, originalRef string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	add(originalRef)
+	if item == nil {
+		return out
+	}
+	for _, key := range []string{"id", "workItemId", "workitemId", "identifier", "serialNumber", "serial_number"} {
+		add(stringifyID(item[key]))
+	}
+	return out
 }
 
 func asIDList(v any) []string {
@@ -128,10 +186,9 @@ func asItemIDList(v any) []string {
 	for _, e := range arr {
 		switch item := e.(type) {
 		case map[string]any:
-			for _, key := range []string{"id", "workItemId", "workitemId", "identifier"} {
+			for _, key := range []string{"id", "workItemId", "workitemId", "identifier", "serialNumber", "serial_number"} {
 				if s := stringifyID(item[key]); s != "" {
 					out = append(out, s)
-					break
 				}
 			}
 		default:

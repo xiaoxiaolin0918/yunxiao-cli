@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
+	"github.com/yunxiao-cli/yunxiao/internal/mrlink"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
@@ -68,15 +69,16 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 		if pf != nil {
 			expectSpace = strings.TrimSpace(pf.SpaceID)
 		}
-		var workItemIDs []string
+		var resolvedWorkItems []mrlink.ResolvedWorkItem
 		if refs := splitWorkItemRefs(workItem); len(refs) > 0 {
-			ids, err := resolveWorkItemIDsForMR(cmd.Context(), c, refs, expectSpace)
+			items, err := resolveWorkItemsForMR(cmd.Context(), c, refs, expectSpace)
 			if err != nil {
 				handleErr(err)
 				return
 			}
-			workItemIDs = ids
+			resolvedWorkItems = items
 		}
+		workItemIDs := mrlink.InternalIDs(resolvedWorkItems)
 
 		title = zhiyi.WithWipTitle(title, target, wip)
 		reviewerIDs := zhiyi.SplitUserIDs(reviewer)
@@ -111,7 +113,7 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			}
 			mrMap := asStringMap(out)
 			zhiyi.EnrichMergeRequestMeta(m, mrMap)
-			warnMRWorkItemLinks(m, workItemIDs, mrMap)
+			warnMRWorkItemLinks(m, resolvedWorkItems, mrMap)
 			return out, m
 		}))
 	},

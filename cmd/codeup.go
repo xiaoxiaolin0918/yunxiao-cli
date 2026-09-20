@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
+	"github.com/yunxiao-cli/yunxiao/internal/mrlink"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
@@ -238,15 +239,16 @@ silently dropped workItemIds (known Codeup trap).
 				targetProjectID = idStr
 			}
 		}
-		var workItemIDs []string
+		var resolvedWorkItems []mrlink.ResolvedWorkItem
 		if refs := splitWorkItemRefs(workItemCSV); len(refs) > 0 {
-			ids, err := resolveWorkItemIDsForMR(cmd.Context(), c, refs, "")
+			items, err := resolveWorkItemsForMR(cmd.Context(), c, refs, "")
 			if err != nil {
 				handleErr(err)
 				return
 			}
-			workItemIDs = ids
+			resolvedWorkItems = items
 		}
+		workItemIDs := mrlink.InternalIDs(resolvedWorkItems)
 		path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests")
 		if err != nil {
 			handleErr(err)
@@ -285,7 +287,7 @@ silently dropped workItemIds (known Codeup trap).
 		meta := map[string]any{"risk": risk.HighRiskWrite}
 		mrMap := asStringMap(out)
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
-		warnMRWorkItemLinks(meta, workItemIDs, mrMap)
+		warnMRWorkItemLinks(meta, resolvedWorkItems, mrMap)
 		handleErr(output.Success(out, meta))
 	},
 }
@@ -1247,7 +1249,7 @@ func init() {
 	codeupMrsCreateCmd.Flags().String("target-project-id", "", "numeric target project id")
 	codeupMrsCreateCmd.Flags().String("create-from", "WEB", "createFrom, default WEB")
 	codeupMrsCreateCmd.Flags().String("reviewer", "", "optional reviewer userId(s), comma-separated (OpenAPI reviewerUserIds; same as mrs +create)")
-codeupMrsCreateCmd.Flags().String("work-item", "", "optional work item serial(s) or id(s), comma-separated; prechecked via workitem get")
+	codeupMrsCreateCmd.Flags().String("work-item", "", "optional work item serial(s) or id(s), comma-separated; prechecked via workitem get")
 	codeupOpenMrsShortcut.Flags().String("state", "opened", "state")
 	codeupOpenMrsShortcut.Flags().String("search", "", "title search")
 	codeupOpenMrsShortcut.Flags().String("repo", "", "filter by repository id or alias")

@@ -11,10 +11,10 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
-// resolveWorkItemIDsForMR GETs each ref (serial or internal id), returns internal ids.
+// resolveWorkItemsForMR GETs each ref (serial or internal id).
 // If expectSpace is non-empty, rejects items whose spaceId differs.
-func resolveWorkItemIDsForMR(ctx context.Context, c *client.Client, refs []string, expectSpace string) ([]string, error) {
-	var out []string
+func resolveWorkItemsForMR(ctx context.Context, c *client.Client, refs []string, expectSpace string) ([]mrlink.ResolvedWorkItem, error) {
+	var out []mrlink.ResolvedWorkItem
 	seen := map[string]struct{}{}
 	for _, raw := range refs {
 		ref := strings.TrimSpace(raw)
@@ -43,7 +43,10 @@ func resolveWorkItemIDsForMR(ctx context.Context, c *client.Client, refs []strin
 			continue
 		}
 		seen[internal] = struct{}{}
-		out = append(out, internal)
+		out = append(out, mrlink.ResolvedWorkItem{
+			InternalID: internal,
+			MatchKeys:  mrlink.MatchKeysFromWorkItem(item, ref),
+		})
 	}
 	return out, nil
 }
@@ -63,8 +66,8 @@ func splitWorkItemRefs(csv string) []string {
 	return out
 }
 
-// warnMRWorkItemLinks compares wanted ids to MR payload; sets meta.warnings and stderr.
-func warnMRWorkItemLinks(meta map[string]any, wanted []string, mr map[string]any) {
+// warnMRWorkItemLinks compares wanted resolved items to MR payload; sets meta.warnings and stderr.
+func warnMRWorkItemLinks(meta map[string]any, wanted []mrlink.ResolvedWorkItem, mr map[string]any) {
 	if len(wanted) == 0 {
 		return
 	}
