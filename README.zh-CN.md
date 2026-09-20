@@ -442,6 +442,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
 - **0.16.7** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）

@@ -245,6 +245,9 @@ func apiErrorHint(ae *client.APIError) string {
 	body := ae.Body
 	msg := ae.Error()
 	combined := body + " " + msg
+	if ae.Status == 403 && (strings.Contains(ae.URL, "/pipelines/") || strings.Contains(combined, "pipeline")) {
+		return "insufficient role on this pipeline (permissions are per-pipeline); check with: yunxiao pipeline resource-members list --resource-type pipeline --resource-id <id>; ask an owner to grant access in the Flow web UI"
+	}
 	if strings.Contains(combined, "未启用此字段【迭代】") {
 		return "omit --sprint for this workitem type (field 迭代 is not enabled)"
 	}
