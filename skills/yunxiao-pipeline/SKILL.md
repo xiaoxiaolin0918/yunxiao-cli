@@ -1,7 +1,7 @@
 ---
 name: yunxiao-pipeline
-version: 1.1.1
-description: "云效 Flow 流水线：列表/详情、YAML 创建更新、运行 list/get/trigger/cancel/latest、任务日志、人工卡点 pass/refuse。控制台 URL 见 data[].url / meta.url。"
+version: 1.2.0
+description: "云效 Flow 流水线：列表/详情、YAML、运行 list/get/trigger/cancel/watch、+pending 人工卡点、job pass/refuse --yes。"
 metadata:
   requires:
     bins: ["yunxiao"]
@@ -18,6 +18,8 @@ metadata:
 |----------|------|------|
 | `+failed` | 某流水线最近失败运行摘要（需 `--pipeline-id`） | read |
 | `+status` | 最近一次运行状态摘要 | read |
+| `+pending` | 列出 WAITING（可选 RUNNING）中未处理人工卡点 | read |
+| `+approve` / `+refuse` | 通过/拒绝人工卡点（等同 job pass/refuse，需 `--yes`） | high-risk-write |
 
 ```bash
 yunxiao pipeline +failed --pipeline-id <id>
@@ -41,8 +43,10 @@ Agents 展示结果时优先附上这些可点击链接。
 ```bash
 yunxiao pipeline run list --pipeline-id <id>
 yunxiao pipeline run list --pipeline-id <id> --status FAIL
+yunxiao pipeline run list --pipeline-id <id> --status WAITING
 yunxiao pipeline run latest --pipeline-id <id>
 yunxiao pipeline run get --pipeline-id <id> --run-id <rid>
+yunxiao pipeline run watch --pipeline-id <id> --run-id <rid>   # exit 0/1/2/3(gate)/4(timeout)
 yunxiao pipeline run trigger --pipeline-id <id> --dry-run
 # 用户确认后：
 yunxiao pipeline run trigger --pipeline-id <id> --yes
@@ -57,12 +61,19 @@ List 分页：`meta.has_more` / `total` / `page`；完整集用 `pipeline list -
 ## 任务 / 卡点
 
 ```bash
+yunxiao pipeline +pending --pipeline-id <id>
+yunxiao pipeline +pending --all-pipelines --include-running
 yunxiao pipeline job log --pipeline-id <id> --run-id <rid> --job-id <jid>
 yunxiao pipeline job pass --pipeline-id <id> --run-id <rid> --job-id <jid> --dry-run
+yunxiao pipeline job pass --pipeline-id <id> --run-id <rid> --job-id <jid> --yes   # or -y
+yunxiao pipeline +approve --pipeline-id <id> --run-id <rid> --job-id <jid> --yes
 yunxiao pipeline job refuse --pipeline-id <id> --run-id <rid> --job-id <jid> --dry-run
+yunxiao pipeline +refuse --pipeline-id <id> --run-id <rid> --job-id <jid> --yes
 ```
 
-`pass` / `refuse` 为 **high-risk-write**。
+`pass` / `refuse` / `+approve` / `+refuse` 为 **high-risk-write**，真发必须 `--yes`（或 `-y`）。
+
+`run watch` exit codes：0 success · 1 fail · 2 canceled · 3 gate_paused · 4 timeout。
 
 ## YAML 创建 / 更新（high-risk-write）
 
