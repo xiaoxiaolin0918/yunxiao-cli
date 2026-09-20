@@ -14,9 +14,9 @@ Paste the following into an AI agent (install → auth → skills → list proje
 Install and init yunxiao CLI with a LOCAL profile:
 
 1) Install from GitHub Releases (primary):
-   https://github.com/sliverTwo/yunxiao-cli/releases/tag/v0.16.5
+   https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6
    Download the archive for the user's OS/arch, extract, put `yunxiao` on PATH.
-   yunxiao --version   # expect 0.16.5
+   yunxiao --version   # expect 0.16.6
 
 2) Auth — prefer browser OAuth; use PAT only for CI/headless (never print/paste raw tokens into chat):
    Recommended: yunxiao auth login --browser
@@ -45,9 +45,9 @@ Install and init yunxiao CLI with a LOCAL profile:
 
 ```bash
 # 1) Install from GitHub Releases (primary)
-#    https://github.com/sliverTwo/yunxiao-cli/releases/tag/v0.16.5
+#    https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6
 #    Download the archive for your OS/arch, extract, put `yunxiao` on PATH.
-yunxiao --version   # expect 0.16.5
+yunxiao --version   # expect 0.16.6
 
 yunxiao auth login --browser    # or: yunxiao auth login --token "<PAT>"
 yunxiao auth probe-oauth         # after browser login
@@ -97,12 +97,12 @@ For AI agents, the CLI workflow is Agent paste followed by `yunxiao …`; the MC
 
 ## Install
 
-**Recommended — [GitHub Releases](https://github.com/sliverTwo/yunxiao-cli/releases/tag/v0.16.5):**
+**Recommended — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.6):**
 
 Download the archive for your OS/arch, extract it, and add the `yunxiao` binary to `PATH`.
 
 ```bash
-yunxiao --version          # yunxiao 0.16.5
+yunxiao --version          # yunxiao 0.16.6
 ```
 
 This project is maintained on **GitHub only** (`sliverTwo/yunxiao-cli`).
@@ -111,10 +111,10 @@ This project is maintained on **GitHub only** (`sliverTwo/yunxiao-cli`).
 
 ```bash
 make build                 # produces ./yunxiao (injects Version via -ldflags)
-# or (without ldflags, Version falls back to package default 0.16.5)
+# or (without ldflags, Version falls back to package default 0.16.6)
 go build -o yunxiao .
 # pin version explicitly:
-# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.5" -o yunxiao .
+# go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.6" -o yunxiao .
 make install               # installs to ~/.local/bin/yunxiao
 # or
 go install github.com/yunxiao-cli/yunxiao@latest   # when published
@@ -478,7 +478,8 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
-- **0.16.5** — `yunxiao codeup mrs reviewers add` for existing MRs (#18)
+- **0.16.6** — organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)
+- **0.16.5** — yunxiao codeup mrs reviewers add for existing MRs (#18)
 - **0.16.4** — Chinese `update --help` + yunxiao-shared skill self-update (#15); `codeup mrs create --reviewer` (Fixes #16) + `+create` reviewerUserIds fix (#17)
 - **0.16.3** — opportunistic update hint on CLI use (Chinese stderr, 24h cache, `YUNXIAO_UPDATE_CHECK=0`)
 - **0.16.2** — workitem search date filters + `--all` + read-only `:search`; weekly followups (`--as-items`, doctor path, MCP mapping); `yunxiao update` / `self-update`

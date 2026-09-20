@@ -1,7 +1,7 @@
 {
   "name": "sanzhi-yunxiao-cli",
-  "version": "0.16.5",
-  "description": "Yunxiao (云效) CLI — Feishu-style install (GitHub Releases)",
+  "version": "0.16.6",
+  "description": "Yunxiao (浜戞�? CLI �?Feishu-style install (GitHub Releases)",
   "bin": {
     "yunxiao": "scripts/run.js"
   },
@@ -29,11 +29,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sliverTwo/yunxiao-cli.git"
+    "url": "https://github.com/xiaoxiaolin0918/yunxiao-cli.git"
   },
   "keywords": [
     "yunxiao",
-    "云效",
+    "浜戞�?,
     "cli",
     "alibaba",
     "devops"

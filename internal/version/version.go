@@ -2,7 +2,7 @@ package version
 
 // Version is the CLI version string. Override at link time:
 //
-//	go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.5"
+//	go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.6"
 //
 // Default matches the release when built without ldflags.
-var Version = "0.16.5"
+var Version = "0.16.6"
