@@ -25,3 +25,9 @@ func OpenSystemBrowser(rawURL string) error {
 	}
 	return nil
 }
+
+// ShouldOpenBrowser reports whether browse should launch a browser.
+// Global --dry-run and --print-only both suppress opening (preview / print only).
+func ShouldOpenBrowser(printOnly, dryRun bool) bool {
+	return !printOnly && !dryRun
+}

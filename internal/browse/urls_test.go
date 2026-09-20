@@ -52,3 +52,18 @@ func TestAssertHTTPURL(t *testing.T) {
 		t.Fatal("expected reject")
 	}
 }
+
+func TestShouldOpenBrowser(t *testing.T) {
+	if ShouldOpenBrowser(false, false) != true {
+		t.Fatal("default should open")
+	}
+	if ShouldOpenBrowser(true, false) {
+		t.Fatal("print-only must not open")
+	}
+	if ShouldOpenBrowser(false, true) {
+		t.Fatal("dry-run must not open")
+	}
+	if ShouldOpenBrowser(true, true) {
+		t.Fatal("both must not open")
+	}
+}

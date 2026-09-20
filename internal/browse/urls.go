@@ -14,6 +14,13 @@ type Target struct {
 	URL  string
 }
 
+func target(kind, raw string) (Target, error) {
+	if err := AssertHTTPURL(raw); err != nil {
+		return Target{}, err
+	}
+	return Target{Kind: kind, URL: strings.TrimSpace(raw)}, nil
+}
+
 // Pipeline builds a Flow console URL.
 func Pipeline(pipelineID, runID string) (Target, error) {
 	pid := strings.TrimSpace(pipelineID)
@@ -22,9 +29,9 @@ func Pipeline(pipelineID, runID string) (Target, error) {
 	}
 	rid := strings.TrimSpace(runID)
 	if rid == "" {
-		return Target{Kind: "pipeline", URL: zhiyi.PipelineURL(pid)}, nil
+		return target("pipeline", zhiyi.PipelineURL(pid))
 	}
-	return Target{Kind: "pipeline-run", URL: zhiyi.PipelineRunURL(pid, rid)}, nil
+	return target("pipeline-run", zhiyi.PipelineRunURL(pid, rid))
 }
 
 // WorkItem builds a Projex console URL from ids.
@@ -47,16 +54,13 @@ func WorkItem(spaceID, internalID, serial, category string) (Target, error) {
 	if u == "" {
 		return Target{}, fmt.Errorf("need --id or --serial to build workitem URL")
 	}
-	return Target{Kind: "workitem", URL: u}, nil
+	return target("workitem", u)
 }
 
 // MergeRequest builds a Codeup MR URL from repo web home + local id, or uses detail URL.
 func MergeRequest(repoWebURL, localID, detailURL string) (Target, error) {
 	if d := strings.TrimSpace(detailURL); d != "" {
-		if err := AssertHTTPURL(d); err != nil {
-			return Target{}, err
-		}
-		return Target{Kind: "mr", URL: d}, nil
+		return target("mr", d)
 	}
 	mr := map[string]any{}
 	if w := strings.TrimSpace(repoWebURL); w != "" {
@@ -69,7 +73,7 @@ func MergeRequest(repoWebURL, localID, detailURL string) (Target, error) {
 	if u == "" {
 		return Target{}, fmt.Errorf("need --detail-url, or --repo-url plus --local-id")
 	}
-	return Target{Kind: "mr", URL: u}, nil
+	return target("mr", u)
 }
 
 // Repo returns a Codeup repo URL.
@@ -78,19 +82,12 @@ func Repo(repoWebURL string) (Target, error) {
 	if u == "" {
 		return Target{}, fmt.Errorf("repo-url is required")
 	}
-	if err := AssertHTTPURL(u); err != nil {
-		return Target{}, err
-	}
-	return Target{Kind: "repo", URL: u}, nil
+	return target("repo", u)
 }
 
 // Raw opens an arbitrary http(s) URL.
 func Raw(raw string) (Target, error) {
-	u := strings.TrimSpace(raw)
-	if err := AssertHTTPURL(u); err != nil {
-		return Target{}, err
-	}
-	return Target{Kind: "url", URL: u}, nil
+	return target("url", strings.TrimSpace(raw))
 }
 
 // AssertHTTPURL allows only http/https absolute URLs.

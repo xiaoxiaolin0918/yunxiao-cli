@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/browse"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/risk"
 )
 
 var browsePrintOnly bool
@@ -17,7 +18,7 @@ var browseCmd = &cobra.Command{
 	Long: `Risk: read
 
 Build a console URL and open it with the OS default browser.
-Use --print-only to print the URL without opening.
+Use --print-only or global --dry-run to print the URL without opening.
 
 Examples:
   yunxiao browse pipeline --pipeline-id 5272454
@@ -40,11 +41,17 @@ func init() {
 
 func emitBrowse(t browse.Target) {
 	data := map[string]any{"kind": t.Kind, "url": t.URL}
-	meta := map[string]any{}
-	if browsePrintOnly {
+	meta := map[string]any{"risk": risk.Read}
+	open := browse.ShouldOpenBrowser(browsePrintOnly, globalDryRun)
+	if !open {
 		fmt.Fprintln(os.Stderr, t.URL)
 		meta["opened"] = false
-		meta["print_only"] = true
+		if browsePrintOnly {
+			meta["print_only"] = true
+		}
+		if globalDryRun {
+			meta["dry_run"] = true
+		}
 		handleErr(output.Success(data, meta))
 		return
 	}
