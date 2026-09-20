@@ -1,6 +1,6 @@
 ---
 name: yunxiao-pipeline
-version: 1.1.0
+version: 1.1.1
 description: "云效 Flow 流水线：列表/详情、YAML 创建更新、运行 list/get/trigger/cancel/latest、任务日志、人工卡点 pass/refuse。控制台 URL 见 data[].url / meta.url。"
 metadata:
   requires:
@@ -104,3 +104,15 @@ yunxiao pipeline resource-members create --resource-type pipeline --resource-id 
 ```
 
 `vm-deploy` mutations 与 `resource-members` create|update|delete|transfer-owner 为 **high-risk-write**。
+## ManualValidate / 阿里云 UID
+
+人工卡点 `ManualValidate` 在 `validatorType: users` 时，`validators` **只认数字型阿里云 UID**，不认组织成员 hex `userId`、也不认邮箱。
+
+取 UID（需 `ALIBABA_CLOUD_ACCESS_KEY_ID` / `SECRET`）：
+
+```bash
+yunxiao organization members list --include-aliyun-uid
+yunxiao organization members search --query <name> --include-aliyun-uid
+```
+
+用返回的 `aliyunUid`（或 `accountId`）填 YAML。流水线 **resource-members** 权限仍用 hex `userId`，与卡点审批不是同一套 ID。概念见 `docs/wiki/02-domains/pipeline.md`。

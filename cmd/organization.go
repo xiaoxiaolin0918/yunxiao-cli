@@ -68,11 +68,17 @@ var orgMembersCmd = &cobra.Command{Use: "members", Short: "Organization members"
 var orgMembersListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List organization members",
-	Long:  "Risk: read\nHTTP: GET .../members",
+	Long: `Risk: read
+HTTP: GET .../members
+
+--include-aliyun-uid merges Aliyun numeric UID (accountId) from devops
+ListOrganizationMembers (needs ALIBABA_CLOUD_ACCESS_KEY_ID/SECRET).
+Required for Flow ManualValidate validators (validatorType: users).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		page, _ := cmd.Flags().GetInt("page")
 		perPage, _ := cmd.Flags().GetInt("per-page")
+		includeUID, _ := cmd.Flags().GetBool("include-aliyun-uid")
 		c, _, err := mustClient()
 		if err != nil {
 			handleErr(err)
@@ -84,19 +90,31 @@ var orgMembersListCmd = &cobra.Command{
 			return
 		}
 		q := client.PageQuery(page, perPage)
-		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, nil))
+		var after func(out any, meta map[string]any) (any, map[string]any)
+		if includeUID {
+			if err := requireAliyunUIDAK(); err != nil {
+				handleErr(err)
+				return
+			}
+			after = membersAliyunUIDAfter(cmd, c, "")
+		}
+		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, after))
 	},
 }
 
 var orgMembersSearchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search organization members",
-	Long:  "Risk: read\nHTTP: POST .../members:search",
+	Long: `Risk: read
+HTTP: POST .../members:search
+
+--include-aliyun-uid: same AK merge as members list.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		query, _ := cmd.Flags().GetString("query")
 		page, _ := cmd.Flags().GetInt("page")
 		perPage, _ := cmd.Flags().GetInt("per-page")
+		includeUID, _ := cmd.Flags().GetBool("include-aliyun-uid")
 		c, _, err := mustClient()
 		if err != nil {
 			handleErr(err)
@@ -111,7 +129,15 @@ var orgMembersSearchCmd = &cobra.Command{
 		if query != "" {
 			body["query"] = query
 		}
-		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, nil))
+		var after func(out any, meta map[string]any) (any, map[string]any)
+		if includeUID {
+			if err := requireAliyunUIDAK(); err != nil {
+				handleErr(err)
+				return
+			}
+			after = membersAliyunUIDAfter(cmd, c, query)
+		}
+		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, after))
 	},
 }
 
@@ -250,9 +276,11 @@ var orgRolesGetCmd = &cobra.Command{
 func init() {
 	orgMembersListCmd.Flags().Int("page", 1, "page")
 	orgMembersListCmd.Flags().Int("per-page", 100, "per page")
+	orgMembersListCmd.Flags().Bool("include-aliyun-uid", false, "merge Aliyun UID via devops ListOrganizationMembers (needs AK)")
 	orgMembersSearchCmd.Flags().String("query", "", "search query")
 	orgMembersSearchCmd.Flags().Int("page", 1, "page")
 	orgMembersSearchCmd.Flags().Int("per-page", 100, "per page")
+	orgMembersSearchCmd.Flags().Bool("include-aliyun-uid", false, "merge Aliyun UID via devops ListOrganizationMembers (needs AK)")
 	orgMembersCmd.AddCommand(orgMembersListCmd, orgMembersSearchCmd)
 	orgUserCmd.AddCommand(orgUserGetCmd)
 	orgDepartmentsListCmd.Flags().String("parent-id", "", "optional parent department id")

@@ -1,6 +1,6 @@
 ---
 name: yunxiao-organization
-version: 1.0.1
+version: 1.0.2
 description: "云效组织：当前用户、组织列表、成员、部门、角色。"
 metadata:
   requires:
@@ -18,11 +18,17 @@ metadata:
 yunxiao organization +whoami
 yunxiao organization list
 yunxiao organization members list
+yunxiao organization members list --include-aliyun-uid
 yunxiao organization members search --query alice
+yunxiao organization members search --query alice --include-aliyun-uid
 yunxiao organization departments list
 yunxiao organization departments get --id <id>
 yunxiao organization roles list
 yunxiao organization roles get --id <id>
 ```
 
-Risk: **read**。
+Risk: **read**.
+
+## ManualValidate / 阿里云 UID
+
+Flow `ManualValidate`（`validatorType: users`）需要数字阿里云 UID，不是 hex `userId`。加 `--include-aliyun-uid`（需 `ALIBABA_CLOUD_ACCESS_KEY_ID`/`SECRET`）。概念见 `docs/wiki/02-domains/organization.md` 与 `pipeline.md`。
