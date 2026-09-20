@@ -493,12 +493,13 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.13** — `yunxiao browse` (pipeline/workitem/mr/repo/url, `--print-only`); human 30s README; usage index + gh/yx migration; completion docs (#34–#37)
 - **0.16.12** — Codeup MR workItemIds as OpenAPI string + fail if link missing
 - **0.16.11** — +pending --all-pipelines soft-fail meta; update --validate noop only when full YAML+name match; --check (#29/#30)
 - **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
-- **0.16.13** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
+- **0.16.7** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
 - **0.16.6** — organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)
 - **0.16.5** — yunxiao codeup mrs reviewers add for existing MRs (#18)
 - **0.16.4** — Chinese `update --help` + yunxiao-shared skill self-update (#15); `codeup mrs create --reviewer` (Fixes #16) + `+create` reviewerUserIds fix (#17)

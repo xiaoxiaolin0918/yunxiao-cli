@@ -145,7 +145,7 @@ yunxiao codeup repos list
 按系统下载归档，解压后把 `yunxiao` 加入 `PATH`。
 
 ```bash
-yunxiao --version   # should match GitHub latest Release
+yunxiao --version   # 应与 GitHub latest Release 一致
 ```
 
 本项目**仅在 GitHub 上维护**（`sliverTwo/yunxiao-cli`）。
@@ -167,6 +167,7 @@ go build -o yunxiao .   # 无 ldflags 时回退包内默认见 internal/version 
 
 ## 更新
 
+- **0.16.13** — `yunxiao browse`（pipeline/workitem/mr/repo/url，`--print-only`）；README 人类 30 秒；usage 索引与 gh/yx 迁移映射；completion 说明（#34–#37）
 版本迭代较快——请用 `yunxiao update` 升级。若 GitHub 上有更新的 Release，CLI 偶尔会在 **stderr** 打印一行提示（网络检查最多每 24 小时一次，缓存写在 `~/.config/yunxiao/update_check.json`）。`update` / `self-update` / `completion`、默认的 `--format json`、以及通过环境变量关闭时都会跳过提示。检查失败不会阻塞或导致命令失败；不会自动下载。
 
 提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.13。运行：yunxiao update`
@@ -462,7 +463,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 - **0.16.10** — pipeline queue observability: +queue, runner-groups, run meta.queue, 403 hints (#23)
 - **0.16.9** — pipeline change safety: get --yaml, diff, update --validate, 1209300 details (#21)
 - **0.16.8** — Codeup MR workItemIds precheck + list ignored-param WARNING (#24)
-- **0.16.13** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
+- **0.16.7** — 人工卡点闭环：`pipeline +pending`、`run watch`、`job pass|refuse --yes` / `+approve|+refuse`（#22）
 - **0.16.6** — `yunxiao codeup mrs reviewers add` 为已有 MR 添加评审人（#18）
 - **0.16.4** — 中文 `update --help` + yunxiao-shared skill 自更新（#15）；`codeup mrs create --reviewer`（Fixes #16）+ `+create` reviewerUserIds 修复（#17）
 - **0.16.3** — 使用时机会性更新提示（中文 stderr、24h 缓存、`YUNXIAO_UPDATE_CHECK=0`）
