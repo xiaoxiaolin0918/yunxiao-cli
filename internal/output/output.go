@@ -11,23 +11,24 @@ import (
 )
 
 type Envelope struct {
-	OK       bool           `json:"ok"`
-	Data     any            `json:"data,omitempty"`
-	Meta     map[string]any `json:"meta,omitempty"`
-	Error    *ErrorBody     `json:"error,omitempty"`
-	DryRun   bool           `json:"dry_run,omitempty"`
-	Risk     string         `json:"risk,omitempty"`
-	Request  any            `json:"request,omitempty"`
+	OK      bool           `json:"ok"`
+	Data    any            `json:"data,omitempty"`
+	Meta    map[string]any `json:"meta,omitempty"`
+	Error   *ErrorBody     `json:"error,omitempty"`
+	DryRun  bool           `json:"dry_run,omitempty"`
+	Risk    string         `json:"risk,omitempty"`
+	Request any            `json:"request,omitempty"`
 }
 
 type ErrorBody struct {
-	Type    string `json:"type"`
-	Subtype string `json:"subtype,omitempty"`
-	Message string `json:"message"`
-	Hint    string `json:"hint,omitempty"`
-	Risk    string `json:"risk,omitempty"`
-	Action  string `json:"action,omitempty"`
-	Code    int    `json:"code,omitempty"`
+	Type    string         `json:"type"`
+	Subtype string         `json:"subtype,omitempty"`
+	Message string         `json:"message"`
+	Hint    string         `json:"hint,omitempty"`
+	Risk    string         `json:"risk,omitempty"`
+	Action  string         `json:"action,omitempty"`
+	Code    int            `json:"code,omitempty"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 var (
