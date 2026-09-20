@@ -59,3 +59,18 @@ func TestDiffYAML_empty(t *testing.T) {
 		t.Fatal(d)
 	}
 }
+
+func TestDiffYAML_renameIsRemoveAdd(t *testing.T) {
+	oldY := "stages:\n  - name: build\n"
+	newY := "stages:\n  - name: compile\n"
+	d, err := DiffYAML(oldY, newY)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Removed) == 0 || len(d.Added) == 0 {
+		t.Fatalf("rename should be remove+add: %#v", d)
+	}
+	if !d.HighRisk {
+		t.Fatal("expected high risk on remove")
+	}
+}

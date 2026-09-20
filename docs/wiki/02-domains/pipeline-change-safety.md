@@ -16,3 +16,10 @@
    更新前 GET+diff；高危变更必须 `--yes`。`--validate --dry-run` 只返回 diff、不 PUT。
 
 4. API `errorCode=1209300`（YAML 校验失败）时，`error.details.issues` 给出 `path` + `errorMessage`。
+
+## 说明
+
+- Diff 按 **name 路径** 对齐：stage/job/step **重命名**会表现为「删旧 + 增新」，常被标 `high_risk`（删 unit）。改名后请人工确认再 `--yes`。
+- 修改叶子 step 时，父 stage/job 也可能出现在 `modified`（整段指纹变化）；以 path 清单为准。
+- 真实 `update` PUT 本身始终是 high-risk-write；`--validate` 的高危拦截是额外一层。
+

@@ -597,7 +597,8 @@ Both --name and YAML (--file|--content) are required by the OpenAPI.
 --validate: GET current flow and print a normalized stage/job/step diff before write.
 Upstream has no dedicated validate endpoint; this is the client-side safety net.
 High-risk diffs (removed stages/jobs, deploy/script-like edits) require --yes.
-With --validate --dry-run, only the diff is returned (no PUT).`,
+With --validate --dry-run, only the diff is returned (no PUT).
+Bare --dry-run (without --validate) still only previews the local PUT body (no GET).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		id, _ := cmd.Flags().GetString("id")
@@ -625,7 +626,7 @@ With --validate --dry-run, only the diff is returned (no PUT).`,
 			return
 		}
 		var diffResult any
-		if validate || globalDryRun {
+		if validate {
 			cur, err := fetchPipelineFlowYAML(cmd.Context(), c, id)
 			if err != nil {
 				handleErr(fmt.Errorf("validate/diff: get current flow: %w", err))
@@ -637,7 +638,7 @@ With --validate --dry-run, only the diff is returned (no PUT).`,
 				return
 			}
 			diffResult = diff
-			if validate && globalDryRun {
+			if globalDryRun {
 				meta := map[string]any{"risk": risk.Read, "validate": true}
 				if u := zhiyi.PipelineURL(id); u != "" {
 					meta["url"] = u
@@ -650,7 +651,7 @@ With --validate --dry-run, only the diff is returned (no PUT).`,
 				}, meta))
 				return
 			}
-			if diff.HighRisk && !globalYes && !globalDryRun {
+			if diff.HighRisk && !globalYes {
 				handleErr(fmt.Errorf("validate: high-risk pipeline changes detected (%s); re-run with --yes after review", diff.Summary))
 				return
 			}
