@@ -22,3 +22,11 @@
 ## 局限
 
 - 无法从 OpenAPI 得知「被哪个 run 占用」或执行器在线数；需网页或本 CLI 的跨流水线 RUNNING 列表辅助推理。
+
+## 截断与失败可见性
+
+- 默认最多扫 50 条流水线；`meta.truncated=true` 表示流水线列表被截断。
+- 每条流水线每个状态只取第一页（20 条）；`meta.runs_truncated=true` 表示可能还有更多 RUNNING/WAITING。
+- `--group` 时若某流水线 YAML 读失败，仍会列出其排队 run，并在 `meta.group_filter_yaml_unknown` 标明；`yaml_errors` / `run_list_errors` 汇总失败原因。
+- 大组织扫描会放大 GET 次数，巡检请加 `--pipeline-id` 或 `--group` 收窄。
+

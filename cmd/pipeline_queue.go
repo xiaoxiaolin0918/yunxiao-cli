@@ -39,12 +39,15 @@ this is a client-side cross-pipeline view for triage.
 			handleErr(err)
 			return
 		}
-		entries, truncated, err := collectQueueEntries(cmd.Context(), c, pid, groupFilter)
+		entries, extra, err := collectQueueEntries(cmd.Context(), c, pid, groupFilter)
 		if err != nil {
 			handleErr(err)
 			return
 		}
-		meta := map[string]any{"risk": risk.Read, "count": len(entries), "truncated": truncated}
+		meta := map[string]any{"risk": risk.Read, "count": len(entries)}
+		for k, v := range extra {
+			meta[k] = v
+		}
 		if groupFilter != "" {
 			meta["group_filter"] = groupFilter
 		}
@@ -106,7 +109,7 @@ Reports waiting/running counts. Online executor count is unavailable via OpenAPI
 			handleErr(err)
 			return
 		}
-		entries, truncated, err := collectQueueEntries(cmd.Context(), c, "", group)
+		entries, extra, err := collectQueueEntries(cmd.Context(), c, "", group)
 		if err != nil {
 			handleErr(err)
 			return
@@ -120,6 +123,10 @@ Reports waiting/running counts. Online executor count is unavailable via OpenAPI
 				running++
 			}
 		}
+		meta := map[string]any{"risk": risk.Read}
+		for k, v := range extra {
+			meta[k] = v
+		}
 		handleErr(output.Success(map[string]any{
 			"group":                 group,
 			"waiting_runs":          waiting,
@@ -127,20 +134,21 @@ Reports waiting/running counts. Online executor count is unavailable via OpenAPI
 			"queue":                 entries,
 			"online_executors":      nil,
 			"online_executors_note": "not available via public Flow OpenAPI; use the Flow web UI for agent online count",
-		}, map[string]any{"risk": risk.Read, "truncated": truncated}))
+		}, meta))
 	},
 }
 
-func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, groupFilter string) ([]pipelinequeue.QueueEntry, bool, error) {
+func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, groupFilter string) ([]pipelinequeue.QueueEntry, map[string]any, error) {
 	type pipe struct{ id, name string }
 	var pipes []pipe
+	metaExtra := map[string]any{}
 	truncated := false
 	if onlyPipelineID != "" {
 		pipes = []pipe{{id: onlyPipelineID}}
 	} else {
 		ids, tr, err := resolvePendingPipelineIDs(ctx, c, "", true, 20)
 		if err != nil {
-			return nil, false, err
+			return nil, nil, err
 		}
 		truncated = tr
 		for _, id := range ids {
@@ -150,20 +158,38 @@ func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, 
 
 	now := time.Now()
 	var out []pipelinequeue.QueueEntry
+	var yamlErrors []string
+	var runListErrors []string
+	var skippedNoGroup []string
+	runsTruncated := false
+	const runsPerPage = 20
+
 	for _, p := range pipes {
 		groups := []string{}
+		yamlOK := true
 		if flow, err := fetchPipelineFlowYAML(ctx, c, p.id); err == nil {
 			groups = pipelinequeue.ExtractRunnerGroups(flow)
+		} else {
+			yamlOK = false
+			yamlErrors = append(yamlErrors, fmt.Sprintf("%s: %v", p.id, err))
 		}
 		if groupFilter != "" {
-			if !containsFold(groups, groupFilter) {
-				continue
+			if yamlOK {
+				if !containsFold(groups, groupFilter) {
+					continue
+				}
+			} else {
+				skippedNoGroup = append(skippedNoGroup, p.id)
 			}
 		}
 		for _, status := range []string{"WAITING", "RUNNING"} {
-			runs, err := fetchRunsByStatus(ctx, c, p.id, status, 1, 20)
+			runs, err := fetchRunsByStatus(ctx, c, p.id, status, 1, runsPerPage)
 			if err != nil {
+				runListErrors = append(runListErrors, fmt.Sprintf("%s/%s: %v", p.id, status, err))
 				continue
+			}
+			if len(runs) >= runsPerPage {
+				runsTruncated = true
 			}
 			for _, r := range runs {
 				rm, _ := r.(map[string]any)
@@ -174,9 +200,9 @@ func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, 
 				if runID == "" || runID == "<nil>" {
 					runID = fmt.Sprint(rm["id"])
 				}
-				start := pipelinequeue.AsInt64(rm["startTime"])
-				if start == 0 {
-					start = pipelinequeue.AsInt64(rm["createTime"])
+				startMs := pipelinequeue.AsInt64(rm["startTime"])
+				if startMs == 0 {
+					startMs = pipelinequeue.AsInt64(rm["createTime"])
 				}
 				st := strings.ToUpper(fmt.Sprint(rm["status"]))
 				entry := pipelinequeue.QueueEntry{
@@ -184,8 +210,8 @@ func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, 
 					PipelineName: p.name,
 					RunID:        runID,
 					Status:       st,
-					StartTimeMs:  start,
-					WaitSeconds:  pipelinequeue.WaitSecondsSince(start, now),
+					StartTimeMs:  startMs,
+					WaitSeconds:  pipelinequeue.WaitSecondsSince(startMs, now),
 					RunnerGroups: groups,
 				}
 				if u, ok := rm["url"].(string); ok {
@@ -197,7 +223,21 @@ func collectQueueEntries(ctx context.Context, c *client.Client, onlyPipelineID, 
 			}
 		}
 	}
-	return out, truncated, nil
+	metaExtra["truncated"] = truncated
+	metaExtra["runs_truncated"] = runsTruncated
+	if len(yamlErrors) > 0 {
+		metaExtra["yaml_errors"] = yamlErrors
+		metaExtra["yaml_error_count"] = len(yamlErrors)
+	}
+	if len(runListErrors) > 0 {
+		metaExtra["run_list_errors"] = runListErrors
+		metaExtra["run_list_error_count"] = len(runListErrors)
+	}
+	if len(skippedNoGroup) > 0 {
+		metaExtra["group_filter_yaml_unknown"] = skippedNoGroup
+		metaExtra["note"] = "pipelines listed under --group even when YAML unreadable (runner_groups empty); confirm manually"
+	}
+	return out, metaExtra, nil
 }
 
 func discoverRunnerGroups(ctx context.Context, c *client.Client) ([]string, int, bool, error) {
