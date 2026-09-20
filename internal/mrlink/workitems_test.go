@@ -1,6 +1,9 @@
 package mrlink
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestAttachedWorkItemIDs(t *testing.T) {
 	mr := map[string]any{
