@@ -30,3 +30,11 @@
 - `--group` 时若某流水线 YAML 读失败，仍会列出其排队 run，并在 `meta.group_filter_yaml_unknown` 标明；`yaml_errors` / `run_list_errors` 汇总失败原因。
 - 大组织扫描会放大 GET 次数，巡检请加 `--pipeline-id` 或 `--group` 收窄。
 
+## 跨流水线扫描容错（0.16.11+）
+
+`+pending --all-pipelines` 与 `+queue` 对齐：单条流水线 403/5xx 不中断整次扫描。
+
+- `meta.scanned`：尝试过的流水线数
+- `meta.skipped_no_permission`：403 流水线 id 列表
+- `meta.errors` / `meta.run_list_errors`：失败明细
+- 单 `--pipeline-id` 仍是硬失败

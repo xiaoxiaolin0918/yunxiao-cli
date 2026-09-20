@@ -74,3 +74,20 @@ func TestDiffYAML_renameIsRemoveAdd(t *testing.T) {
 		t.Fatal("expected high risk on remove")
 	}
 }
+
+func TestDiffResult_Unchanged(t *testing.T) {
+	d, err := DiffYAML("stages:\n  - name: a\n", "stages:\n  - name: a\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.Unchanged() {
+		t.Fatalf("want unchanged, got %s", d.Summary)
+	}
+	d2, err := DiffYAML("stages:\n  - name: a\n", "stages:\n  - name: b\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d2.Unchanged() {
+		t.Fatalf("want changed, got %s", d2.Summary)
+	}
+}

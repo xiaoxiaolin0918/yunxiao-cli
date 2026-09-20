@@ -16,3 +16,7 @@ Flow 运行中的人工确认 job（常见 `jobSign=ManualValidate`）。run det
 ## 边界
 - 领域规则在 `internal/pipelinegate`；cmd 只做编排与 I/O
 - 无 WAITING 运行时依赖 fixture 单测
+
+## --all-pipelines 部分成功（0.16.11+）
+
+中途 403/5xx 不整单失败：`meta.scanned` / `skipped_no_permission` / `errors`（与 `+queue` 对齐）。单 `--pipeline-id` 仍硬失败。

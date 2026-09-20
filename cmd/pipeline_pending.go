@@ -10,6 +10,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/pipelinegate"
+	"github.com/yunxiao-cli/yunxiao/internal/pipelinescan"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 )
 
@@ -28,6 +29,9 @@ Flags:
                      hard-caps at 50 pipelines and sets meta.truncated)
   --include-running   also scan RUNNING runs
   --page / --per-page run-list pagination (default 1 / 20)
+
+Across multiple pipelines (--all-pipelines), a mid-scan 403/5xx does not abort:
+failures are collected into meta.errors / meta.skipped_no_permission (same idea as +queue).
 
 Dry-run previews the first GET (pipeline list or run list).`,
 	Run: runPipelinePending,
@@ -68,11 +72,18 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 	}
 
 	var pending []pipelinegate.PendingJob
-	scanned := 0
+	scannedRuns := 0
+	softFail := allPipelines || len(pipelineIDs) > 1
+	var scanRep pipelinescan.Report
 	for _, pipelineID := range pipelineIDs {
+		scanRep.NoteScannedPipeline(pipelineID)
 		for _, st := range statuses {
 			runs, err := fetchRunsByStatus(cmd.Context(), c, pipelineID, st, page, perPage)
 			if err != nil {
+				if softFail {
+					scanRep.Record(pipelineID, "runs/"+st, err)
+					continue
+				}
 				handleErr(err)
 				return
 			}
@@ -90,9 +101,13 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 				if runID == "" {
 					continue
 				}
-				scanned++
+				scannedRuns++
 				detail, err := fetchRunDetail(cmd.Context(), c, pipelineID, runID)
 				if err != nil {
+					if softFail {
+						scanRep.Record(pipelineID, "run/"+runID, err)
+						continue
+					}
 					handleErr(err)
 					return
 				}
@@ -109,9 +124,12 @@ func runPipelinePending(cmd *cobra.Command, _ []string) {
 		"risk":            risk.Read,
 		"pipeline_ids":    pipelineIDs,
 		"statuses":        statuses,
-		"scanned_runs":    scanned,
+		"scanned_runs":    scannedRuns,
 		"include_running": includeRunning,
 		"truncated":       truncatedPipelines,
+	}
+	for k, v := range scanRep.Meta() {
+		meta[k] = v
 	}
 	handleErr(output.Success(data, meta))
 }

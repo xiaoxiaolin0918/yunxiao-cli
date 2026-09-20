@@ -23,3 +23,7 @@
 - 修改叶子 step 时，父 stage/job 也可能出现在 `modified`（整段指纹变化）；以 path 清单为准。
 - 真实 `update` PUT 本身始终是 high-risk-write；`--validate` 的高危拦截是额外一层。
 
+## --validate 空 diff 不写（0.16.11+）
+
+- 结构 diff 为 `+0 ~0 -0` 时跳过 PUT，返回 `mode=validate_noop`（版本号不前进）。
+- `--validate` 仍表示 diff-then-write；只读请用 `--validate --dry-run` 或 `--check`。

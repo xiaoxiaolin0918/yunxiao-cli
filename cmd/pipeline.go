@@ -596,10 +596,11 @@ HTTP: PUT .../pipelines/{id}  body {name, content}
 Source: operations/flow/pipeline.ts updatePipelineFunc / UpdatePipelineSchema
 Both --name and YAML (--file|--content) are required by the OpenAPI.
 
---validate: GET current flow and print a normalized stage/job/step diff before write.
+--validate: diff-then-write (STILL WRITES unless paired with --dry-run, or when the structural diff is empty).
 Upstream has no dedicated validate endpoint; this is the client-side safety net.
 High-risk diffs (removed stages/jobs, deploy/script-like edits) require --yes.
-With --validate --dry-run, only the diff is returned (no PUT).
+Empty diff (+0 ~0 -0) skips PUT and returns mode=validate_noop (version not bumped).
+With --validate --dry-run (or --check), only the diff is returned (no PUT).
 Bare --dry-run (without --validate) still only previews the local PUT body (no GET).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
@@ -608,6 +609,11 @@ Bare --dry-run (without --validate) still only previews the local PUT body (no G
 		contentFlag, _ := cmd.Flags().GetString("content")
 		file, _ := cmd.Flags().GetString("file")
 		validate, _ := cmd.Flags().GetBool("validate")
+		check, _ := cmd.Flags().GetBool("check")
+		if check {
+			validate = true
+			globalDryRun = true
+		}
 		if err := requireFlags("id", id, "name", name); err != nil {
 			handleErr(err)
 			return
@@ -650,6 +656,20 @@ Bare --dry-run (without --validate) still only previews the local PUT body (no G
 					"name":        name,
 					"diff":        diff,
 					"mode":        "validate_dry_run",
+				}, meta))
+				return
+			}
+			if diff.Unchanged() {
+				meta := map[string]any{"risk": risk.Read, "validate": true, "noop": true}
+				if u := zhiyi.PipelineURL(id); u != "" {
+					meta["url"] = u
+				}
+				handleErr(output.Success(map[string]any{
+					"pipeline_id": id,
+					"name":        name,
+					"diff":        diff,
+					"mode":        "validate_noop",
+					"message":     "no-op: flow unchanged, version not bumped",
 				}, meta))
 				return
 			}
@@ -973,7 +993,8 @@ func init() {
 	pipelineUpdateCmd.Flags().String("name", "", "pipeline name (required)")
 	pipelineUpdateCmd.Flags().String("content", "", "pipeline YAML content")
 	pipelineUpdateCmd.Flags().String("file", "", "relative path to YAML file")
-	pipelineUpdateCmd.Flags().Bool("validate", false, "GET+diff current flow before update; high-risk diffs require --yes")
+	pipelineUpdateCmd.Flags().Bool("validate", false, "diff-then-write (STILL WRITES; pair with --dry-run for check-only; empty diff skips PUT)")
+	pipelineUpdateCmd.Flags().Bool("check", false, "alias for --validate --dry-run (check-only, never PUT)")
 	pipelineListCmd.Flags().String("name", "", "pipeline name filter")
 	pipelineListCmd.Flags().String("status-list", "", "comma-separated status list")
 	pipelineListCmd.Flags().Int("page", 1, "page")

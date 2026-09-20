@@ -25,6 +25,14 @@ type DiffResult struct {
 	Summary     string   `json:"summary"`
 }
 
+// Unchanged reports whether the structural diff has no added/removed/modified units.
+func (d *DiffResult) Unchanged() bool {
+	if d == nil {
+		return true
+	}
+	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Modified) == 0
+}
+
 // DiffYAML compares old and new Flow YAML strings at stage/job/step granularity.
 func DiffYAML(oldYAML, newYAML string) (*DiffResult, error) {
 	oldUnits, err := parseUnits(oldYAML)
