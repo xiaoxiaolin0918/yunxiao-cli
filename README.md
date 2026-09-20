@@ -1,4 +1,4 @@
-Language: English | [中文](README.zh-CN.md)
+﻿Language: English | [涓枃](README.zh-CN.md)
 
 # yunxiao-cli
 
@@ -8,7 +8,7 @@ CLI binary name: **`yunxiao`**.
 
 ## For AI agents
 
-Paste the following into an AI agent (install → auth → skills → list projects read-only → user picks a project → **local-only** profile init):
+Paste the following into an AI agent (install 鈫?auth 鈫?skills 鈫?list projects read-only 鈫?user picks a project 鈫?**local-only** profile init):
 
 ```text
 Install and init yunxiao CLI with a LOCAL profile:
@@ -18,7 +18,7 @@ Install and init yunxiao CLI with a LOCAL profile:
    Download the archive for the user's OS/arch, extract, put `yunxiao` on PATH.
    yunxiao --version   # expect 0.16.7
 
-2) Auth — prefer browser OAuth; use PAT only for CI/headless (never print/paste raw tokens into chat):
+2) Auth 鈥?prefer browser OAuth; use PAT only for CI/headless (never print/paste raw tokens into chat):
    Recommended: yunxiao auth login --browser
    WARNING: OAuth consent = full account API capability (no module scopes; broader than fine-grained PAT).
    After login: yunxiao auth probe-oauth
@@ -30,7 +30,7 @@ Install and init yunxiao CLI with a LOCAL profile:
 
 3) yunxiao skills install
 
-4) Read-only: yunxiao project list — ask the user to pick a project/space_id
+4) Read-only: yunxiao project list 鈥?ask the user to pick a project/space_id
 
 5) Init a LOCAL profile under ~/.config/yunxiao/profiles/:
    Prefer: yunxiao +onboard
@@ -76,13 +76,13 @@ Start writes with `--dry-run`, confirm high-risk writes before adding `--yes`, a
 
 Use the CLI for scripts, CI, and copy-paste commands; use MCP for chat in an IDE; many teams use both.
 
-**Weekly quality / date-window reports** (date range → Req/Bug → JSON → scripts): prefer the typed CLI (`workitem search` with `--created-after` / `--created-before`, `--updated-*`, `--finish-*`, plus `--status` / `--status-stage`, `--all` to follow pages, and opt-in `--as-items` for `{items, pagination}` in `data`). Use MCP chat only as a fallback when you are already in an IDE agent. Filtering by `finishTime` via conditions may work; oapi SearchWorkitems / get responses omit `finishTime` (schemas list `gmtCreate` / `gmtModified` / `updateStatusAt`) — the CLI does **not** invent or enrich `finishTime` from `updateStatusAt`. OpenAPI `perPage` max is 200: use `meta.total` / `has_more` / `--all`, not `len(data)`. Server-side date conditions may still return out-of-window rows — client-filter on `gmtCreate` / `gmtModified` / `customFieldValues` as needed. Typed `workitem search` and raw `api POST …/workitems:search` are **read** (no `--yes`). Raw `api` bodies that pass MCP-like `createdAfter` / `updatedAfter` / `finishTimeAfter` (etc.) at top level are normalized into official `conditions` (see `meta.request`).
+**Weekly quality / date-window reports** (date range 鈫?Req/Bug 鈫?JSON 鈫?scripts): prefer the typed CLI (`workitem search` with `--created-after` / `--created-before`, `--updated-*`, `--finish-*`, plus `--status` / `--status-stage`, `--all` to follow pages, and opt-in `--as-items` for `{items, pagination}` in `data`). Use MCP chat only as a fallback when you are already in an IDE agent. Filtering by `finishTime` via conditions may work; oapi SearchWorkitems / get responses omit `finishTime` (schemas list `gmtCreate` / `gmtModified` / `updateStatusAt`) 鈥?the CLI does **not** invent or enrich `finishTime` from `updateStatusAt`. OpenAPI `perPage` max is 200: use `meta.total` / `has_more` / `--all`, not `len(data)`. Server-side date conditions may still return out-of-window rows 鈥?client-filter on `gmtCreate` / `gmtModified` / `customFieldValues` as needed. Typed `workitem search` and raw `api POST 鈥?workitems:search` are **read** (no `--yes`). Raw `api` bodies that pass MCP-like `createdAfter` / `updatedAfter` / `finishTimeAfter` (etc.) at top level are normalized into official `conditions` (see `meta.request`).
 
-### MCP → CLI mapping (weekly / discovery)
+### MCP 鈫?CLI mapping (weekly / discovery)
 
 | MCP-style intent | CLI |
 |------------------|-----|
-| `search_workitems` + `createdAfter` / `createdBefore` | `yunxiao workitem search --created-after … --created-before …` (+ `--all`, optional `--as-items`) |
+| `search_workitems` + `createdAfter` / `createdBefore` | `yunxiao workitem search --created-after 鈥?--created-before 鈥 (+ `--all`, optional `--as-items`) |
 | same for updated / finish windows | `--updated-after/before`, `--finish-after/before` |
 | work item comments | `yunxiao workitem comments list --id <id>` |
 | list orgs / projects (spaces) | `yunxiao organization list`, `yunxiao project list` |
@@ -91,13 +91,13 @@ Use the CLI for scripts, CI, and copy-paste commands; use MCP for chat in an IDE
 
 ### Agent / scripts on Windows
 
-Prefer **Node or Python subprocess** (capture stdout as a Buffer/bytes, then `JSON.parse`) over PowerShell `>` redirects when consuming CLI JSON — redirects can alter encoding and break parsers. Use `yunxiao doctor` to print the resolved executable path and active profile (`organization_id`, `space_id`).
+Prefer **Node or Python subprocess** (capture stdout as a Buffer/bytes, then `JSON.parse`) over PowerShell `>` redirects when consuming CLI JSON 鈥?redirects can alter encoding and break parsers. Use `yunxiao doctor` to print the resolved executable path and active profile (`organization_id`, `space_id`).
 
-For AI agents, the CLI workflow is Agent paste followed by `yunxiao …`; the MCP workflow is tool-based. MCP reduces command memorization, but it often provides weaker auditability and reproducibility than the CLI.
+For AI agents, the CLI workflow is Agent paste followed by `yunxiao 鈥; the MCP workflow is tool-based. MCP reduces command memorization, but it often provides weaker auditability and reproducibility than the CLI.
 
 ## Install
 
-**Recommended — [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7):**
+**Recommended 鈥?[GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/tag/v0.16.7):**
 
 Download the archive for your OS/arch, extract it, and add the `yunxiao` binary to `PATH`.
 
@@ -120,18 +120,18 @@ make install               # installs to ~/.local/bin/yunxiao
 go install github.com/yunxiao-cli/yunxiao@latest   # when published
 ```
 
-Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.6`).
+Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X 鈥ersion.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.7`).
 
 **Known limitation:** `go install` / a lone binary does **not** ship the repo `skills/` tree, so `yunxiao skills list|read|install` will not find skills unless you run from a source checkout (or an installer that extracts `skills/`), or copy/`npx skills add` the tree. Prefer `make build` from a checkout, then `yunxiao skills install`, for skills-aware workflows.
 
 
 ## Update
 
-Releases iterate quickly — use `yunxiao update` to upgrade. The CLI may also print a short **stderr** hint when a newer GitHub Release exists (at most one network check per 24h, cached under `~/.config/yunxiao/update_check.json`). Hints are skipped for `update` / `self-update` / `completion`, when `--format json` (the default), and when disabled via env. Check failures never block or fail your command; nothing is auto-downloaded.
+Releases iterate quickly 鈥?use `yunxiao update` to upgrade. The CLI may also print a short **stderr** hint when a newer GitHub Release exists (at most one network check per 24h, cached under `~/.config/yunxiao/update_check.json`). Hints are skipped for `update` / `self-update` / `completion`, when `--format json` (the default), and when disabled via env. Check failures never block or fail your command; nothing is auto-downloaded.
 
-The hint itself is printed in Chinese, for example: `发现新版本 yunxiao：0.16.6 → 0.16.7。运行：yunxiao update`.
+The hint itself is printed in Chinese, for example: `鍙戠幇鏂扮増鏈?yunxiao锛?.16.6 鈫?0.16.7銆傝繍琛岋細yunxiao update`.
 
-**Binary (GitHub Releases) — recommended:**
+**Binary (GitHub Releases) 鈥?recommended:**
 
 ```bash
 yunxiao update --check     # report only; exit 2 if a newer release exists (CI/Agent-friendly)
@@ -189,7 +189,7 @@ yunxiao whoami
 yunxiao doctor
 ```
 
-Token precedence (highest first): `YUNXIAO_ACCESS_TOKEN` env → `~/.config/yunxiao/credentials.json` (last successful `auth login`, browser or token) → active profile `access_token` → legacy `config.json`. OAuth tokens live only in `credentials.json` (mode 0600), not in profile JSON. `yunxiao auth status` reports `token_source` / `token_kind` (`pat`|`oauth`) without printing raw tokens.
+Token precedence (highest first): `YUNXIAO_ACCESS_TOKEN` env 鈫?`~/.config/yunxiao/credentials.json` (last successful `auth login`, browser or token) 鈫?active profile `access_token` 鈫?legacy `config.json`. OAuth tokens live only in `credentials.json` (mode 0600), not in profile JSON. `yunxiao auth status` reports `token_source` / `token_kind` (`pat`|`oauth`) without printing raw tokens.
 **Browser OAuth:** `yunxiao auth login --browser` (authorization code + PKCE + DCR via `/.well-known/oauth-authorization-server`). Consent = **full account API capability** (platform has no module scopes). CI/headless: keep `--token` / env. Probe gate: `yunxiao auth probe-oauth`. Does **not** use legacy `CreateOAuthToken`.
 
 
@@ -223,7 +223,7 @@ Companion skills live under `skills/yunxiao-*` (each has `SKILL.md`):
 **Install** (so AI tools can discover them; default dir `~/.agents/skills`):
 
 ```bash
-# 1) Recommended — local CLI install (copy into ~/.agents/skills)
+# 1) Recommended 鈥?local CLI install (copy into ~/.agents/skills)
 yunxiao skills install
 yunxiao skills install --skill yunxiao-shared --skill yunxiao-codeup
 yunxiao skills install --dir /custom/skills --dry-run
@@ -325,7 +325,7 @@ yunxiao pipeline job log --pipeline-id <id> --run-id <rid> --job-id <jid>
 yunxiao pipeline run trigger --pipeline-id <id> --branch master --dry-run
 yunxiao pipeline run cancel --pipeline-id <id> --run-id <rid> --dry-run
 
-# packages (upload skipped — see Known gaps)
+# packages (upload skipped 鈥?see Known gaps)
 yunxiao packages repos list
 yunxiao packages artifacts list --repo-id <id> --repo-type GENERIC
 
@@ -393,19 +393,19 @@ yunxiao schema
 
 Tenant-specific Projex constants live in a **profile JSON**, not hardcoded CLI defaults.
 Profiles are **project-scoped** (`space_id`); discovered workitem graphs live under `workflows` keyed by **`type_id`**.
-`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields.
+`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, 鈥? unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields.
 
 | Profile | Purpose |
 |---------|---------|
 | **zhiyi** | Full Zhiyi/ZYPT field set (`module` / `environment` / `ExpCompletionTime` + rich `bug_transition_required`) |
-| **play** | Sandbox/YXCLI regression — minimal `bug_create_fields` (priority + seriousLevel only); `bug_transition_required` = `{"100010":["80"]}` only; sandbox bug statuses |
+| **play** | Sandbox/YXCLI regression 鈥?minimal `bug_create_fields` (priority + seriousLevel only); `bug_transition_required` = `{"100010":["80"]}` only; sandbox bug statuses |
 
 ```bash
 yunxiao profile install-example zhiyi   # or: play
 export YUNXIAO_PROFILE=zhiyi            # or play
 yunxiao profile show
 yunxiao profile doctor                 # diff profile vs live fields/workflow (read)
-yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
+yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-鈥?
 yunxiao sprint +current --dry-run
 # Zhiyi full create:
 yunxiao workitem +bug-create --title "title" --description "description" \
@@ -413,14 +413,14 @@ yunxiao workitem +bug-create --title "title" --description "description" \
 # Sandbox / non-Zhiyi (omit module/env/ExpCompletionTime):
 yunxiao workitem +bug-create --profile play --title "title" --description "description" \
   --sprint <id> --dry-run
-yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
+yunxiao workitem +bug-create --minimal --title "鈥? --description "鈥? --sprint <id> --dry-run
 yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
 yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 # Codeup --content-file accepts cwd-relative or absolute paths
 yunxiao codeup files update --repo sandbox --path README.md --branch x \
-  --message "…" --content-file /tmp/note.md --dry-run
+  --message "鈥? --content-file /tmp/note.md --dry-run
 yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
@@ -451,9 +451,9 @@ Surfaces intentionally **not** wrapped (use `yunxiao api` when you have a confir
 | Gap | Reason |
 |-----|--------|
 | Packages **upload** / repo create-delete | Not clear in MCP `operations/packages` / no OpenAPI for upload |
-| Codeup **blame**, **cherry-pick** | No solid OpenAPI confirmed — do not invent |
-| Projex **Topic / Risk** type enable on a project | Org may define types; project must enable them in **project settings UI**. Create returns `工作项类型未启用！` (work item type not enabled); no OpenAPI to enable — CLI cannot enable Topic/Risk |
-| Topic / Risk **sprint** field binding | Some types return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint) |
+| Codeup **blame**, **cherry-pick** | No solid OpenAPI confirmed 鈥?do not invent |
+| Projex **Topic / Risk** type enable on a project | Org may define types; project must enable them in **project settings UI**. Create returns `宸ヤ綔椤圭被鍨嬫湭鍚敤锛乣 (work item type not enabled); no OpenAPI to enable 鈥?CLI cannot enable Topic/Risk |
+| Topic / Risk **sprint** field binding | Some types return `鏈惎鐢ㄦ瀛楁銆愯凯浠ｃ€慲 (sprint field not enabled) 鈥?omit `--sprint` (CLI surfaces a hint) |
 | Relation types | Working: `ASSOCIATED`, `DEPEND_ON`. `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create |
 | MR label **detach** | No OpenAPI in MCP |
 | AppStack full CR lifecycle beyond list/create surfaces already shipped | Expand only when MCP is unambiguous |
@@ -465,56 +465,57 @@ v0.9 landed deferred clears: AppStack release-workflows + deploy host mutations,
 
 ```bash
 make test && make build
-make ci                 # go build -ldflags … ./... && go test ./... && go vet ./...
+make ci                 # go build -ldflags 鈥?./... && go test ./... && go vet ./...
 ./scripts/ci.sh         # same checks, POSIX (local / any CI runner)
 ```
 
 CI/CD is **GitHub Actions only** (this repo is maintained on GitHub, not mirrored to Codeup Flow):
 
-- `.github/workflows/ci.yml` — CI on pushes to `main` and pull requests
-- `.github/workflows/release.yml` — build platform archives and publish a GitHub Release when a `v*` tag is pushed
+- `.github/workflows/ci.yml` 鈥?CI on pushes to `main` and pull requests
+- `.github/workflows/release.yml` 鈥?build platform archives and publish a GitHub Release when a `v*` tag is pushed
 
 See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
-- **0.16.7** — Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
-- **0.16.6** — organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)
-- **0.16.5** — yunxiao codeup mrs reviewers add for existing MRs (#18)
-- **0.16.4** — Chinese `update --help` + yunxiao-shared skill self-update (#15); `codeup mrs create --reviewer` (Fixes #16) + `+create` reviewerUserIds fix (#17)
-- **0.16.3** — opportunistic update hint on CLI use (Chinese stderr, 24h cache, `YUNXIAO_UPDATE_CHECK=0`)
-- **0.16.2** — workitem search date filters + `--all` + read-only `:search`; weekly followups (`--as-items`, doctor path, MCP mapping); `yunxiao update` / `self-update`
-- **0.16.1** — Smoke fixes: `appstack apps list` sends required `pagination=keyset`; `workitem search` / `project +my-open-items` use profile `space_id` or clear CLI error; friendlier hint when `programs search` is blocked on non-Advanced orgs
-- **0.16.0** — Browser OAuth (`auth login --browser` / `--dry-run`), `credentials.json` (0600), `auth probe-oauth` (O1 header gate), auto refresh for `token_kind=oauth`, For AI agents section prefers browser OAuth; PAT `--token` kept for CI
-- **0.15.7** — `yunxiao +onboard` writes a **generic local** profile under `~/.config/yunxiao/profiles/` (TTY project pick or `--space-id`); README For AI agents prompts (EN + zh-CN); missing-token hints include PAT console URL + module permission checklist
-- **0.15.6** — default newest-first for comment/activity/history-style lists (`--sort asc|desc`; invalid values rejected); comments sort by **create** time; activity/MR/runs/efforts prefer update/modified; client-side `--sort` is **page-local** when the list is paginated (`--all` sorts across collected pages)
-- **0.15.5** — `--data-file` and `--data @file.json` for long JSON payloads (`api`, appstack, testhub, …)
-- **0.15.2** — companion skills refresh for CLI 0.15.x (`has_more` / `meta.url` / `refresh_ok`); `client.ListAll` + `--all` on `pipeline list` & `codeup mrs list`; `scripts/flow-ci.sh` (Alibaba golang mirror + `GOPROXY=goproxy.cn`)
-- **0.15.1** — B5 wave2: more cmds on `runRead`/`runJSONMutating` (workitem update/relations list; codeup writes; pipeline mutations + remaining reads; org/project/sprint/versions/packages/testhub/appstack/effort/programs reads + simple writes). Still custom: multipart attachments, cancel-reason soft-warn dry-run envelope, pipeline create/update YAML redaction preview, multi-step shortcuts (+transition/+bug*/+explore-workflow, MR create, testhub results fallback, sprint +bugs aggregate)
-- **0.15.0** — structural: B5 `runRead`/`runJSONMutating` cmd helpers (partial migration); C1 split `workitem.go`; C2 precompiled date regex; C3 `Do` returns headers (lists use `Do`+`MetaWithPagination`); C4 ldflags Version injection
-- **0.14.11** — pipeline/run responses include Flow console `url` (`meta.url`; list items) via `https://flow.aliyun.com/pipelines/{id}` and `.../builds/{runId}`
-- **0.14.10** — A1: document accept of git-history residual (≤v0.14.5 example IDs); D1: Retry-After sleep capped at 30s; C5: README duplicate EN examples cleaned; note `go install` vs skills-tree discovery
-- **0.14.9** — B1: HTTP client `context.Context` + GET/HEAD retry (429/5xx/network, Retry-After); P2: `has_more` via total/page/per_page; more lists use MetaWithPagination
-- **0.14.8** — cobra Execute→exit 10 E2E; `refreshAfterTransition` + warning/`refresh_ok` unit tests; list `meta.has_more`/`total`/`page` via MetaWithPagination (MR list wired)
-- **0.14.7** — help/skills sanitize real IDs to placeholders; B3 Write/gate contract tests + PostMultipart httptest; transition `refresh_ok` in success JSON
-- **0.14.6** — sanitize example profiles (placeholders only); `go mod tidy`; `make ci` / `scripts/ci.sh`; transition refresh-fail stderr warning
-- **0.14.4** — workitem/MR responses include clickable `url` (`meta.url`; list items get `url`); builders in `internal/zhiyi`
-- **0.14.3** — optional per-profile `access_token`; token precedence env > profile > config; `auth status` / doctor report `token_source`
-- **0.14.2** — `workitem create` / `+bug-create` apply profile `workitem_defaults` (priority/trackers/QA-owner/acceptance-owner) unless overridden or `--no-defaults`
-- **0.14.1** — `workitem_defaults` in profiles (per-`type_id` field defaults + create_required); `profile doctor` reports/verifies them
-- **0.14.0** — Sandbox-accurate `play` profile; `+bug-create --minimal` / omit disabled fields; `profile doctor`; relation-type docs (`ASSOCIATED`/`DEPEND_ON`); sprint/field-not-enabled hints; `--content-file` absolute paths
-- **0.13.1** — Codeup `--repo` alias resolution for branches/files/commits/compare/mrs/repos (reuse `resolveCodeupRepo`)
-- **0.13.0** — `workitem +transition` (any type via `workflows`); Codeup `tags` + `protected-branches`; Topic/Risk enable is UI-only
-- **0.12.1** — profiles store per-`type_id` `workflows`; `--write-profile` fills that map (legacy `bug_*` kept for Bug)
-- **0.12.0** — `workitem +explore-workflow` auto-discovers status transition graphs; profile `--write-profile` merge
-- **0.11.0** — Zhiyi `sprint +current`, `workitem +bug-create`, `codeup mrs +create`; profile repos/create-fields
-- **0.10.0** — Zhiyi tenant profile; ZYPT workitem get; `workitem +bug-transition`; skill `yunxiao-zhiyi-ops`
-- **0.9.1** — `yunxiao skills install`; AGENTS.md; README skills install docs
-- **0.9.0** — AppStack RW + deploy; Flow vm-deploy + resource-members write; efforts/programs; repos create
-- **0.8.0** — org dept/roles; sprint/versions; Flow SC/HG/VG/RM list; codeup repos/branches; AppStack apps/CR/global-vars; testhub cases
-- **0.7.0** — pipeline YAML get/create/update; AppStack tags + variable-groups; workitem attachments
-- **0.6.0** — MR comments/labels; pipeline pass/refuse; testhub results; workitem relations; AppStack job-logs
+- **0.16.7** 鈥?Manual gate loop: `pipeline +pending`, `run watch`, `job pass|refuse --yes` / `+approve|+refuse` (#22)
+- **0.16.6** 鈥?organization members list|search --include-aliyun-uid for ManualValidate Aliyun UIDs (#19)
+- **0.16.5** 鈥?yunxiao codeup mrs reviewers add for existing MRs (#18)
+- **0.16.4** 鈥?Chinese `update --help` + yunxiao-shared skill self-update (#15); `codeup mrs create --reviewer` (Fixes #16) + `+create` reviewerUserIds fix (#17)
+- **0.16.3** 鈥?opportunistic update hint on CLI use (Chinese stderr, 24h cache, `YUNXIAO_UPDATE_CHECK=0`)
+- **0.16.2** 鈥?workitem search date filters + `--all` + read-only `:search`; weekly followups (`--as-items`, doctor path, MCP mapping); `yunxiao update` / `self-update`
+- **0.16.1** 鈥?Smoke fixes: `appstack apps list` sends required `pagination=keyset`; `workitem search` / `project +my-open-items` use profile `space_id` or clear CLI error; friendlier hint when `programs search` is blocked on non-Advanced orgs
+- **0.16.0** 鈥?Browser OAuth (`auth login --browser` / `--dry-run`), `credentials.json` (0600), `auth probe-oauth` (O1 header gate), auto refresh for `token_kind=oauth`, For AI agents section prefers browser OAuth; PAT `--token` kept for CI
+- **0.15.7** 鈥?`yunxiao +onboard` writes a **generic local** profile under `~/.config/yunxiao/profiles/` (TTY project pick or `--space-id`); README For AI agents prompts (EN + zh-CN); missing-token hints include PAT console URL + module permission checklist
+- **0.15.6** 鈥?default newest-first for comment/activity/history-style lists (`--sort asc|desc`; invalid values rejected); comments sort by **create** time; activity/MR/runs/efforts prefer update/modified; client-side `--sort` is **page-local** when the list is paginated (`--all` sorts across collected pages)
+- **0.15.5** 鈥?`--data-file` and `--data @file.json` for long JSON payloads (`api`, appstack, testhub, 鈥?
+- **0.15.2** 鈥?companion skills refresh for CLI 0.15.x (`has_more` / `meta.url` / `refresh_ok`); `client.ListAll` + `--all` on `pipeline list` & `codeup mrs list`; `scripts/flow-ci.sh` (Alibaba golang mirror + `GOPROXY=goproxy.cn`)
+- **0.15.1** 鈥?B5 wave2: more cmds on `runRead`/`runJSONMutating` (workitem update/relations list; codeup writes; pipeline mutations + remaining reads; org/project/sprint/versions/packages/testhub/appstack/effort/programs reads + simple writes). Still custom: multipart attachments, cancel-reason soft-warn dry-run envelope, pipeline create/update YAML redaction preview, multi-step shortcuts (+transition/+bug*/+explore-workflow, MR create, testhub results fallback, sprint +bugs aggregate)
+- **0.15.0** 鈥?structural: B5 `runRead`/`runJSONMutating` cmd helpers (partial migration); C1 split `workitem.go`; C2 precompiled date regex; C3 `Do` returns headers (lists use `Do`+`MetaWithPagination`); C4 ldflags Version injection
+- **0.14.11** 鈥?pipeline/run responses include Flow console `url` (`meta.url`; list items) via `https://flow.aliyun.com/pipelines/{id}` and `.../builds/{runId}`
+- **0.14.10** 鈥?A1: document accept of git-history residual (鈮0.14.5 example IDs); D1: Retry-After sleep capped at 30s; C5: README duplicate EN examples cleaned; note `go install` vs skills-tree discovery
+- **0.14.9** 鈥?B1: HTTP client `context.Context` + GET/HEAD retry (429/5xx/network, Retry-After); P2: `has_more` via total/page/per_page; more lists use MetaWithPagination
+- **0.14.8** 鈥?cobra Execute鈫抏xit 10 E2E; `refreshAfterTransition` + warning/`refresh_ok` unit tests; list `meta.has_more`/`total`/`page` via MetaWithPagination (MR list wired)
+- **0.14.7** 鈥?help/skills sanitize real IDs to placeholders; B3 Write/gate contract tests + PostMultipart httptest; transition `refresh_ok` in success JSON
+- **0.14.6** 鈥?sanitize example profiles (placeholders only); `go mod tidy`; `make ci` / `scripts/ci.sh`; transition refresh-fail stderr warning
+- **0.14.4** 鈥?workitem/MR responses include clickable `url` (`meta.url`; list items get `url`); builders in `internal/zhiyi`
+- **0.14.3** 鈥?optional per-profile `access_token`; token precedence env > profile > config; `auth status` / doctor report `token_source`
+- **0.14.2** 鈥?`workitem create` / `+bug-create` apply profile `workitem_defaults` (priority/trackers/QA-owner/acceptance-owner) unless overridden or `--no-defaults`
+- **0.14.1** 鈥?`workitem_defaults` in profiles (per-`type_id` field defaults + create_required); `profile doctor` reports/verifies them
+- **0.14.0** 鈥?Sandbox-accurate `play` profile; `+bug-create --minimal` / omit disabled fields; `profile doctor`; relation-type docs (`ASSOCIATED`/`DEPEND_ON`); sprint/field-not-enabled hints; `--content-file` absolute paths
+- **0.13.1** 鈥?Codeup `--repo` alias resolution for branches/files/commits/compare/mrs/repos (reuse `resolveCodeupRepo`)
+- **0.13.0** 鈥?`workitem +transition` (any type via `workflows`); Codeup `tags` + `protected-branches`; Topic/Risk enable is UI-only
+- **0.12.1** 鈥?profiles store per-`type_id` `workflows`; `--write-profile` fills that map (legacy `bug_*` kept for Bug)
+- **0.12.0** 鈥?`workitem +explore-workflow` auto-discovers status transition graphs; profile `--write-profile` merge
+- **0.11.0** 鈥?Zhiyi `sprint +current`, `workitem +bug-create`, `codeup mrs +create`; profile repos/create-fields
+- **0.10.0** 鈥?Zhiyi tenant profile; ZYPT workitem get; `workitem +bug-transition`; skill `yunxiao-zhiyi-ops`
+- **0.9.1** 鈥?`yunxiao skills install`; AGENTS.md; README skills install docs
+- **0.9.0** 鈥?AppStack RW + deploy; Flow vm-deploy + resource-members write; efforts/programs; repos create
+- **0.8.0** 鈥?org dept/roles; sprint/versions; Flow SC/HG/VG/RM list; codeup repos/branches; AppStack apps/CR/global-vars; testhub cases
+- **0.7.0** 鈥?pipeline YAML get/create/update; AppStack tags + variable-groups; workitem attachments
+- **0.6.0** 鈥?MR comments/labels; pipeline pass/refuse; testhub results; workitem relations; AppStack job-logs
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT 鈥?see [LICENSE](LICENSE).
+
