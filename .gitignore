@@ -9,3 +9,7 @@ bin/
 .env
 *.token
 npm/releases/
+
+tmp*.json
+tmp*.yaml
+

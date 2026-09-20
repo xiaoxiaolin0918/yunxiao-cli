@@ -158,7 +158,7 @@ var pipelineRunLatestCmd = &cobra.Command{
 var pipelineRunGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a pipeline run by ID",
-	Long:  "Risk: read\nHTTP: GET .../pipelines/{id}/runs/{runId}",
+	Long:  "Risk: read\nHTTP: GET .../pipelines/{id}/runs/{runId}\n\nFor WAITING/RUNNING runs, meta.queue adds wait_seconds, runner_groups (from pipeline YAML runsOn.group), and waiting_jobs when present.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pid, _ := cmd.Flags().GetString("pipeline-id")
@@ -178,7 +178,9 @@ var pipelineRunGetCmd = &cobra.Command{
 			return
 		}
 		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
-			zhiyi.EnrichPipelineRunMeta(meta, asStringMap(out), pid)
+			rm := asStringMap(out)
+			zhiyi.EnrichPipelineRunMeta(meta, rm, pid)
+			enrichRunQueueMeta(cmd.Context(), c, pid, rm, meta)
 			return out, meta
 		}))
 	},
@@ -1049,5 +1051,5 @@ func init() {
 	pipelineHGCmd.AddCommand(pipelineHGListCmd)
 	pipelineFlowVGCmd.AddCommand(pipelineFlowVGListCmd, pipelineFlowVGGetCmd, pipelineFlowVGCreateCmd, pipelineFlowVGUpdateCmd, pipelineFlowVGDeleteCmd)
 	pipelineRMCmd.AddCommand(pipelineRMListCmd)
-	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineDiffCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
+	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineDiffCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineRunnerGroupsCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineQueueShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
 }

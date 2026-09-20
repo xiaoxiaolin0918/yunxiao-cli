@@ -135,3 +135,10 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 - Bare `--dry-run` (no `--validate`) only previews the local PUT body (no GET)
 - Rename of stage/job/step = remove+add and often `high_risk`; review before `--yes`
 - API YAML validation (`errorCode=1209300`) surfaces `error.details.issues` with path + errorMessage
+
+## Queue observability (#23)
+- `pipeline +queue [--pipeline-id] [--group private/xxx]` — RUNNING/WAITING across pipelines (cap 50) with wait_seconds
+- `pipeline runner-groups list` — discover `runsOn.group` from YAML
+- `pipeline runner-groups status --group private/xxx` — waiting/running counts for that group
+- `pipeline run get` → `meta.queue` for WAITING/RUNNING
+- Note: OpenAPI has no online-executor / queue-depth fields
