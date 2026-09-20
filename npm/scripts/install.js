@@ -21,7 +21,7 @@ const pkg = require("../package.json");
 const VERSION = String(pkg.version).replace(/-.*$/, "");
 const BINARY_NAME = "yunxiao";
 const ARCHIVE_PREFIX = "yunxiao-cli";
-const DEFAULT_GITHUB_REPO = "sliverTwo/yunxiao-cli";
+const DEFAULT_GITHUB_REPO = "xiaoxiaolin0918/yunxiao-cli";
 
 const PLATFORM_MAP = {
   darwin: "darwin",

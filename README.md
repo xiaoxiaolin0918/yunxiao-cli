@@ -140,7 +140,7 @@ yunxiao update --yes       # non-interactive apply (scripts)
 # alias: yunxiao self-update
 ```
 
-`yunxiao update` downloads the matching platform archive from [GitHub Releases](https://github.com/sliverTwo/yunxiao-cli/releases) (`yunxiao-cli-<ver>-<os>-<arch>.tar.gz|.zip`), verifies SHA-256 when `checksums.txt` is present, and replaces the running binary (write-beside then rename; on Windows you may need to restart the process if `--version` still shows the old build). Gate: `--dry-run` / `--check` never writes; applying requires TTY confirm or `--yes`.
+`yunxiao update` downloads the matching platform archive from [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases) (`yunxiao-cli-<ver>-<os>-<arch>.tar.gz|.zip`), verifies SHA-256 when `checksums.txt` is present, and replaces the running binary (write-beside then rename; on Windows you may need to restart the process if `--version` still shows the old build). Gate: `--dry-run` / `--check` never writes; applying requires TTY confirm or `--yes`.
 
 Optional doctor probe (still opt-in; no download):
 
