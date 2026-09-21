@@ -19,6 +19,18 @@
 
 **阻塞：** 当前环境未登录 npm；在 Trusted Publisher 配置完成并登录前，继续 **跳过自动 publish**，只刷 checksums。
 
+
+## 过渡态（当前 workflow）
+
+仓库里的 `.github/workflows/npm-publish.yml` 已声明 `id-token: write` 与 `--provenance`，**同时**仍传入 `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`。
+
+| 阶段 | 怎么发 |
+|------|--------|
+| Trusted Publisher **未**在 npmjs 配好 | 需要仓库 Secret `NPM_TOKEN`（经典 token）；否则 `npm publish` 会鉴权失败 |
+| Trusted Publisher **已**生效 | 应去掉 `NPM_TOKEN` / `NODE_AUTH_TOKEN`，只靠 OIDC + provenance；workflow 可改为不再引用该 secret |
+
+不要按「已经是纯 OIDC」理解当前 YAML：在 Publisher 配好之前，**仍依赖** `NPM_TOKEN`。配好后请改 workflow 删掉经典 token，避免双轨混淆。
+
 ## 文档口径
 
 README「30 秒」已写：Releases 主路径；`npm i -g sanzhi-yunxiao-cli` 为旁路（未 publish 时用 `./npm` 本地装）。

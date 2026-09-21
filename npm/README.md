@@ -12,3 +12,5 @@ Primary path: [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/r
 Do **not** use npm package `yunxiao-cli` (that is another project, command `yx`).
 
 OIDC publish notes: `docs/wiki/00-process/npm-oidc-publish.md`.
+
+Full CLI docs: repository root `README.md` / `README.zh-CN.md`.

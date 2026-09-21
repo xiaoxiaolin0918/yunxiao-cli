@@ -1,7 +1,9 @@
 name: npm-publish
 
-# Configure npm Trusted Publisher (OIDC) for sanzhi-yunxiao-cli before relying on this.
-# Manual dispatch only until then. See docs/wiki/00-process/npm-oidc-publish.md.
+# Transition auth model (read docs/wiki/00-process/npm-oidc-publish.md):
+# - Today: still needs secrets.NPM_TOKEN (NODE_AUTH_TOKEN) until npm Trusted Publisher is configured.
+# - After Trusted Publisher works for sanzhi-yunxiao-cli: remove NPM_TOKEN and keep OIDC + --provenance only.
+# Manual dispatch only. Primary install path remains GitHub Releases.
 on:
   workflow_dispatch:
     inputs:

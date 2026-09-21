@@ -37,3 +37,7 @@ yunxiao completion powershell | Out-String | Invoke-Expression
 - 从 GitHub CLI / 公共 npm `yx` 迁移：[../00-process/gh-yx-migration.md](../00-process/gh-yx-migration.md)
 - yx 对照规划：[../00-process/yx-parity-ux-plan.md](../00-process/yx-parity-ux-plan.md)
 - Agent 入口：[../../../AGENTS.md](../../../AGENTS.md)
+
+## 文档一致性
+
+改命令表面或安装说明后本地跑：`python scripts/check_command_docs.py`（CI 同检）。

@@ -12,6 +12,9 @@ Practical rules for humans and AI agents working on **yunxiao-cli** (阿里云�
 
 ## Build & run
 
+After changing the command surface or install docs, run `python scripts/check_command_docs.py` (also in CI).
+
+
 ```bash
 # Preferred for end users / agents (Feishu-style):
 #   npx yunxiao-cli@latest install
