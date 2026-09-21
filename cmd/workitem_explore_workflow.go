@@ -404,12 +404,12 @@ func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.
 	}
 	if strings.EqualFold(category, "Bug") && pf != nil {
 		cf := map[string]any{}
-		if id := pf.ResolvePriorityID("high"); id != "" && id != "high" {
+		if id, err := pf.ResolvePriorityID("high"); err == nil && id != "" && id != "high" {
 			cf["priority"] = id
-		} else if id := pf.ResolvePriorityID("medium"); id != "" && id != "medium" {
+		} else if id, err := pf.ResolvePriorityID("medium"); err == nil && id != "" && id != "medium" {
 			cf["priority"] = id
 		}
-		if id := pf.ResolveSeriousLevelID("normal"); id != "" && id != "normal" {
+		if id, err := pf.ResolveSeriousLevelID("normal"); err == nil && id != "" && id != "normal" {
 			cf["seriousLevel"] = id
 		}
 		if len(cf) > 0 {

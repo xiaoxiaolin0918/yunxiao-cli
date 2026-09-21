@@ -493,6 +493,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.15** — bug-create alias validation; mrs get `--brief` + status→state; mrs update title/description; create brief output (#45–#46, #48–#51)
 - **0.16.14** — `yunxiao alias` (no embedded `--yes`); command-docs CI check; npm/OIDC publish eval (#38–#40)
 - **0.16.13** — `yunxiao browse` (pipeline/workitem/mr/repo/url, `--print-only`); human 30s README; usage index + gh/yx migration; completion docs (#34–#37)
 - **0.16.12** — Codeup MR workItemIds as OpenAPI string + fail if link missing

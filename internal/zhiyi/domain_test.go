@@ -11,21 +11,21 @@ import (
 // Fixture status map matching constants.ts / zhiyi.example.json
 func testStatuses() map[string]string {
 	return map[string]string{
-		"confirm":            "28",
-		"reopen":             "30",
-		"processing":         "100010",
-		"deploy-test":        "b2c5c60b4428974ef10483c800",
-		"testing":            "42d423acc3f60646a533bac489",
-		"deploy-prod":        "4b895bdc3433104d6bf73e4c17",
-		"acceptance":         "c0efc47304cc56508ac4314680",
-		"fixed":              "29",
-		"regression":         "2458e2d912449b731aa6797f70",
-		"deferred":           "34",
-		"closed-fixed":       "33",
+		"confirm":           "28",
+		"reopen":            "30",
+		"processing":        "100010",
+		"deploy-test":       "b2c5c60b4428974ef10483c800",
+		"testing":           "42d423acc3f60646a533bac489",
+		"deploy-prod":       "4b895bdc3433104d6bf73e4c17",
+		"acceptance":        "c0efc47304cc56508ac4314680",
+		"fixed":             "29",
+		"regression":        "2458e2d912449b731aa6797f70",
+		"deferred":          "34",
+		"closed-fixed":      "33",
 		"wont-fix":          "31",
-		"cancelled-nofix":    "03cf4f3d160e37aaa13a6c27c8",
+		"cancelled-nofix":   "03cf4f3d160e37aaa13a6c27c8",
 		"cancelled-wontfix": "30bdbe7fc10889cab222915375",
-		"closed-unfixed":     "013a823767244591639ea5a7",
+		"closed-unfixed":    "013a823767244591639ea5a7",
 	}
 }
 
@@ -336,7 +336,6 @@ func TestBuildCreateBugArgs(t *testing.T) {
 	}
 }
 
-
 func TestBuildCreateBugArgsOmitsOptionalFields(t *testing.T) {
 	pf := &profile.Profile{
 		SpaceID:   "space-1",
@@ -431,8 +430,8 @@ func TestWorkItemURL(t *testing.T) {
 		t.Fatalf("%s", u)
 	}
 	cases := []struct {
-		cat  string
-		seg  string
+		cat string
+		seg string
 	}{
 		{"Req", "req"},
 		{"Task", "task"},
@@ -521,5 +520,25 @@ func TestEnrichWorkItemMeta(t *testing.T) {
 	}
 	if meta["serial_number"] != "YXCLI-49" {
 		t.Fatalf("%v", meta)
+	}
+}
+
+func TestBuildCreateBugArgs_UnmappedPriorityAlias(t *testing.T) {
+	pf := &profile.Profile{SpaceID: "space-1", BugTypeID: "bug-type-1"}
+	_, err := BuildCreateBugArgs(CreateBugInput{
+		Title: "t", Description: "d", Priority: "urgent", SeriousLevel: "normal", Sprint: "s1", AssignedTo: "u1",
+	}, pf)
+	if err == nil || !strings.Contains(err.Error(), "priority alias") {
+		t.Fatalf("expected priority alias error, got %v", err)
+	}
+}
+
+func TestResolveRepositoryID_UnknownAlias(t *testing.T) {
+	_, err := ResolveRepositoryID("zhiyi_doc", map[string]int64{"other": 1})
+	if err == nil || !strings.Contains(err.Error(), "unknown repository alias") {
+		t.Fatalf("got %v", err)
+	}
+	if !strings.Contains(err.Error(), "profile.repositories") {
+		t.Fatalf("hint missing: %v", err)
 	}
 }
