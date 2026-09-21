@@ -85,7 +85,7 @@ yunxiao codeup mrs labels attach --repo <id> --local-id 1 --label-ids 1,2 --dry-
 yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,userId2> --dry-run
 ```
 
-`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。`patchset-biz-id` 可从 `mrs diffs` 取得。
+`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。`patchset-biz-id` 可从 `mrs diffs` 取得；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
 
 `reviewers add`：逗号分隔 userId → OpenAPI `POST …/person/REVIEWER` body `userIds`（与 create 的 `reviewerUserIds` 字段名不同；CLI `--reviewer` 语义一致）。
 
