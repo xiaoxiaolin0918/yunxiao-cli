@@ -10,7 +10,7 @@
 | 本地别名 | `yunxiao alias` | set/list/delete；禁止别名内嵌 `--yes`/`-y` |
 | 组织/项目 | `organization` / `project` / `+onboard` | 读多写少；删项目高风险 |
 | 工作项 | `workitem` | 创建/更新/流转多为 write；高风险看 help |
-| Codeup | `codeup`（`mrs` / `+open-mrs` / `+create`） | 创建 MR/保护分支等高风险需 `--yes` |
+| Codeup | `codeup`（`mrs` / `link`/`unlink` / `+open-mrs` / `+create`） | 合并 MR/删除分支等高危需 `--yes`；`link`/`unlink`/`update` 为 write |
 | 流水线 | `pipeline`（`+pending` / `+approve` / `run watch`） | 闸口/触发高风险 |
 | AppStack / 制品 / 测试 | `appstack` / `packages` / `testhub` | 部署类高风险 |
 | Skills | `yunxiao skills install` | 写本地 skills 目录 |

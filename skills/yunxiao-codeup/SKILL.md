@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.1.2
+version: 1.1.3
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -98,22 +98,33 @@ yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,us
 
 ## MR 写操作
 
+### high-risk-write（需 `--dry-run` → 确认 → `--yes`）
+
 ```bash
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
+yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 ```
 
 均为 **high-risk-write**（尤其 merge 会改写目标分支）。
 
+### write（`--dry-run` 即可预览；非 high-risk，一般不需 `--yes`）
+
 ```bash
-yunxiao codeup mrs get --repo <id> --local-id 1 --brief
 yunxiao codeup mrs update --repo <id> --local-id 1 --title "WIP: docs" --dry-run
 yunxiao codeup mrs update --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs link --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
+```
+
+`update` / `link` / `unlink` 为 **write**（标题/描述或工作项关联变更），不是 high-risk-write。
+
+### read
+
+```bash
+yunxiao codeup mrs get --repo <id> --local-id 1 --brief
 yunxiao codeup mrs diffs --repo <id> --local-id 1
-yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 yunxiao codeup compare --repo <id> --from master --to feature
 ```
 
@@ -161,6 +172,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 ## Merge requests
 
 ### Silent traps (#24 / #32)
+- Wiki: [codeup-mr-silent-traps.md](../../docs/wiki/02-domains/codeup-mr-silent-traps.md)
 - Pass --work-item on mrs create / mrs +create: CLI GETs each id before create.
 - From 0.16.12: body sends comma-separated workItemIds string; after create verifies/repairs via extRelationRecords; **fails (ok=false)** if links still missing (see "MR work-item link" below). Older releases only warned.
 - Prefer --repo / --state on mrs list (server may ignore repositoryId / status).
@@ -174,6 +186,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 ## Link / unlink existing MR (0.16.17+ / #54)
 
+- Detail: [codeup-mr-silent-traps.md](../../docs/wiki/02-domains/codeup-mr-silent-traps.md)
 - Push-created MRs cannot carry workItemIds; use `mrs link` / `mrs unlink` / `mrs update --work-item`.
 - API: Projex extRelationRecords create/list/delete (`category=codeupMergeRequest`); **not** UpdateChangeRequest.
 - Idempotent; prefer `--dry-run` first.
