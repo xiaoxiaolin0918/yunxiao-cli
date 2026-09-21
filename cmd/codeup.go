@@ -29,7 +29,7 @@ Typed:
   yunxiao codeup protected-branches list|get|create|delete --repo <id|alias>
   yunxiao codeup files tree|get|create|update|delete --repo <id|alias>
   yunxiao codeup commits list --repo <id|alias> --ref <branch>
-  yunxiao codeup mrs list|get|diffs|comments|labels|reviewers|create|merge|close|review|reopen
+  yunxiao codeup mrs list|get|update|diffs|comments|labels|reviewers|create|merge|close|review|reopen
   yunxiao codeup compare --repo <id|alias> --from <ref> --to <ref>
 
 --repo accepts numeric id, profile.repositories alias, or org/repo path.
@@ -894,7 +894,7 @@ var codeupMrsGetCmd = &cobra.Command{
 var codeupMrsUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update merge request title/description (write)",
-	Long:  "Risk: write\nHTTP: PUT .../changeRequests/{localId}\n\nUpdates title and/or description (UpdateChangeRequest). At least one of --title / --description required.\nUseful to add a WIP: prefix after push-created MRs.\n\n  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title \"WIP: docs\" --dry-run",
+	Long:  "Risk: write\nHTTP: PUT .../changeRequests/{localId}\n\nPrefer --dry-run first; real writes run only when not dry-run (Write risk, same path as other mrs write cmds).\nUpdates title and/or description (UpdateChangeRequest). At least one of --title / --description required.\nUseful to add a WIP: prefix after push-created MRs.\n\n  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title \"WIP: docs\" --dry-run",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -1440,6 +1440,6 @@ func init() {
 	codeupMrsCommentsCmd.AddCommand(codeupMrsCommentsListCmd, codeupMrsCommentsCreateCmd)
 	codeupMrsLabelsCmd.AddCommand(codeupMrsLabelsListCmd, codeupMrsLabelsAttachCmd)
 	codeupMrsReviewersCmd.AddCommand(codeupMrsReviewersAddCmd)
-	codeupMrsCmd.AddCommand(codeupMrsListCmd, codeupMrsGetCmd, codeupMrsDiffsCmd, codeupMrsCommentsCmd, codeupMrsLabelsCmd, codeupMrsReviewersCmd, codeupMrsCreateCmd, codeupMrsMergeCmd, codeupMrsCloseCmd, codeupMrsReviewCmd, codeupMrsReopenCmd)
+	codeupMrsCmd.AddCommand(codeupMrsListCmd, codeupMrsGetCmd, codeupMrsUpdateCmd, codeupMrsDiffsCmd, codeupMrsCommentsCmd, codeupMrsLabelsCmd, codeupMrsReviewersCmd, codeupMrsCreateCmd, codeupMrsMergeCmd, codeupMrsCloseCmd, codeupMrsReviewCmd, codeupMrsReopenCmd)
 	codeupCmd.AddCommand(codeupReposCmd, codeupBranchesCmd, codeupFilesCmd, codeupCommitsCmd, codeupCompareCmd, codeupMrsCmd, codeupOpenMrsShortcut)
 }
