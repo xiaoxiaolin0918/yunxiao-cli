@@ -277,8 +277,14 @@ func BuildCreateBugArgs(input CreateBugInput, pf *profile.Profile) (map[string]a
 	if pf.BugTypeID == "" {
 		return nil, fmt.Errorf("profile missing bug_type_id")
 	}
-	priority := pf.ResolvePriorityID(input.Priority)
-	serious := pf.ResolveSeriousLevelID(input.SeriousLevel)
+	priority, err := pf.ResolvePriorityID(input.Priority)
+	if err != nil {
+		return nil, err
+	}
+	serious, err := pf.ResolveSeriousLevelID(input.SeriousLevel)
+	if err != nil {
+		return nil, err
+	}
 	cf := map[string]any{
 		"priority":     priority,
 		"seriousLevel": serious,
@@ -333,7 +339,7 @@ func ResolveRepositoryID(repo string, repositories map[string]int64) (string, er
 			return fmt.Sprintf("%d", id), nil
 		}
 	}
-	return "", fmt.Errorf("未知仓库，请传数字 repositoryId、路径或别名（见 profile.repositories）")
+	return "", fmt.Errorf("unknown repository alias %q: register it under profile.repositories (alias→numeric id), or pass numeric repositoryId / org%%2Frepo path", repo)
 }
 
 // WorkItemURL builds a Projex web URL when spaceID and id/serial are known.

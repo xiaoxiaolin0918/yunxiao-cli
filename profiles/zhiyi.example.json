@@ -68,13 +68,16 @@
     "priority": {
       "high": "<priority-high>",
       "medium": "<priority-medium>",
-      "low": "<priority-low>"
+      "low": "<priority-low>",
+      "urgent": "<priority-urgent>"
     },
     "serious_level": {
       "fatal": "<serious-fatal>",
       "severe": "<serious-severe>",
       "normal": "<serious-normal>",
-      "minor": "<serious-minor>"
+      "minor": "<serious-minor>",
+      "serious": "<serious-serious>",
+      "slight": "<serious-slight>"
     },
     "module": "<field-module>",
     "environment": "<field-environment>",

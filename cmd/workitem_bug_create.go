@@ -20,7 +20,7 @@ var workitemBugCreateCmd = &cobra.Command{
 	Short: "Shortcut: create a bug with profile field maps",
 	Long: `Risk: write (requires --yes for real run; prefer --dry-run first)
 
-Needs active profile with space_id + bug_type_id + bug_create_fields (priority/seriousLevel maps).
+Needs active profile with space_id + bug_type_id + bug_create_fields (priority/seriousLevel alias→option id maps). Unmapped aliases fail client-side (no API 400).
 
 Optional create fields (module / environment / ExpCompletionTime) are sent only when
 configured on the profile. Omit them in play/sandbox profiles, or pass --minimal to
@@ -220,8 +220,8 @@ func init() {
 	workitemBugCreateCmd.Flags().String("description", "", "Markdown description (required)")
 	workitemBugCreateCmd.Flags().String("environment", "测试环境", "生产环境 / 测试环境 (only if profile configures environment field)")
 	workitemBugCreateCmd.Flags().String("module", "MES", "MES / OMS / PDM / 系统服务 (only if profile configures module field)")
-	workitemBugCreateCmd.Flags().String("priority", "high", "high / medium / low")
-	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal / severe / normal / minor")
+	workitemBugCreateCmd.Flags().String("priority", "high", "urgent/high/medium/low (needs bug_create_fields.priority map) or option id")
+	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal/serious|severe/normal/slight|minor (needs bug_create_fields.serious_level map) or option id")
 	workitemBugCreateCmd.Flags().String("expected-completion", "", "YYYY-MM-DD (required only if profile configures ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().String("sprint", "", "sprint id (required; omit to get suggestion)")
 	workitemBugCreateCmd.Flags().String("assigned-to", "", "assignee user id (default: profile.default_assigned_to or self)")

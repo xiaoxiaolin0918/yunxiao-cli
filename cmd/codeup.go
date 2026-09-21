@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -176,6 +177,8 @@ var codeupMrsCreateCmd = &cobra.Command{
 
 Requires --yes after explicit user confirmation. Prefer --dry-run first.
 
+Success prints a brief summary (localId/title/status/url); pass --full for the raw MR object.
+
 HTTP: POST .../repositories/{repo}/changeRequests
 
 --reviewer accepts comma-separated userIds (OpenAPI reviewerUserIds), same as mrs +create.
@@ -286,13 +289,18 @@ verifies via workitem extRelationRecords, attempts repair if needed, and fails
 			return
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite}
-		mrMap := asStringMap(out)
+		mrMap := zhiyi.StabilizeMergeRequest(asStringMap(out))
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
 		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
 			handleErr(err)
 			return
 		}
-		handleErr(output.Success(out, meta))
+		full, _ := cmd.Flags().GetBool("full")
+		if full {
+			handleErr(output.Success(mrMap, meta))
+			return
+		}
+		handleErr(output.Success(zhiyi.BriefMergeRequest(mrMap), meta))
 	},
 }
 
@@ -840,7 +848,7 @@ var codeupMrsReviewCmd = &cobra.Command{
 var codeupMrsGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a merge request by local id",
-	Long:  "Risk: read\nHTTP: GET .../changeRequests/{localId}",
+	Long:  "Risk: read\nHTTP: GET .../changeRequests/{localId}\n\nNormalizes OpenAPI status into state (alias) for scripts. Use --brief for localId/title/status/url only.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -865,9 +873,75 @@ var codeupMrsGetCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
+		brief, _ := cmd.Flags().GetBool("brief")
 		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
-			zhiyi.EnrichMergeRequestMeta(meta, asStringMap(out))
-			return out, meta
+			m := asStringMap(out)
+			if m != nil {
+				if inner := asStringMap(m["data"]); inner != nil && zhiyi.MRStatus(m) == "" && zhiyi.MRStatus(inner) != "" {
+					m = inner
+				}
+				m = zhiyi.StabilizeMergeRequest(m)
+			}
+			zhiyi.EnrichMergeRequestMeta(meta, m)
+			if brief {
+				return zhiyi.BriefMergeRequest(m), meta
+			}
+			return m, meta
+		}))
+	},
+}
+
+var codeupMrsUpdateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update merge request title/description (write)",
+	Long:  "Risk: write\nHTTP: PUT .../changeRequests/{localId}\n\nUpdates title and/or description (UpdateChangeRequest). At least one of --title / --description required.\nUseful to add a WIP: prefix after push-created MRs.\n\n  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title \"WIP: docs\" --dry-run",
+	Run: func(cmd *cobra.Command, args []string) {
+		flagOrg(globalOrg)
+		repo, _ := cmd.Flags().GetString("repo")
+		localID, _ := cmd.Flags().GetString("local-id")
+		title, _ := cmd.Flags().GetString("title")
+		desc, _ := cmd.Flags().GetString("description")
+		if err := requireFlags("repo", repo, "local-id", localID); err != nil {
+			handleErr(err)
+			return
+		}
+		title = strings.TrimSpace(title)
+		desc = strings.TrimSpace(desc)
+		if title == "" && desc == "" {
+			handleErr(fmt.Errorf("provide --title and/or --description"))
+			return
+		}
+		repositoryID, err := resolveCodeupRepo(repo)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		c, _, err := mustClient()
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		repoID := client.EncodeRepoID(repositoryID)
+		path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests/"+localID)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		body := map[string]any{}
+		if title != "" {
+			body["title"] = title
+		}
+		if desc != "" {
+			body["description"] = desc
+		}
+		full, _ := cmd.Flags().GetBool("full")
+		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
+			m := zhiyi.StabilizeMergeRequest(asStringMap(out))
+			zhiyi.EnrichMergeRequestMeta(meta, m)
+			if full {
+				return m, meta
+			}
+			return zhiyi.BriefMergeRequest(m), meta
 		}))
 	},
 }
@@ -1255,6 +1329,7 @@ func init() {
 	codeupMrsCreateCmd.Flags().String("reviewer", "", "optional reviewer userId(s), comma-separated (OpenAPI reviewerUserIds; same as mrs +create)")
 	codeupMrsCreateCmd.Flags().String("work-item", "", "optional work item serial(s) or id(s), comma-separated; prechecked via workitem get")
 	codeupOpenMrsShortcut.Flags().String("state", "opened", "state")
+	codeupMrsCreateCmd.Flags().Bool("full", false, "print full MR JSON (default: brief localId/title/status/url)")
 	codeupOpenMrsShortcut.Flags().String("search", "", "title search")
 	codeupOpenMrsShortcut.Flags().String("repo", "", "filter by repository id or alias")
 	codeupOpenMrsShortcut.Flags().Int("page", 1, "page")
@@ -1318,6 +1393,12 @@ func init() {
 	codeupCommitsCmd.AddCommand(codeupCommitsListCmd)
 	codeupMrsGetCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsGetCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsGetCmd.Flags().Bool("brief", false, "only localId/title/status/state/detailUrl/url")
+	codeupMrsUpdateCmd.Flags().String("repo", "", "repository id, alias, or org/repo path")
+	codeupMrsUpdateCmd.Flags().String("local-id", "", "MR local id")
+	codeupMrsUpdateCmd.Flags().String("title", "", "new title")
+	codeupMrsUpdateCmd.Flags().String("description", "", "new description")
+	codeupMrsUpdateCmd.Flags().Bool("full", false, "print full MR object instead of brief summary")
 	codeupMrsDiffsCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsDiffsCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsReopenCmd.Flags().String("repo", "", "repository id or alias (required)")

@@ -21,7 +21,7 @@ Needs active profile with bug_statuses (e.g. --profile zhiyi / YUNXIAO_PROFILE=z
     --plan-due-date 2026-09-20 --developer <uid> --dry-run
   yunxiao workitem +bug-transition --id ZYPT-5768 --to testing \
     --plan-due-date 2026-09-20 --developer <uid> \
-    --responsible-person <uid> --bug-reason 1 --bug-impact-scope 1 --yes
+    --responsible-person <uid> --bug-reason "代码缺陷：简述根因" --bug-impact-scope "影响模块/范围简述" --yes
 
 Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -257,7 +257,7 @@ func init() {
 	workitemBugTransitionCmd.Flags().String("plan-due-date", "", "YYYY-MM-DD (required en route to processing/testing)")
 	workitemBugTransitionCmd.Flags().String("developer", "", "developer userId(s), comma-separated")
 	workitemBugTransitionCmd.Flags().String("responsible-person", "", "responsible person userId (deploy-test)")
-	workitemBugTransitionCmd.Flags().String("bug-reason", "", "bug reason code (deploy-test)")
-	workitemBugTransitionCmd.Flags().String("bug-impact-scope", "", "bug impact scope code (deploy-test)")
+	workitemBugTransitionCmd.Flags().String("bug-reason", "", "free-text bug reason (not an enum id; paste the business description)")
+	workitemBugTransitionCmd.Flags().String("bug-impact-scope", "", "free-text impact scope (not an enum id)")
 	workitemCmd.AddCommand(workitemBugTransitionCmd)
 }

@@ -123,13 +123,18 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			handleErr(err)
 			return
 		}
-		mrMap := asStringMap(out)
+		mrMap := zhiyi.StabilizeMergeRequest(asStringMap(out))
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
 		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
 			handleErr(err)
 			return
 		}
-		handleErr(output.Success(out, meta))
+		full, _ := cmd.Flags().GetBool("full")
+		if full {
+			handleErr(output.Success(mrMap, meta))
+			return
+		}
+		handleErr(output.Success(zhiyi.BriefMergeRequest(mrMap), meta))
 	},
 }
 
@@ -139,6 +144,7 @@ func init() {
 	codeupMrsPlusCreateCmd.Flags().String("target", "master", "target branch (default master)")
 	codeupMrsPlusCreateCmd.Flags().String("title", "", "MR title (required)")
 	codeupMrsPlusCreateCmd.Flags().String("description", "", "MR description")
+	codeupMrsPlusCreateCmd.Flags().Bool("full", false, "print full MR JSON (default: brief summary)")
 	codeupMrsPlusCreateCmd.Flags().String("work-item", "", "ZYPT serial(s) or id(s), comma-separated; prechecked via workitem get")
 	codeupMrsPlusCreateCmd.Flags().String("reviewer", "", "optional reviewer userId(s), comma-separated (OpenAPI reviewerUserIds; same as mrs create)")
 	codeupMrsPlusCreateCmd.Flags().Bool("wip", false, "prefix WIP: when target is master")

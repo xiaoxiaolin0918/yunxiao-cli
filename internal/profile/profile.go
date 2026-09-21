@@ -257,26 +257,69 @@ func (p *Profile) ExpCompletionTimeKey() string {
 	return p.FieldID("ExpCompletionTime")
 }
 
-// ResolvePriorityID maps alias → option id; unknown values pass through.
-func (p *Profile) ResolvePriorityID(aliasOrID string) string {
-	aliasOrID = strings.TrimSpace(aliasOrID)
-	if p != nil && p.BugCreateFields.Priority != nil {
-		if id, ok := p.BugCreateFields.Priority[aliasOrID]; ok && id != "" {
-			return id
-		}
-	}
-	return aliasOrID
+// Known priority aliases accepted by --priority when mapped in bug_create_fields.priority.
+// Option ids are space-specific; aliases without a map entry must not be sent to the API.
+var knownPriorityAliases = map[string]struct{}{
+	"urgent": {}, "high": {}, "medium": {}, "low": {},
 }
 
-// ResolveSeriousLevelID maps alias → option id; unknown values pass through.
-func (p *Profile) ResolveSeriousLevelID(aliasOrID string) string {
+// Known serious-level aliases for --serious-level (includes synonyms used in docs/help).
+var knownSeriousAliases = map[string]struct{}{
+	"fatal": {}, "serious": {}, "severe": {}, "normal": {}, "slight": {}, "minor": {},
+}
+
+func isKnownPriorityAlias(v string) bool {
+	_, ok := knownPriorityAliases[strings.ToLower(strings.TrimSpace(v))]
+	return ok
+}
+
+func isKnownSeriousAlias(v string) bool {
+	_, ok := knownSeriousAliases[strings.ToLower(strings.TrimSpace(v))]
+	return ok
+}
+
+// ResolvePriorityID maps alias → option id.
+// Profile maps win; raw option ids pass through; known aliases with no map entry error
+// (avoids API 400 "字段【优先级】所填值无效").
+func (p *Profile) ResolvePriorityID(aliasOrID string) (string, error) {
 	aliasOrID = strings.TrimSpace(aliasOrID)
-	if p != nil && p.BugCreateFields.SeriousLevel != nil {
-		if id, ok := p.BugCreateFields.SeriousLevel[aliasOrID]; ok && id != "" {
-			return id
+	if aliasOrID == "" {
+		return "", fmt.Errorf("priority is empty")
+	}
+	key := strings.ToLower(aliasOrID)
+	if p != nil && p.BugCreateFields.Priority != nil {
+		if id, ok := p.BugCreateFields.Priority[aliasOrID]; ok && id != "" {
+			return id, nil
+		}
+		if id, ok := p.BugCreateFields.Priority[key]; ok && id != "" {
+			return id, nil
 		}
 	}
-	return aliasOrID
+	if isKnownPriorityAlias(aliasOrID) {
+		return "", fmt.Errorf("priority alias %q is not mapped to an option id; set profile bug_create_fields.priority[%q] (or pass the option id). Hint: yunxiao profile doctor", aliasOrID, key)
+	}
+	return aliasOrID, nil
+}
+
+// ResolveSeriousLevelID maps alias → option id (same rules as ResolvePriorityID).
+func (p *Profile) ResolveSeriousLevelID(aliasOrID string) (string, error) {
+	aliasOrID = strings.TrimSpace(aliasOrID)
+	if aliasOrID == "" {
+		return "", fmt.Errorf("serious-level is empty")
+	}
+	key := strings.ToLower(aliasOrID)
+	if p != nil && p.BugCreateFields.SeriousLevel != nil {
+		if id, ok := p.BugCreateFields.SeriousLevel[aliasOrID]; ok && id != "" {
+			return id, nil
+		}
+		if id, ok := p.BugCreateFields.SeriousLevel[key]; ok && id != "" {
+			return id, nil
+		}
+	}
+	if isKnownSeriousAlias(aliasOrID) {
+		return "", fmt.Errorf("serious-level alias %q is not mapped to an option id; set profile bug_create_fields.serious_level[%q] (or pass the option id). Hint: yunxiao profile doctor", aliasOrID, key)
+	}
+	return aliasOrID, nil
 }
 
 // AllowedContains reports whether value is in list. Empty list → true (backward compatible).

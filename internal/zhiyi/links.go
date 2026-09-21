@@ -159,6 +159,70 @@ func MergeRequestURL(mr map[string]any) string {
 	return ""
 }
 
+// MRStatus returns the merge-request lifecycle status.
+// Codeup GetChangeRequest uses "status" (UNDER_REVIEW/MERGED/...); list UIs sometimes label it "state".
+func MRStatus(mr map[string]any) string {
+	if mr == nil {
+		return ""
+	}
+	// Prefer top-level status (OpenAPI GetChangeRequest). Do not read author.state.
+	if s := stringField(mr, "status"); s != "" {
+		return s
+	}
+	if s := stringField(mr, "mergeStatus", "merge_status"); s != "" {
+		return s
+	}
+	// Only use top-level "state" if it looks like an MR lifecycle value (not author.state nested).
+	if v, ok := mr["state"]; ok && v != nil {
+		s := strings.TrimSpace(fmt.Sprint(v))
+		if s != "" && s != "<nil>" {
+			return s
+		}
+	}
+	return ""
+}
+
+// StabilizeMergeRequest copies mr and ensures script-stable keys: localId, title, status, state, detailUrl, url.
+// "state" is an alias of "status" for consumers that expect GitLab-like naming (issue #46).
+func StabilizeMergeRequest(mr map[string]any) map[string]any {
+	if mr == nil {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(mr)+6)
+	for k, v := range mr {
+		out[k] = v
+	}
+	if lid := localIDString(mr); lid != "" {
+		out["localId"] = lid
+	}
+	if title := stringField(mr, "title"); title != "" {
+		out["title"] = title
+	}
+	st := MRStatus(mr)
+	if st != "" {
+		out["status"] = st
+		out["state"] = st
+	}
+	if u := MergeRequestURL(mr); u != "" {
+		out["detailUrl"] = u
+		out["url"] = u
+	}
+	return out
+}
+
+// BriefMergeRequest returns a small script-friendly view (issue #46/#50).
+func BriefMergeRequest(mr map[string]any) map[string]any {
+	s := StabilizeMergeRequest(mr)
+	return map[string]any{
+		"localId":   s["localId"],
+		"title":     s["title"],
+		"status":    s["status"],
+		"state":     s["state"],
+		"detailUrl": s["detailUrl"],
+		"url":       s["url"],
+	}
+}
+
 // EnrichMergeRequestMeta sets meta.url from MergeRequestURL when available.
 func EnrichMergeRequestMeta(meta map[string]any, mr map[string]any) map[string]any {
 	if meta == nil {
