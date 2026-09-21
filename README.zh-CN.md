@@ -457,7 +457,8 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
-- **0.16.17** — 已有 MR 支持 `codeup mrs link|unlink` 与 `mrs update --work-item`（#54）
+- **0.16.18 — mrs comments resolve/reopen (#56)
+- 0.16.17** — 已有 MR 支持 `codeup mrs link|unlink` 与 `mrs update --work-item`（#54）
 - **0.16.16** — 写操作网络失败附查重命令；GET 传输层错误已自动重试（#47）
 - **0.16.15** — bug-create 别名校验；mrs get `--brief` + status→state；mrs update 改标题/描述；create 默认摘要（#45–#46, #48–#51）
 - **0.16.14** — `yunxiao alias`（禁止内嵌 `--yes`）；命令↔文档 CI 检查；npm/OIDC 发版评估（#38–#40）
