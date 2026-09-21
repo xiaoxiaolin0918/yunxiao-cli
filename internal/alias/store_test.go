@@ -30,32 +30,32 @@ func TestValidateNameReserved(t *testing.T) {
 func TestExpandArgs(t *testing.T) {
 	s := Store{"pending": {"pipeline", "+pending", "--all-pipelines"}}
 	res := map[string]bool{"pipeline": true, "alias": true}
-	got, name, ok := ExpandArgs([]string{"yunxiao", "pending"}, s, res)
-	if !ok || name != "pending" {
-		t.Fatalf("ok=%v name=%s", ok, name)
+	got, name, ok, err := ExpandArgs([]string{"yunxiao", "pending"}, s, res)
+	if err != nil || !ok || name != "pending" {
+		t.Fatalf("ok=%v name=%s err=%v", ok, name, err)
 	}
 	want := []string{"yunxiao", "pipeline", "+pending", "--all-pipelines"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v want %#v", got, want)
 	}
 	// preserve leading global flags
-	got, _, ok = ExpandArgs([]string{"yunxiao", "--dry-run", "pending", "--format", "pretty"}, s, res)
-	if !ok {
-		t.Fatal("expected expand")
+	got, _, ok, err = ExpandArgs([]string{"yunxiao", "--dry-run", "pending", "--format", "pretty"}, s, res)
+	if err != nil || !ok {
+		t.Fatalf("expected expand: %v", err)
 	}
 	want = []string{"yunxiao", "--dry-run", "pipeline", "+pending", "--all-pipelines", "--format", "pretty"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v want %#v", got, want)
 	}
 	// reserved command not expanded
-	_, _, ok = ExpandArgs([]string{"yunxiao", "pipeline", "list"}, s, res)
-	if ok {
+	_, _, ok, err = ExpandArgs([]string{"yunxiao", "pipeline", "list"}, s, res)
+	if err != nil || ok {
 		t.Fatal("must not expand reserved")
 	}
 	// user can still pass --yes after expansion point
-	got, _, ok = ExpandArgs([]string{"yunxiao", "pending", "--yes"}, s, res)
-	if !ok {
-		t.Fatal("expected expand")
+	got, _, ok, err = ExpandArgs([]string{"yunxiao", "pending", "--yes"}, s, res)
+	if err != nil || !ok {
+		t.Fatalf("expected expand: %v", err)
 	}
 	want = []string{"yunxiao", "pipeline", "+pending", "--all-pipelines", "--yes"}
 	if !reflect.DeepEqual(got, want) {
@@ -94,5 +94,20 @@ func TestLoadSave(t *testing.T) {
 	if fi.Mode().Perm()&0o077 != 0 {
 		// on Windows permissions may differ; only check file exists
 		_ = fi
+	}
+}
+
+func TestValidateExpansionRejectsYesEquals(t *testing.T) {
+	if err := ValidateExpansion([]string{"pipeline", "+approve", "--yes=true"}); err == nil {
+		t.Fatal("expected reject --yes=true")
+	}
+}
+
+func TestExpandArgsRejectsHandEditedYes(t *testing.T) {
+	s := Store{"bad": {"pipeline", "+approve", "--yes"}}
+	res := map[string]bool{"pipeline": true}
+	_, name, ok, err := ExpandArgs([]string{"yunxiao", "bad"}, s, res)
+	if ok || err == nil || name != "bad" {
+		t.Fatalf("ok=%v err=%v name=%s", ok, err, name)
 	}
 }

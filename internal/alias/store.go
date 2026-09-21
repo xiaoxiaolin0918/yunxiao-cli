@@ -89,25 +89,38 @@ func ValidateName(name string, reserved map[string]bool) error {
 }
 
 // ValidateExpansion rejects empty expansion and embedded --yes/-y (must not bypass high-risk gate).
+// Also rejects variants like --yes=true / -y=1.
 func ValidateExpansion(tokens []string) error {
 	if len(tokens) == 0 {
 		return fmt.Errorf("alias expansion is empty")
 	}
-	for _, t := range tokens {
-		switch t {
-		case "--yes", "-y":
-			return fmt.Errorf("alias must not embed %s; pass it on the command line after confirmation", t)
+	for _, tok := range tokens {
+		if embedsYesFlag(tok) {
+			return fmt.Errorf("alias must not embed %s; pass --yes on the command line after confirmation", tok)
 		}
 	}
 	return nil
 }
 
-// ExpandArgs rewrites argv (os.Args style: [prog, ...]) if args[1] is an alias.
-// Returns (newArgs, expandedName, ok).
+func embedsYesFlag(tok string) bool {
+	tok = strings.TrimSpace(tok)
+	switch tok {
+	case "--yes", "-y":
+		return true
+	}
+	if strings.HasPrefix(tok, "--yes=") || strings.HasPrefix(tok, "-y=") {
+		return true
+	}
+	return false
+}
+
+// ExpandArgs rewrites argv (os.Args style: [prog, ...]) if the first command token is an alias.
+// Returns (newArgs, expandedName, ok, err).
+// err is set when the stored expansion fails ValidateExpansion (e.g. hand-edited --yes).
 // Global flags before the alias are preserved; the alias name is replaced by its tokens.
-func ExpandArgs(args []string, s Store, reserved map[string]bool) ([]string, string, bool) {
+func ExpandArgs(args []string, s Store, reserved map[string]bool) ([]string, string, bool, error) {
 	if len(args) < 2 || s == nil {
-		return args, "", false
+		return args, "", false, nil
 	}
 	// Find first non-flag token after prog — that is the command / alias candidate.
 	idx := -1
@@ -132,20 +145,23 @@ func ExpandArgs(args []string, s Store, reserved map[string]bool) ([]string, str
 		break
 	}
 	if idx < 0 {
-		return args, "", false
+		return args, "", false, nil
 	}
 	name := args[idx]
 	if reserved[name] {
-		return args, "", false
+		return args, "", false, nil
 	}
 	exp, ok := s[name]
 	if !ok || len(exp) == 0 {
-		return args, "", false
+		return args, "", false, nil
+	}
+	if err := ValidateExpansion(exp); err != nil {
+		return args, name, false, fmt.Errorf("alias %q: %w", name, err)
 	}
 	out := append([]string{}, args[:idx]...)
 	out = append(out, exp...)
 	out = append(out, args[idx+1:]...)
-	return out, name, true
+	return out, name, true, nil
 }
 
 func isGlobalFlagTakingValue(flag string) bool {

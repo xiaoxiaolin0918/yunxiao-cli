@@ -67,7 +67,11 @@ func expandAliases() {
 	if err != nil || len(s) == 0 {
 		return
 	}
-	newArgs, name, ok := alias.ExpandArgs(os.Args, s, reservedRootNames())
+	newArgs, name, ok, err := alias.ExpandArgs(os.Args, s, reservedRootNames())
+	if err != nil {
+		handleErr(err)
+		return
+	}
 	if !ok {
 		return
 	}

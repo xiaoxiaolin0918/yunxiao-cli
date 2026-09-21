@@ -13,7 +13,8 @@ import (
 var aliasCmd = &cobra.Command{
 	Use:   "alias",
 	Short: "Manage local command aliases (cannot embed --yes)",
-	Long: `Risk: read for list; write for set/delete (local file only).
+	Long: `Risk: read for list; write for set/delete (local file only — not high-risk-write, no --yes required).
+Global --dry-run previews set/delete without writing aliases.json.
 
 Aliases expand the first command token into argv tokens. They must NOT embed
 --yes / -y — high-risk confirmation stays on the invocation line.
@@ -72,16 +73,26 @@ var aliasSetCmd = &cobra.Command{
 			return
 		}
 		s[name] = append([]string{}, exp...)
+		p, _ := alias.Path()
+		meta := map[string]any{"risk": risk.Write}
+		if globalDryRun {
+			meta["dry_run"] = true
+			handleErr(output.Success(map[string]any{
+				"name":      name,
+				"expansion": exp,
+				"path":      p,
+			}, meta))
+			return
+		}
 		if err := alias.Save(s); err != nil {
 			handleErr(err)
 			return
 		}
-		p, _ := alias.Path()
 		handleErr(output.Success(map[string]any{
 			"name":      name,
 			"expansion": exp,
 			"path":      p,
-		}, map[string]any{"risk": risk.Write}))
+		}, meta))
 	},
 }
 
@@ -123,10 +134,16 @@ var aliasDeleteCmd = &cobra.Command{
 			return
 		}
 		delete(s, name)
+		meta := map[string]any{"risk": risk.Write}
+		if globalDryRun {
+			meta["dry_run"] = true
+			handleErr(output.Success(map[string]any{"deleted": name}, meta))
+			return
+		}
 		if err := alias.Save(s); err != nil {
 			handleErr(err)
 			return
 		}
-		handleErr(output.Success(map[string]any{"deleted": name}, map[string]any{"risk": risk.Write}))
+		handleErr(output.Success(map[string]any{"deleted": name}, meta))
 	},
 }
