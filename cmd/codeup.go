@@ -1140,7 +1140,7 @@ var codeupCompareCmd = &cobra.Command{
 	},
 }
 
-var codeupMrsCommentsCmd = &cobra.Command{Use: "comments", Short: "MR comments"}
+var codeupMrsCommentsCmd = &cobra.Command{Use: "comments", Short: "MR comments (list/create/resolve/reopen)"}
 
 var codeupMrsCommentsListCmd = &cobra.Command{
 	Use:   "list",
@@ -1262,6 +1262,67 @@ INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-
 		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs comments create", risk.Write, "POST", path, nil, body, nil))
 	},
 }
+
+
+var codeupMrsCommentsResolveCmd = &cobra.Command{
+	Use:   "resolve",
+	Short: "Mark an MR comment resolved (write)",
+	Long: `Risk: write
+HTTP: PUT .../changeRequests/{localId}/comments/{commentBizId}
+OpenAPI: UpdateChangeRequestComment — body {"resolved": true}
+
+  yunxiao codeup mrs comments resolve --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run`,
+	Run: func(cmd *cobra.Command, args []string) {
+		runMrsCommentResolved(cmd, true)
+	},
+}
+
+var codeupMrsCommentsReopenCmd = &cobra.Command{
+	Use:   "reopen",
+	Short: "Reopen a resolved MR comment (write)",
+	Long: `Risk: write
+HTTP: PUT .../changeRequests/{localId}/comments/{commentBizId}
+OpenAPI: UpdateChangeRequestComment — body {"resolved": false}
+
+  yunxiao codeup mrs comments reopen --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run`,
+	Run: func(cmd *cobra.Command, args []string) {
+		runMrsCommentResolved(cmd, false)
+	},
+}
+
+func runMrsCommentResolved(cmd *cobra.Command, resolved bool) {
+	flagOrg(globalOrg)
+	repo, _ := cmd.Flags().GetString("repo")
+	localID, _ := cmd.Flags().GetString("local-id")
+	bizID, _ := cmd.Flags().GetString("comment-biz-id")
+	if err := requireFlags("repo", repo, "local-id", localID, "comment-biz-id", bizID); err != nil {
+		handleErr(err)
+		return
+	}
+	repositoryID, err := resolveCodeupRepo(repo)
+	if err != nil {
+		handleErr(err)
+		return
+	}
+	c, _, err := mustClient()
+	if err != nil {
+		handleErr(err)
+		return
+	}
+	repoID := client.EncodeRepoID(repositoryID)
+	path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests/"+localID+"/comments/"+bizID)
+	if err != nil {
+		handleErr(err)
+		return
+	}
+	action := "codeup mrs comments resolve"
+	if !resolved {
+		action = "codeup mrs comments reopen"
+	}
+	body := map[string]any{"resolved": resolved}
+	handleErr(runJSONMutating(cmd.Context(), c, action, risk.Write, "PUT", path, nil, body, nil))
+}
+
 
 var codeupMrsLabelsCmd = &cobra.Command{Use: "labels", Short: "MR labels (list/attach; no detach OpenAPI)"}
 
@@ -1528,7 +1589,13 @@ func init() {
 	codeupMrsReviewersAddCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsReviewersAddCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsReviewersAddCmd.Flags().String("reviewer", "", "reviewer userId(s), comma-separated (OpenAPI person/REVIEWER body userIds)")
-	codeupMrsCommentsCmd.AddCommand(codeupMrsCommentsListCmd, codeupMrsCommentsCreateCmd)
+	codeupMrsCommentsResolveCmd.Flags().String("repo", "", "repository id or alias (required)")
+	codeupMrsCommentsResolveCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsCommentsResolveCmd.Flags().String("comment-biz-id", "", "comment biz id from comments list (required)")
+	codeupMrsCommentsReopenCmd.Flags().String("repo", "", "repository id or alias (required)")
+	codeupMrsCommentsReopenCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsCommentsReopenCmd.Flags().String("comment-biz-id", "", "comment biz id from comments list (required)")
+	codeupMrsCommentsCmd.AddCommand(codeupMrsCommentsListCmd, codeupMrsCommentsCreateCmd, codeupMrsCommentsResolveCmd, codeupMrsCommentsReopenCmd)
 	codeupMrsLabelsCmd.AddCommand(codeupMrsLabelsListCmd, codeupMrsLabelsAttachCmd)
 	codeupMrsReviewersCmd.AddCommand(codeupMrsReviewersAddCmd)
 	codeupMrsCmd.AddCommand(codeupMrsListCmd, codeupMrsGetCmd, codeupMrsUpdateCmd, codeupMrsLinkCmd, codeupMrsUnlinkCmd, codeupMrsDiffsCmd, codeupMrsCommentsCmd, codeupMrsLabelsCmd, codeupMrsReviewersCmd, codeupMrsCreateCmd, codeupMrsMergeCmd, codeupMrsCloseCmd, codeupMrsReviewCmd, codeupMrsReopenCmd)
