@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/yunxiao-cli/yunxiao/internal/alias"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/version"
 )
@@ -54,9 +56,23 @@ var (
 )
 
 func Execute() {
+	expandAliases()
 	if err := rootCmd.Execute(); err != nil {
 		handleErr(err)
 	}
+}
+
+func expandAliases() {
+	s, err := alias.Load()
+	if err != nil || len(s) == 0 {
+		return
+	}
+	newArgs, name, ok := alias.ExpandArgs(os.Args, s, reservedRootNames())
+	if !ok {
+		return
+	}
+	os.Args = newArgs
+	fmt.Fprintf(os.Stderr, "alias: %s -> %s\n", name, strings.Join(newArgs[1:], " "))
 }
 
 func init() {
@@ -73,6 +89,7 @@ func init() {
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(doctorCmd)
 	rootCmd.AddCommand(browseCmd)
+	rootCmd.AddCommand(aliasCmd)
 	rootCmd.AddCommand(whoamiCmd)
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(schemaCmd)

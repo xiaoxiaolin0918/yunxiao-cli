@@ -1,0 +1,37 @@
+name: npm-publish
+
+# Configure npm Trusted Publisher (OIDC) for sanzhi-yunxiao-cli before relying on this.
+# Manual dispatch only until then. See docs/wiki/00-process/npm-oidc-publish.md.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag already released (e.g. v0.16.14)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+      - name: Verify checksums for tag
+        run: |
+          ver="${{ inputs.tag }}"
+          ver="${ver#v}"
+          grep -F "yunxiao-cli-${ver}-" npm/checksums.txt
+      - name: Publish
+        working-directory: npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

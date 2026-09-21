@@ -18,3 +18,8 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check command docs
+        run: python scripts/check_command_docs.py

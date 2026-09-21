@@ -6,7 +6,8 @@
 |------|------|----------|
 | 认证 | `yunxiao auth` | login 写本地凭证 |
 | 健康检查 | `yunxiao doctor` / `whoami` | read |
-| 打开控制台 | `yunxiao browse` | read；`--print-only` 只打印 URL |
+| 打开控制台 | `yunxiao browse` | read；`--print-only` / `--dry-run` 只打印 URL |
+| 本地别名 | `yunxiao alias` | set/list/delete；禁止别名内嵌 `--yes`/`-y` |
 | 组织/项目 | `organization` / `project` / `+onboard` | 读多写少；删项目高风险 |
 | 工作项 | `workitem` | 创建/更新/流转多为 write；高风险看 help |
 | Codeup | `codeup`（`mrs` / `+open-mrs` / `+create`） | 创建 MR/保护分支等高风险需 `--yes` |
