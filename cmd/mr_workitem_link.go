@@ -384,12 +384,20 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 	}
 	if len(missing) == 0 {
 		meta["work_item_linked"] = true
-		return map[string]any{
+		out := map[string]any{
 			"localId":       localID,
 			"linked":        mrlink.InternalIDs(wanted),
 			"created":       []string{},
 			"alreadyLinked": true,
-		}, meta, nil
+		}
+		if dryRun {
+			return nil, nil, output.DryRunResult(string(risk.Write), map[string]any{
+				"method": "POST",
+				"url":    "(noop: already linked)",
+				"body":   out,
+			})
+		}
+		return out, meta, nil
 	}
 
 	firstID := missing[0]
@@ -496,12 +504,20 @@ func unlinkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, loca
 
 	if len(targets) == 0 {
 		meta["work_item_unlinked"] = true
-		return output.Success(map[string]any{
+		out := map[string]any{
 			"localId":         localID,
 			"deleted":         []string{},
 			"alreadyUnlinked": true,
 			"skipped":         skipped,
-		}, meta)
+		}
+		if dryRun {
+			return output.DryRunResult(string(risk.Write), map[string]any{
+				"method": "DELETE",
+				"url":    "(noop: already unlinked)",
+				"body":   out,
+			})
+		}
+		return output.Success(out, meta)
 	}
 
 	if dryRun {
