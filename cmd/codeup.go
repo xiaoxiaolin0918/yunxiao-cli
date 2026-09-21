@@ -289,7 +289,7 @@ verifies via workitem extRelationRecords, attempts repair if needed, and fails
 			return
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite}
-		mrMap := zhiyi.StabilizeMergeRequest(asStringMap(out))
+		mrMap := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
 		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
 			handleErr(err)
@@ -875,13 +875,7 @@ var codeupMrsGetCmd = &cobra.Command{
 		}
 		brief, _ := cmd.Flags().GetBool("brief")
 		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
-			m := asStringMap(out)
-			if m != nil {
-				if inner := asStringMap(m["data"]); inner != nil && zhiyi.MRStatus(m) == "" && zhiyi.MRStatus(inner) != "" {
-					m = inner
-				}
-				m = zhiyi.StabilizeMergeRequest(m)
-			}
+			m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 			zhiyi.EnrichMergeRequestMeta(meta, m)
 			if brief {
 				return zhiyi.BriefMergeRequest(m), meta
@@ -936,7 +930,7 @@ var codeupMrsUpdateCmd = &cobra.Command{
 		}
 		full, _ := cmd.Flags().GetBool("full")
 		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
-			m := zhiyi.StabilizeMergeRequest(asStringMap(out))
+			m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 			zhiyi.EnrichMergeRequestMeta(meta, m)
 			if full {
 				return m, meta

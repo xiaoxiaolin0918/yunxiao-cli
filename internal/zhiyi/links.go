@@ -159,6 +159,24 @@ func MergeRequestURL(mr map[string]any) string {
 	return ""
 }
 
+// UnwrapMergeRequestPayload returns the inner MR object when the API wraps it as {"data": {...}}.
+func UnwrapMergeRequestPayload(out map[string]any) map[string]any {
+	if out == nil {
+		return nil
+	}
+	inner, ok := out["data"].(map[string]any)
+	if !ok || inner == nil {
+		return out
+	}
+	// Prefer inner when it looks like an MR (has status/localId/title) and outer does not.
+	if MRStatus(out) == "" && localIDString(out) == "" {
+		if MRStatus(inner) != "" || localIDString(inner) != "" || stringField(inner, "title") != "" {
+			return inner
+		}
+	}
+	return out
+}
+
 // MRStatus returns the merge-request lifecycle status.
 // Codeup GetChangeRequest uses "status" (UNDER_REVIEW/MERGED/...); list UIs sometimes label it "state".
 func MRStatus(mr map[string]any) string {

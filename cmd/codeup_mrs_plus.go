@@ -16,6 +16,8 @@ var codeupMrsPlusCreateCmd = &cobra.Command{
 	Short: "Shortcut: create MR with repo alias, WIP title, work-item link",
 	Long: `Risk: high-risk-write (requires --yes after confirmation; prefer --dry-run first)
 
+Success prints a brief MR summary (localId/title/status/url); pass --full for the raw object.
+
 Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 "codeup mrs create".
 
@@ -123,7 +125,7 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 			handleErr(err)
 			return
 		}
-		mrMap := zhiyi.StabilizeMergeRequest(asStringMap(out))
+		mrMap := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		zhiyi.EnrichMergeRequestMeta(meta, mrMap)
 		if err := ensureMRWorkItemLinks(cmd.Context(), c, repositoryID, resolvedWorkItems, mrMap, meta); err != nil {
 			handleErr(err)

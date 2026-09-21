@@ -28,7 +28,7 @@ yunxiao codeup +open-mrs --repo <numericRepoId>
 
 ## MR `url`（CLI 0.15.x）
 
-`codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）。`mrs get` / `create` / `+create` 写入 `meta.url`。
+`codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`；`--brief` 只出 localId/title/status/state/url。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
 
 ```bash
 yunxiao codeup mrs list --state opened
@@ -107,7 +107,8 @@ yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 均为 **high-risk-write**（尤其 merge 会改写目标分支）。
 
 ```bash
-yunxiao codeup mrs get --repo <id> --local-id 1
+yunxiao codeup mrs get --repo <id> --local-id 1 --brief
+yunxiao codeup mrs update --repo <id> --local-id 1 --title "WIP: docs" --dry-run
 yunxiao codeup mrs diffs --repo <id> --local-id 1
 yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 yunxiao codeup compare --repo <id> --from master --to feature

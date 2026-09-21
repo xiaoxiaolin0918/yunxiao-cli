@@ -35,3 +35,11 @@ func TestMRStatus_IgnoresAuthorState(t *testing.T) {
 		t.Fatalf("got %q", MRStatus(mr))
 	}
 }
+
+func TestUnwrapMergeRequestPayload(t *testing.T) {
+	wrapped := map[string]any{"data": map[string]any{"localId": float64(1), "status": "MERGED", "title": "t"}}
+	got := StabilizeMergeRequest(UnwrapMergeRequestPayload(wrapped))
+	if got["state"] != "MERGED" || got["title"] != "t" {
+		t.Fatalf("%#v", got)
+	}
+}
