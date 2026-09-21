@@ -115,4 +115,22 @@ func TestFormatMissingLinkError(t *testing.T) {
 	if !strings.Contains(msg, "abc") || !strings.Contains(msg, "https://example/mr/1") {
 		t.Fatalf("msg=%q", msg)
 	}
+	if !strings.Contains(msg, "yunxiao codeup mrs link") {
+		t.Fatalf("should suggest mrs link: %q", msg)
+	}
+}
+
+func TestRelationRecordID(t *testing.T) {
+	if got := RelationRecordID(map[string]any{"relationRecordId": "rr-1"}); got != "rr-1" {
+		t.Fatalf("relationRecordId: %q", got)
+	}
+	if got := RelationRecordID(map[string]any{"id": "legacy-id"}); got != "legacy-id" {
+		t.Fatalf("id fallback: %q", got)
+	}
+	if got := RelationRecordID(map[string]any{"relationRecordId": "rr", "id": "other"}); got != "rr" {
+		t.Fatalf("prefer relationRecordId: %q", got)
+	}
+	if got := RelationRecordID(nil); got != "" {
+		t.Fatalf("nil: %q", got)
+	}
 }
