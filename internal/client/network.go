@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const writeNetworkHintPrefix = "check before retry:"
+
 // IsTransientNetworkError reports connection-level failures (reset, timeout, EOF),
 // not HTTP 4xx/5xx APIError bodies. Used to decide GET retries and write-side dedupe hints (#47).
 func IsTransientNetworkError(err error) bool {
@@ -50,8 +52,26 @@ func IsTransientNetworkError(err error) bool {
 	return false
 }
 
+// stripWriteNetworkHint unwraps prior AnnotateWriteNetworkError layers so a more
+// specific hint can replace a generic one (avoids stacked "check before retry:" lines).
+func stripWriteNetworkHint(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	idx := strings.Index(msg, "\n"+writeNetworkHintPrefix)
+	if idx < 0 {
+		return err
+	}
+	base := strings.TrimSpace(msg[:idx])
+	if base == "" {
+		return err
+	}
+	return errors.New(base)
+}
+
 // AnnotateWriteNetworkError appends a dedupe hint when a non-idempotent call failed at the network layer.
-// Server may already have applied the write; callers should search before retrying.
+// If err already contains a check-before-retry line, it is replaced with the new hint (more specific wins).
 func AnnotateWriteNetworkError(err error, method, hint string) error {
 	if err == nil || !IsTransientNetworkError(err) {
 		return err
@@ -60,9 +80,10 @@ func AnnotateWriteNetworkError(err error, method, hint string) error {
 	if m == "GET" || m == "HEAD" {
 		return err
 	}
+	base := stripWriteNetworkHint(err)
 	hint = strings.TrimSpace(hint)
 	if hint == "" {
 		hint = "search existing resources before retrying (server may have applied the write)"
 	}
-	return fmt.Errorf("%w\ncheck before retry: %s", err, hint)
+	return fmt.Errorf("%w\n%s %s", base, writeNetworkHintPrefix, hint)
 }

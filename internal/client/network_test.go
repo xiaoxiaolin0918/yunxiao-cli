@@ -97,3 +97,16 @@ func TestPostNetworkErrorAnnotated(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestAnnotateWriteNetworkError_ReplacesPriorHint(t *testing.T) {
+	base := fmt.Errorf("request failed: connection reset")
+	generic := AnnotateWriteNetworkError(base, "POST", "")
+	specific := AnnotateWriteNetworkError(generic, "POST", `yunxiao codeup mrs list --repo r --search "t"`)
+	msg := specific.Error()
+	if strings.Count(msg, writeNetworkHintPrefix) != 1 {
+		t.Fatalf("want one hint line, got %q", msg)
+	}
+	if !strings.Contains(msg, "mrs list") || strings.Contains(msg, "search existing resources") {
+		t.Fatalf("want specific hint only: %q", msg)
+	}
+}
