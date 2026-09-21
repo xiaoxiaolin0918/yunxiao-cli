@@ -285,7 +285,7 @@ verifies via workitem extRelationRecords, attempts repair if needed, and fails
 		}
 		var out any
 		if err := c.Post(cmd.Context(), path, body, &out); err != nil {
-			handleErr(err)
+			handleErr(withWriteDedupeHint(err, mrsListSearchHint(repo, title)))
 			return
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite}

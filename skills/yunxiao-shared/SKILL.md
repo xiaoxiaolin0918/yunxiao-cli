@@ -141,3 +141,5 @@ yunxiao update --yes            # 非交互直接更新（脚本/CI）
 
 - `yunxiao alias set <name> <cmd> [args...]` — must not embed `--yes`/`-y`
 - File: `~/.config/yunxiao/aliases.json`
+
+> **Network (#47):** GETs retry transient transport errors; create/write network failures print check before retry: with a list/search command — run it before re-POSTing.

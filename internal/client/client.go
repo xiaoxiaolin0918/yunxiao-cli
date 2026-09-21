@@ -165,10 +165,10 @@ type RequestPreview struct {
 
 func (c *Client) Preview(method, path string, query map[string]string, body any) RequestPreview {
 	return RequestPreview{
-		Method: method,
-		URL:    c.buildURL(path, query),
+		Method:  method,
+		URL:     c.buildURL(path, query),
 		Headers: c.previewHeaders(),
-		Body: body,
+		Body:    body,
 	}
 }
 
@@ -528,7 +528,7 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 			lastErr = fmt.Errorf("request failed: %w", err)
 			lastHeader, lastStatus = nil, 0
 			if attempt+1 >= attempts || !idempotentMethod(method) {
-				return nil, 0, lastErr
+				return nil, 0, AnnotateWriteNetworkError(lastErr, method, "")
 			}
 			if err := sleepWithContext(ctx, backoffDuration(attempt, nil)); err != nil {
 				return nil, 0, err

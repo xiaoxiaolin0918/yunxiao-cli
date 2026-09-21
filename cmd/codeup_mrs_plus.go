@@ -122,7 +122,7 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 		}
 		var out any
 		if err := c.Post(cmd.Context(), path, body, &out); err != nil {
-			handleErr(err)
+			handleErr(withWriteDedupeHint(err, mrsListSearchHint(repo, title)))
 			return
 		}
 		mrMap := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))

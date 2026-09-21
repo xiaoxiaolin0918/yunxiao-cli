@@ -190,7 +190,7 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 
 		var created map[string]any
 		if err := c.Post(cmd.Context(), path, body, &created); err != nil {
-			handleErr(err)
+			handleErr(withWriteDedupeHint(err, workitemSearchHint(title)))
 			return
 		}
 		internal := zhiyi.InternalID(created)
