@@ -493,6 +493,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.14** — `yunxiao alias` (no embedded `--yes`); command-docs CI check; npm/OIDC publish eval (#38–#40)
 - **0.16.13** — `yunxiao browse` (pipeline/workitem/mr/repo/url, `--print-only`); human 30s README; usage index + gh/yx migration; completion docs (#34–#37)
 - **0.16.12** — Codeup MR workItemIds as OpenAPI string + fail if link missing
 - **0.16.11** — +pending --all-pipelines soft-fail meta; update --validate noop only when full YAML+name match; --check (#29/#30)

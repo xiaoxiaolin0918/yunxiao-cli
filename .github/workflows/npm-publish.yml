@@ -1,0 +1,39 @@
+name: npm-publish
+
+# Transition auth model (read docs/wiki/00-process/npm-oidc-publish.md):
+# - Today: still needs secrets.NPM_TOKEN (NODE_AUTH_TOKEN) until npm Trusted Publisher is configured.
+# - After Trusted Publisher works for sanzhi-yunxiao-cli: remove NPM_TOKEN and keep OIDC + --provenance only.
+# Manual dispatch only. Primary install path remains GitHub Releases.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag already released (e.g. v0.16.14)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+      - name: Verify checksums for tag
+        run: |
+          ver="${{ inputs.tag }}"
+          ver="${ver#v}"
+          grep -F "yunxiao-cli-${ver}-" npm/checksums.txt
+      - name: Publish
+        working-directory: npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

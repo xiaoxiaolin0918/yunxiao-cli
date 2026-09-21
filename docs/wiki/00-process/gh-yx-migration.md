@@ -11,7 +11,7 @@
 | `yx browse` | `yunxiao browse` | pipeline / workitem / mr / repo / url；`--print-only` |
 | `yx status` | （缺口）可用 `+pending`、`+open-mrs`、`workitem search` 组合 | 见 Known gaps |
 | `yx search` | 各域 `list` / `workitem search` | 无统一 search 入口 |
-| `yx alias` | （缺口）暂用 shell alias；二进制 alias 见 issue #38 | 别名不得绕过 `--yes` |
+| `yx alias` | `yunxiao alias set|list|delete` | 别名不得内嵌 `--yes`/`-y`；存 `~/.config/yunxiao/aliases.json` |
 | `yx auth login --token` | `yunxiao auth login --browser` 或 `--token` | 推荐 OAuth |
 | 配置 `~/.yx` | `~/.config/yunxiao/` + profiles | 多租户用 `--profile` |
 
