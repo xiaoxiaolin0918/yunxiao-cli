@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.1.1
+version: 1.1.2
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -109,6 +109,9 @@ yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 ```bash
 yunxiao codeup mrs get --repo <id> --local-id 1 --brief
 yunxiao codeup mrs update --repo <id> --local-id 1 --title "WIP: docs" --dry-run
+yunxiao codeup mrs update --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
+yunxiao codeup mrs link --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
+yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs diffs --repo <id> --local-id 1
 yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 yunxiao codeup compare --repo <id> --from master --to feature
@@ -167,7 +170,13 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 - --work-item on mrs create / mrs +create: body sends comma-separated workItemIds string.
 - After create: verify via workitem extRelationRecords (category codeupMergeRequest); repair once if missing; **fail** if still missing.
-- Remediation when failed: close the MR and recreate with 0.16.12+, or link in Codeup web UI (post-create OpenAPI often cannot rely on create response fields alone).
+- Remediation when failed (0.16.17+): `yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial>` (or `mrs update --work-item`); older: close/recreate or Codeup web UI.
+
+## Link / unlink existing MR (0.16.17+ / #54)
+
+- Push-created MRs cannot carry workItemIds; use `mrs link` / `mrs unlink` / `mrs update --work-item`.
+- API: Projex extRelationRecords create/list/delete (`category=codeupMergeRequest`); **not** UpdateChangeRequest.
+- Idempotent; prefer `--dry-run` first.
 
 ## Browse
 

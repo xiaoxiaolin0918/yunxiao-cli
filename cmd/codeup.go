@@ -29,7 +29,7 @@ Typed:
   yunxiao codeup protected-branches list|get|create|delete --repo <id|alias>
   yunxiao codeup files tree|get|create|update|delete --repo <id|alias>
   yunxiao codeup commits list --repo <id|alias> --ref <branch>
-  yunxiao codeup mrs list|get|update|diffs|comments|labels|reviewers|create|merge|close|review|reopen
+  yunxiao codeup mrs list|get|update|link|unlink|diffs|comments|labels|reviewers|create|merge|close|review|reopen
   yunxiao codeup compare --repo <id|alias> --from <ref> --to <ref>
 
 --repo accepts numeric id, profile.repositories alias, or org/repo path.
@@ -887,22 +887,34 @@ var codeupMrsGetCmd = &cobra.Command{
 
 var codeupMrsUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update merge request title/description (write)",
-	Long:  "Risk: write\nHTTP: PUT .../changeRequests/{localId}\n\nPrefer --dry-run first; real writes run only when not dry-run (Write risk, same path as other mrs write cmds).\nUpdates title and/or description (UpdateChangeRequest). At least one of --title / --description required.\nUseful to add a WIP: prefix after push-created MRs.\n\n  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title \"WIP: docs\" --dry-run",
+	Short: "Update merge request title/description and/or link work items (write)",
+	Long: `Risk: write
+HTTP: PUT .../changeRequests/{localId} (title/description);
+      POST .../workitems/{id}/extRelationRecords when --work-item is set
+
+Prefer --dry-run first; real writes run only when not dry-run (Write risk).
+At least one of --title / --description / --work-item required.
+--work-item is additive (same as mrs link); does not use UpdateChangeRequest for links.
+
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --dry-run
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item ZYPT-5573`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
 		localID, _ := cmd.Flags().GetString("local-id")
 		title, _ := cmd.Flags().GetString("title")
 		desc, _ := cmd.Flags().GetString("description")
+		workItemCSV, _ := cmd.Flags().GetString("work-item")
 		if err := requireFlags("repo", repo, "local-id", localID); err != nil {
 			handleErr(err)
 			return
 		}
 		title = strings.TrimSpace(title)
 		desc = strings.TrimSpace(desc)
-		if title == "" && desc == "" {
-			handleErr(fmt.Errorf("provide --title and/or --description"))
+		refs := collectWorkItemRefs(workItemCSV, nil)
+		if title == "" && desc == "" && len(refs) == 0 {
+			handleErr(fmt.Errorf("provide --title and/or --description and/or --work-item"))
 			return
 		}
 		repositoryID, err := resolveCodeupRepo(repo)
@@ -915,6 +927,15 @@ var codeupMrsUpdateCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
+		full, _ := cmd.Flags().GetBool("full")
+		hasTitleDesc := title != "" || desc != ""
+
+		// Work-item only: same as mrs link (incl. dry-run preview of extRelationRecords POST).
+		if !hasTitleDesc {
+			handleErr(runMrsUpdateWorkItemLinks(cmd, c, repositoryID, localID, refs))
+			return
+		}
+
 		repoID := client.EncodeRepoID(repositoryID)
 		path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests/"+localID)
 		if err != nil {
@@ -928,15 +949,56 @@ var codeupMrsUpdateCmd = &cobra.Command{
 		if desc != "" {
 			body["description"] = desc
 		}
-		full, _ := cmd.Flags().GetBool("full")
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
-			m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
-			zhiyi.EnrichMergeRequestMeta(meta, m)
-			if full {
-				return m, meta
+
+		// Title/description only (or dry-run of PUT when combined): use shared mutating helper.
+		if len(refs) == 0 || globalDryRun {
+			handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
+				m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
+				zhiyi.EnrichMergeRequestMeta(meta, m)
+				if full {
+					return m, meta
+				}
+				return zhiyi.BriefMergeRequest(m), meta
+			}))
+			return
+		}
+
+		// Combined title/description + work-item (real write): one envelope after PUT + link.
+		var out any
+		if _, err := c.Do(cmd.Context(), "PUT", path, nil, body, &out); err != nil {
+			handleErr(err)
+			return
+		}
+		m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
+		meta := map[string]any{"risk": risk.Write}
+		zhiyi.EnrichMergeRequestMeta(meta, m)
+		resolved, resErr := resolveWorkItemsForMR(cmd.Context(), c, refs, "")
+		if resErr != nil {
+			handleErr(resErr)
+			return
+		}
+		linkOut, linkMeta, linkErr := applyMRWorkItemLinks(cmd.Context(), c, repositoryID, localID, resolved, false)
+		if linkMeta != nil {
+			for k, v := range linkMeta {
+				if k == "risk" {
+					continue
+				}
+				meta[k] = v
 			}
-			return zhiyi.BriefMergeRequest(m), meta
-		}))
+		}
+		if linkOut != nil {
+			meta["work_item_link_result"] = linkOut
+		}
+		var data any = m
+		if !full {
+			data = zhiyi.BriefMergeRequest(m)
+		}
+		if linkErr != nil {
+			_ = output.Success(data, meta)
+			handleErr(linkErr)
+			return
+		}
+		handleErr(output.Success(data, meta))
 	},
 }
 
@@ -1392,7 +1454,14 @@ func init() {
 	codeupMrsUpdateCmd.Flags().String("local-id", "", "MR local id")
 	codeupMrsUpdateCmd.Flags().String("title", "", "new title")
 	codeupMrsUpdateCmd.Flags().String("description", "", "new description")
+	codeupMrsUpdateCmd.Flags().String("work-item", "", "work item serial(s) or id(s), comma-separated; additive link via extRelationRecords")
 	codeupMrsUpdateCmd.Flags().Bool("full", false, "print full MR object instead of brief summary")
+	codeupMrsLinkCmd.Flags().String("repo", "", "repository id or alias (required)")
+	codeupMrsLinkCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsLinkCmd.Flags().String("work-item", "", "work item serial(s) or id(s), comma-separated")
+	codeupMrsUnlinkCmd.Flags().String("repo", "", "repository id or alias (required)")
+	codeupMrsUnlinkCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsUnlinkCmd.Flags().String("work-item", "", "work item serial(s) or id(s), comma-separated")
 	codeupMrsDiffsCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsDiffsCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsReopenCmd.Flags().String("repo", "", "repository id or alias (required)")
@@ -1434,6 +1503,6 @@ func init() {
 	codeupMrsCommentsCmd.AddCommand(codeupMrsCommentsListCmd, codeupMrsCommentsCreateCmd)
 	codeupMrsLabelsCmd.AddCommand(codeupMrsLabelsListCmd, codeupMrsLabelsAttachCmd)
 	codeupMrsReviewersCmd.AddCommand(codeupMrsReviewersAddCmd)
-	codeupMrsCmd.AddCommand(codeupMrsListCmd, codeupMrsGetCmd, codeupMrsUpdateCmd, codeupMrsDiffsCmd, codeupMrsCommentsCmd, codeupMrsLabelsCmd, codeupMrsReviewersCmd, codeupMrsCreateCmd, codeupMrsMergeCmd, codeupMrsCloseCmd, codeupMrsReviewCmd, codeupMrsReopenCmd)
+	codeupMrsCmd.AddCommand(codeupMrsListCmd, codeupMrsGetCmd, codeupMrsUpdateCmd, codeupMrsLinkCmd, codeupMrsUnlinkCmd, codeupMrsDiffsCmd, codeupMrsCommentsCmd, codeupMrsLabelsCmd, codeupMrsReviewersCmd, codeupMrsCreateCmd, codeupMrsMergeCmd, codeupMrsCloseCmd, codeupMrsReviewCmd, codeupMrsReopenCmd)
 	codeupCmd.AddCommand(codeupReposCmd, codeupBranchesCmd, codeupFilesCmd, codeupCommitsCmd, codeupCompareCmd, codeupMrsCmd, codeupOpenMrsShortcut)
 }

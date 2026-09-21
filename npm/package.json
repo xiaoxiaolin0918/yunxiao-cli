@@ -1,6 +1,6 @@
 {
   "name": "sanzhi-yunxiao-cli",
-  "version": "0.16.16",
+  "version": "0.16.17",
   "description": "Yunxiao (云效) CLI — Feishu-style install (GitHub Releases)",
   "bin": {
     "yunxiao": "scripts/run.js"

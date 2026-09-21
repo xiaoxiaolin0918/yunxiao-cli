@@ -8,6 +8,8 @@ import (
 
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/mrlink"
+	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
@@ -277,4 +279,247 @@ func ensureMRWorkItemLinks(ctx context.Context, c *client.Client, projectID stri
 	meta["work_item_link_missing"] = missing
 	meta["work_item_linked"] = false
 	return fmt.Errorf("%s", mrlink.FormatMissingLinkError(missing, url))
+}
+
+func collectWorkItemRefs(csv string, args []string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(raw string) {
+		for _, p := range splitWorkItemRefs(raw) {
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
+			out = append(out, p)
+		}
+	}
+	add(csv)
+	for _, a := range args {
+		add(a)
+	}
+	return out
+}
+
+func relationRecordID(rel map[string]any) string {
+	return mrlink.RelationRecordID(rel)
+}
+
+func deleteWorkItemMRRelation(ctx context.Context, c *client.Client, workItemID, recordID string) error {
+	recordID = strings.TrimSpace(recordID)
+	if recordID == "" {
+		return fmt.Errorf("missing relationRecordId for work item %s", workItemID)
+	}
+	path, err := c.ProjexPath(ctx, "/workitems/"+workItemID+"/extRelationRecords/"+recordID)
+	if err != nil {
+		return err
+	}
+	return c.Delete(ctx, path, nil, nil)
+}
+
+func getChangeRequestMap(ctx context.Context, c *client.Client, repositoryID, localID string) (map[string]any, error) {
+	repoID := client.EncodeRepoID(repositoryID)
+	path, err := c.CodeupPath(ctx, "/repositories/"+repoID+"/changeRequests/"+localID)
+	if err != nil {
+		return nil, err
+	}
+	var out any
+	if err := c.Get(ctx, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out))), nil
+}
+
+// linkMRWorkItems creates missing codeupMergeRequest extRelationRecords (idempotent).
+// On dry-run, previews the first create POST after resolving/listing.
+func linkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, localID string, wanted []mrlink.ResolvedWorkItem, dryRun bool) error {
+	out, meta, err := applyMRWorkItemLinks(ctx, c, repositoryID, localID, wanted, dryRun)
+	if err != nil {
+		if out != nil && meta != nil {
+			_ = output.Success(out, meta)
+		}
+		return err
+	}
+	if out == nil {
+		// DryRunResult already written by applyMRWorkItemLinks
+		return nil
+	}
+	return output.Success(out, meta)
+}
+
+// applyMRWorkItemLinks performs link; when dryRun is true it emits DryRunResult and returns (nil,nil,nil).
+func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, localID string, wanted []mrlink.ResolvedWorkItem, dryRun bool) (any, map[string]any, error) {
+	if len(wanted) == 0 {
+		return nil, nil, fmt.Errorf("provide --work-item and/or work item args")
+	}
+	mr, err := getChangeRequestMap(ctx, c, repositoryID, localID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get MR %s: %w", localID, err)
+	}
+	projectID := numericOrEmpty(repositoryID)
+	if projectID == "" {
+		projectID = strings.TrimSpace(fmt.Sprint(mr["projectId"]))
+		if projectID == "<nil>" {
+			projectID = ""
+		}
+	}
+	title, _ := mr["title"].(string)
+	source, _ := mr["sourceBranch"].(string)
+	target, _ := mr["targetBranch"].(string)
+	url := mrURLFrom(nil, mr)
+	if lid := mrLocalID(mr); lid != "" {
+		localID = lid
+	}
+
+	missing, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted)
+	if err != nil {
+		return nil, nil, err
+	}
+	meta := map[string]any{
+		"risk":               risk.Write,
+		"local_id":           localID,
+		"repo_id":            repositoryID,
+		"work_item_ids_sent": mrlink.WorkItemIDsCSV(mrlink.InternalIDs(wanted)),
+		"already_linked":     len(wanted) - len(missing),
+		"to_link":            len(missing),
+	}
+	if len(missing) == 0 {
+		meta["work_item_linked"] = true
+		return map[string]any{
+			"localId":       localID,
+			"linked":        mrlink.InternalIDs(wanted),
+			"created":       []string{},
+			"alreadyLinked": true,
+		}, meta, nil
+	}
+
+	firstID := missing[0]
+	path, err := c.ProjexPath(ctx, "/workitems/"+firstID+"/extRelationRecords")
+	if err != nil {
+		return nil, nil, err
+	}
+	body := map[string]any{
+		"category":       "codeupMergeRequest",
+		"mergeRequestId": localID,
+		"projectId":      projectID,
+	}
+	if title != "" {
+		body["title"] = title
+	}
+	if url != "" {
+		body["url"] = url
+	}
+	if source != "" {
+		body["sourceBranch"] = source
+	}
+	if target != "" {
+		body["targetBranch"] = target
+	}
+	if dryRun {
+		return nil, nil, output.DryRunResult(string(risk.Write), c.Preview("POST", path, nil, body))
+	}
+
+	var created []string
+	var still []string
+	for _, id := range missing {
+		if err := createWorkItemMRRelation(ctx, c, id, projectID, localID, title, url, source, target); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: CreateWorkitemExtRelationRecord for %s failed: %v\n", id, err)
+			still = append(still, id)
+			continue
+		}
+		created = append(created, id)
+	}
+	if recheck, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted); err == nil {
+		still = recheck
+	}
+	meta["created"] = created
+	meta["work_item_link_missing"] = still
+	meta["work_item_linked"] = len(still) == 0
+	out := map[string]any{
+		"localId": localID,
+		"created": created,
+		"linked":  mrlink.InternalIDs(wanted),
+	}
+	if len(still) > 0 {
+		out["missing"] = still
+		return out, meta, fmt.Errorf("%s", mrlink.FormatMissingLinkError(still, url))
+	}
+	return out, meta, nil
+}
+
+// unlinkMRWorkItems deletes matching codeupMergeRequest extRelationRecords (idempotent).
+func unlinkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, localID string, wanted []mrlink.ResolvedWorkItem, dryRun bool) error {
+	if len(wanted) == 0 {
+		return fmt.Errorf("provide --work-item and/or work item args")
+	}
+	projectID := numericOrEmpty(repositoryID)
+	meta := map[string]any{
+		"risk":     risk.Write,
+		"local_id": localID,
+		"repo_id":  repositoryID,
+	}
+
+	type delTarget struct {
+		workItemID string
+		recordID   string
+		path       string
+	}
+	var targets []delTarget
+	var skipped []string
+	for _, w := range wanted {
+		rels, err := listWorkItemMRRelations(ctx, c, w.InternalID)
+		if err != nil {
+			return fmt.Errorf("list extRelationRecords for %s: %w", w.InternalID, err)
+		}
+		found := false
+		for _, rel := range rels {
+			if !relationMatchesMR(rel, projectID, localID) {
+				continue
+			}
+			rid := relationRecordID(rel)
+			if rid == "" {
+				return fmt.Errorf("matching relation for work item %s has no relationRecordId", w.InternalID)
+			}
+			path, err := c.ProjexPath(ctx, "/workitems/"+w.InternalID+"/extRelationRecords/"+rid)
+			if err != nil {
+				return err
+			}
+			targets = append(targets, delTarget{workItemID: w.InternalID, recordID: rid, path: path})
+			found = true
+			break
+		}
+		if !found {
+			skipped = append(skipped, w.InternalID)
+		}
+	}
+	meta["already_unlinked"] = skipped
+	meta["to_unlink"] = len(targets)
+
+	if len(targets) == 0 {
+		meta["work_item_unlinked"] = true
+		return output.Success(map[string]any{
+			"localId":         localID,
+			"deleted":         []string{},
+			"alreadyUnlinked": true,
+			"skipped":         skipped,
+		}, meta)
+	}
+
+	if dryRun {
+		t := targets[0]
+		return output.DryRunResult(string(risk.Write), c.Preview("DELETE", t.path, nil, nil))
+	}
+
+	var deleted []string
+	for _, t := range targets {
+		if err := deleteWorkItemMRRelation(ctx, c, t.workItemID, t.recordID); err != nil {
+			return fmt.Errorf("delete extRelationRecord %s for %s: %w", t.recordID, t.workItemID, err)
+		}
+		deleted = append(deleted, t.workItemID)
+	}
+	meta["work_item_unlinked"] = true
+	return output.Success(map[string]any{
+		"localId": localID,
+		"deleted": deleted,
+		"skipped": skipped,
+	}, meta)
 }

@@ -22,3 +22,24 @@ CLI 0.16.12+：
 - 小写 `state`（CLI：`--state`，如 `opened`）
 
 `yunxiao codeup mrs list --help` 有 WARNING 说明。
+
+## 已有 MR 补挂 / 解绑（0.16.17+ / #54）
+
+推送评审仓自动创建的 MR、或建 MR 时漏传 `--work-item`，可用：
+
+```bash
+yunxiao codeup mrs link --repo <id> --local-id <n> --work-item ZYPT-5573 --dry-run
+yunxiao codeup mrs unlink --repo <id> --local-id <n> --work-item ZYPT-5573 --dry-run
+yunxiao codeup mrs update --repo <id> --local-id <n> --work-item ZYPT-5573 --dry-run
+```
+
+实现走 Projex `extRelationRecords`（`category=codeupMergeRequest`）：
+
+| 操作 | HTTP |
+|------|------|
+| 挂单 | `POST .../workitems/{id}/extRelationRecords`（body: mergeRequestId / projectId / 可选 title、url、branches） |
+| 列表 | `GET .../extRelationRecords?category=codeupMergeRequest` |
+| 解绑 | `DELETE .../extRelationRecords/{relationRecordId}` |
+
+**不要**用 `UpdateChangeRequest` / `mrs update` 的 title 字段去挂工作项；`mrs update --work-item` 内部同样走 extRelationRecords（加法、幂等）。
+
