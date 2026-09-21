@@ -146,7 +146,7 @@ func FormatMissingLinkWarning(missing []string) string {
 
 // FormatMissingLinkError is used when --work-item was required and links did not stick.
 func FormatMissingLinkError(missing []string, mrURL string) string {
-	base := fmt.Sprintf("work item link(s) missing after create (sent workItemIds as comma-separated string per OpenAPI): %s", strings.Join(missing, ", "))
+	base := fmt.Sprintf("work item link(s) missing (create or mrs link/update --work-item): %s", strings.Join(missing, ", "))
 	linkHint := "yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial>"
 	if mrURL != "" {
 		return base + "; MR exists at " + mrURL + " — link with `" + linkHint + "`, or close/recreate / web UI"

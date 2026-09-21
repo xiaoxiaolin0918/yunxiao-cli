@@ -950,8 +950,8 @@ At least one of --title / --description / --work-item required.
 			body["description"] = desc
 		}
 
-		// Title/description only (or dry-run of PUT when combined): use shared mutating helper.
-		if len(refs) == 0 || globalDryRun {
+		// Title/description only: shared mutating helper (incl. PUT dry-run).
+		if len(refs) == 0 {
 			handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
 				m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 				zhiyi.EnrichMergeRequestMeta(meta, m)
@@ -960,6 +960,40 @@ At least one of --title / --description / --work-item required.
 				}
 				return zhiyi.BriefMergeRequest(m), meta
 			}))
+			return
+		}
+
+		resolved, resErr := resolveWorkItemsForMR(cmd.Context(), c, refs, "")
+		if resErr != nil {
+			handleErr(resErr)
+			return
+		}
+
+		// Combined dry-run: preview PUT and work-item link in one envelope.
+		if globalDryRun {
+			linkPreview, linkMeta, linkErr := applyMRWorkItemLinks(cmd.Context(), c, repositoryID, localID, resolved, true)
+			if linkErr != nil {
+				handleErr(failWorkItemLink(linkErr, linkPreview, linkMeta))
+				return
+			}
+			putPrev := c.Preview("PUT", path, nil, body)
+			req := map[string]any{
+				"put": map[string]any{
+					"method":  putPrev.Method,
+					"url":     putPrev.URL,
+					"headers": putPrev.Headers,
+					"body":    putPrev.Body,
+				},
+				"link": linkPreview,
+			}
+			if linkMeta != nil {
+				req["link_meta"] = map[string]any{
+					"work_item_ids_sent": linkMeta["work_item_ids_sent"],
+					"already_linked":     linkMeta["already_linked"],
+					"to_link":            linkMeta["to_link"],
+				}
+			}
+			handleErr(output.DryRunResult(string(risk.Write), req))
 			return
 		}
 
@@ -972,11 +1006,6 @@ At least one of --title / --description / --work-item required.
 		m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		meta := map[string]any{"risk": risk.Write}
 		zhiyi.EnrichMergeRequestMeta(meta, m)
-		resolved, resErr := resolveWorkItemsForMR(cmd.Context(), c, refs, "")
-		if resErr != nil {
-			handleErr(resErr)
-			return
-		}
 		linkOut, linkMeta, linkErr := applyMRWorkItemLinks(cmd.Context(), c, repositoryID, localID, resolved, false)
 		if linkMeta != nil {
 			for k, v := range linkMeta {
@@ -994,8 +1023,7 @@ At least one of --title / --description / --work-item required.
 			data = zhiyi.BriefMergeRequest(m)
 		}
 		if linkErr != nil {
-			_ = output.Success(data, meta)
-			handleErr(linkErr)
+			handleErr(failWorkItemLink(linkErr, data, meta))
 			return
 		}
 		handleErr(output.Success(data, meta))

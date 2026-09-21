@@ -331,22 +331,36 @@ func getChangeRequestMap(ctx context.Context, c *client.Client, repositoryID, lo
 
 // linkMRWorkItems creates missing codeupMergeRequest extRelationRecords (idempotent).
 // On dry-run, previews the first create POST after resolving/listing.
+func failWorkItemLink(err error, data any, meta map[string]any) error {
+	details := map[string]any{}
+	if data != nil {
+		details["result"] = data
+	}
+	if meta != nil {
+		for k, v := range meta {
+			details[k] = v
+		}
+	}
+	return output.Fail(output.ErrorBody{
+		Type:    "cli",
+		Subtype: "work_item_link",
+		Message: err.Error(),
+		Details: details,
+	}, 1)
+}
+
 func linkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, localID string, wanted []mrlink.ResolvedWorkItem, dryRun bool) error {
 	out, meta, err := applyMRWorkItemLinks(ctx, c, repositoryID, localID, wanted, dryRun)
 	if err != nil {
-		if out != nil && meta != nil {
-			_ = output.Success(out, meta)
-		}
-		return err
+		return failWorkItemLink(err, out, meta)
 	}
-	if out == nil {
-		// DryRunResult already written by applyMRWorkItemLinks
-		return nil
+	if dryRun {
+		return output.DryRunResult(string(risk.Write), out)
 	}
 	return output.Success(out, meta)
 }
 
-// applyMRWorkItemLinks performs link; when dryRun is true it emits DryRunResult and returns (nil,nil,nil).
+// applyMRWorkItemLinks performs link; when dryRun is true it returns a preview request map (caller emits DryRunResult).
 func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, localID string, wanted []mrlink.ResolvedWorkItem, dryRun bool) (any, map[string]any, error) {
 	if len(wanted) == 0 {
 		return nil, nil, fmt.Errorf("provide --work-item and/or work item args")
@@ -391,11 +405,11 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 			"alreadyLinked": true,
 		}
 		if dryRun {
-			return nil, nil, output.DryRunResult(string(risk.Write), map[string]any{
+			return map[string]any{
 				"method": "POST",
 				"url":    "(noop: already linked)",
 				"body":   out,
-			})
+			}, meta, nil
 		}
 		return out, meta, nil
 	}
@@ -423,7 +437,14 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 		body["targetBranch"] = target
 	}
 	if dryRun {
-		return nil, nil, output.DryRunResult(string(risk.Write), c.Preview("POST", path, nil, body))
+		prev := c.Preview("POST", path, nil, body)
+		return map[string]any{
+			"method":  prev.Method,
+			"url":     prev.URL,
+			"headers": prev.Headers,
+			"body":    prev.Body,
+			"to_link": missing,
+		}, meta, nil
 	}
 
 	var created []string

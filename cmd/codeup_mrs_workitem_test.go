@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -299,5 +300,98 @@ func TestMrsUpdateWorkItemOnlyDryRun(t *testing.T) {
 	_ = json.Unmarshal(raw, &req)
 	if req["method"] != "POST" {
 		t.Fatalf("work-item-only update dry-run should preview POST link, got %#v", req)
+	}
+}
+
+
+func TestMrsUpdateCombinedDryRunIncludesLink(t *testing.T) {
+	var gotMethods []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethods = append(gotMethods, r.Method)
+		switch {
+		case strings.Contains(r.URL.Path, "/workitems/") && r.Method == http.MethodGet && !strings.Contains(r.URL.Path, "extRelationRecords"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "wi-internal-1", "serialNumber": "ZYPT-1"})
+		case strings.Contains(r.URL.Path, "/changeRequests/") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"localId": 125, "title": "old", "projectId": "4951320"})
+		case strings.Contains(r.URL.Path, "extRelationRecords") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]any{})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	t.Setenv(config.EnvAccessToken, "test-token-mrs-update-combined-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-mrs-update-combined-test")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+
+	stdout := withCmdJSONCapture(t)
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	rootCmd.SetArgs([]string{
+		"codeup", "mrs", "update",
+		"--repo", "4951320",
+		"--local-id", "125",
+		"--title", "WIP: docs",
+		"--work-item", "ZYPT-1",
+		"--dry-run",
+	})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstdout=%s", err, stdout.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("stdout JSON: %v / %s", err, stdout.Bytes())
+	}
+	if !env.OK || !env.DryRun {
+		t.Fatalf("envelope: %+v", env)
+	}
+	raw, _ := json.Marshal(env.Request)
+	var req map[string]any
+	if err := json.Unmarshal(raw, &req); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := req["put"]; !ok {
+		t.Fatalf("combined dry-run missing put: %#v", req)
+	}
+	if _, ok := req["link"]; !ok {
+		t.Fatalf("combined dry-run missing link: %#v", req)
+	}
+	for _, m := range gotMethods {
+		if m == http.MethodPut || m == http.MethodPost || m == http.MethodDelete {
+			t.Fatalf("mutating method during combined dry-run: %v", gotMethods)
+		}
+	}
+}
+
+func TestFailWorkItemLinkNoStdoutSuccess(t *testing.T) {
+	prevOut := output.Stdout
+	prevErr := output.Stderr
+	var stdout, stderr bytes.Buffer
+	output.Stdout = &stdout
+	output.Stderr = &stderr
+	output.JQ = ""
+	output.Format = "json"
+	t.Cleanup(func() {
+		output.Stdout = prevOut
+		output.Stderr = prevErr
+	})
+
+	err := failWorkItemLink(fmt.Errorf("work item link(s) missing"), map[string]any{"missing": []string{"wi-1"}}, map[string]any{"to_link": 1})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout must stay empty on fail, got %s", stdout.String())
+	}
+	var env output.Envelope
+	if e := json.Unmarshal(stderr.Bytes(), &env); e != nil {
+		t.Fatalf("stderr: %v / %s", e, stderr.String())
+	}
+	if env.OK || env.Error == nil || env.Error.Subtype != "work_item_link" {
+		t.Fatalf("expected ok=false work_item_link, got %#v", env)
 	}
 }
