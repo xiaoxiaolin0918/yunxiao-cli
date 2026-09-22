@@ -457,6 +457,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.19** — workitem create 成功响应保留 serialNumber/status（默认 brief；create 返回 null 时自动再 GET）（#62）
 - **0.16.18** — mrs comments resolve/reopen (#56)
 - **0.16.17** — 已有 MR 支持 `codeup mrs link|unlink` 与 `mrs update --work-item`（#54）
 - **0.16.16** — 写操作网络失败附查重命令；GET 传输层错误已自动重试（#47）

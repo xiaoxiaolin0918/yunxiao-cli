@@ -45,6 +45,7 @@ func init() {
 	workitemCreateCmd.Flags().String("versions", "", "comma-separated version ids")
 	workitemCreateCmd.Flags().String("custom-fields", "", "JSON object of customFieldValues (fieldId to value)")
 	workitemCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for this type")
+	workitemCreateCmd.Flags().Bool("full", false, "print full create JSON (default: brief id/serialNumber/status/subject)")
 	workitemUpdateCmd.Flags().String("id", "", "work item id (required)")
 	workitemUpdateCmd.Flags().String("subject", "", "new subject")
 	workitemUpdateCmd.Flags().String("status", "", "status id")
