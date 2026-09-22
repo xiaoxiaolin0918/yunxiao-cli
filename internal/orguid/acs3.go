@@ -14,9 +14,13 @@ import (
 )
 
 // SignACS3 builds Authorization headers for Aliyun ACS3-HMAC-SHA256 (ROA style).
-func SignACS3(method, host, path string, query url.Values, body []byte, ak AKEnv, now time.Time) (http.Header, error) {
+// action is the OpenAPI action name (e.g. ListOrganizationMembers, DeleteWorkitemComment).
+func SignACS3(method, host, path, action string, query url.Values, body []byte, ak AKEnv, now time.Time) (http.Header, error) {
 	if ak.AccessKeyID == "" || ak.AccessKeySecret == "" {
 		return nil, fmt.Errorf("missing access key")
+	}
+	if action == "" {
+		return nil, fmt.Errorf("missing x-acs-action")
 	}
 	if body == nil {
 		body = []byte{}
@@ -25,7 +29,7 @@ func SignACS3(method, host, path string, query url.Values, body []byte, ak AKEnv
 	xDate := now.UTC().Format("2006-01-02T15:04:05Z") // ACS3 ISO8601, not AWS compact
 	hdr := http.Header{}
 	hdr.Set("host", host)
-	hdr.Set("x-acs-action", "ListOrganizationMembers")
+	hdr.Set("x-acs-action", action)
 	hdr.Set("x-acs-version", "2021-06-25")
 	nonce := make([]byte, 16)
 	if _, err := rand.Read(nonce); err != nil {

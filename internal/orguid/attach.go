@@ -91,12 +91,24 @@ func AttachAliyunUID(oapi []any, legacy []map[string]any) ([]any, map[string]any
 	}
 }
 
+// MissingAKEnvHint documents the AccessKey env vars used by devops ROA (ACS3).
+func MissingAKEnvHint() string {
+	return "Set ALIBABA_CLOUD_ACCESS_KEY_ID and ALIBABA_CLOUD_ACCESS_KEY_SECRET " +
+		"(aliases: ALIYUN_* / ALICLOUD_*; optional ALIBABA_CLOUD_REGION_ID, default cn-hangzhou). " +
+		"Same AccessKey path as `yunxiao organization members list --include-aliyun-uid`. " +
+		"See docs/wiki/02-domains/workitem-comments-oapi-gaps.md and skill yunxiao-project."
+}
+
 // MissingAKMessage explains how to obtain aliyun UIDs when only PAT is available.
 func MissingAKMessage() string {
 	return "ManualValidate (validatorType: users) requires Aliyun numeric UID in validators; " +
 		"oapi/v1 platform members only returns hex userId (no accountId). " +
-		"Set ALIBABA_CLOUD_ACCESS_KEY_ID and ALIBABA_CLOUD_ACCESS_KEY_SECRET " +
-		"(same account that can call devops ListOrganizationMembers) and re-run " +
-		"`yunxiao organization members list --include-aliyun-uid`, " +
-		"or look up the UID in the Aliyun RAM console. See docs/wiki/02-domains/pipeline.md."
+		MissingAKEnvHint() + " Re-run `yunxiao organization members list --include-aliyun-uid`, " +
+		"or look up the UID in the Aliyun RAM console."
+}
+
+// MissingAKMessageComments explains AK is required for workitem comment delete/update RPC.
+func MissingAKMessageComments() string {
+	return "workitem comments delete/update use Aliyun OpenAPI RPC (AccessKey ACS3), not personal-token OAPI. " +
+		MissingAKEnvHint()
 }

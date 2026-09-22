@@ -461,6 +461,8 @@ make build
 
 ## Known gaps
 
+**Auth / dual-surface:** personal-token **OAPI** still has no workitem comment delete/update (raw DELETE 404). CLI wraps AccessKey RPC instead: workitem comments delete / update (same ALIBABA_CLOUD_ACCESS_KEY_* as --include-aliyun-uid). See [docs/wiki/02-domains/workitem-comments-oapi-gaps.md](docs/wiki/02-domains/workitem-comments-oapi-gaps.md).
+
 Surfaces intentionally **not** wrapped (use `yunxiao api` when you have a confirmed OpenAPI path):
 
 | Gap | Reason |
@@ -471,7 +473,6 @@ Surfaces intentionally **not** wrapped (use `yunxiao api` when you have a confir
 | Topic / Risk **sprint** field binding | Some types return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint) |
 | Relation types | Working: `ASSOCIATED`, `DEPEND_ON`. `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create |
 | MR label **detach** | No OpenAPI in MCP |
-| Work item comment **delete/update** | Personal-token **OAPI** only documents list+create; raw DELETE 404. Aliyun OpenAPI RPC has `DeleteWorkitemComment` (`POST .../deleteComent`) / `UpdateWorkitemComment` but AccessKey SDK — not wrapped. Use `--content-file` (UTF-8, BOM stripped) on create for Windows Chinese. |
 | AppStack full CR lifecycle beyond list/create surfaces already shipped | Expand only when MCP is unambiguous |
 | Flow structured pipeline YAML generator (`createPipelineWithOptions`) | MCP helper only; CLI takes raw YAML `--file` |
 
@@ -494,6 +495,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.25** — workitem comments delete|update via AccessKey RPC (OAPI still list/create only) (#71)
 - **0.16.24** — document OAPI workitem comment delete/update gap; workitem comment --content-file UTF-8 (#69)
 - **0.16.23** — +explore-workflow splits verified vs hinted edges; --custom-fields/--fields/--from  (edges = verified only; hinted separate) (#61)
 - **0.16.22** — mrs update --repo <numeric id> rejects ids outside profile/org allowlist (#63)

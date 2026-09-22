@@ -453,10 +453,13 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 已知缺口
 
-Packages **上传**、Codeup **blame/cherry-pick**、MR label detach、**工作项评论 delete/update**（个人令牌 OAPI 仅 list+create；RPC DeleteWorkitemComment 属 AccessKey 面）等仍无明确 OAPI / 未封装；**Topic/Risk** 工作项类型需在项目设置 UI 启用（CLI 无法启用）。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。详见 [README.md](README.md) 的 Known gaps。
+**鉴权双通道：** 个人令牌 **OAPI** 仍无工作项评论 delete/update（raw DELETE 404）。CLI 已通过 AccessKey RPC 封装 workitem comments delete / update（凭证同 --include-aliyun-uid 的 ALIBABA_CLOUD_ACCESS_KEY_*）。详见 [docs/wiki/02-domains/workitem-comments-oapi-gaps.md](docs/wiki/02-domains/workitem-comments-oapi-gaps.md)。
+
+Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。详见 [README.md](README.md) 的 Known gaps。
 
 ## 变更摘要
 
+- **0.16.25** — AccessKey RPC 接入 workitem comments delete|update（OAPI 仍仅 list/create）（#71）
 - **0.16.24** — 标明 OAPI 工作项评论无 delete/update；workitem comment --content-file UTF-8（#69）
 - **0.16.23** — +explore-workflow 区分 verified/hinted 边；支持 --custom-fields/--fields/--from（#61）（edges 仅 verified；hinted 另列）
 - **0.16.22** — mrs update --repo <数字id> 拒绝不在 profile/org 可达仓列表中的 id（#63）
