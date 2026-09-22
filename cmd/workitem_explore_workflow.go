@@ -39,6 +39,12 @@ probe work item and attempts PUT {"status": to} for each ordered pair to discove
 workflows are per type_id). For Bug category when type-id matches profile.bug_type_id (or
 bug_type_id is empty), also merges legacy bug_edges / bug_statuses for +bug-transition.
 
+--category defaults to Bug for backward compatibility, but the command resolves the real
+category from --type-id (profile workitem_defaults/workflows, else types list API) and
+auto-overrides a mismatched default. Explicit --category that disagrees with the type
+errors clearly. If category cannot be resolved, pass --category explicitly (avoids
+injecting Bug fields into Req/Task create and mixed HTTP 400s; issue 60).
+
 Limitations: required-field failures are recorded as edges with required_hints; some
 false negatives possible when errors are ambiguous. Do not run against production ZYPT
 without an explicit probe item and review.`,
@@ -78,6 +84,14 @@ without an explicit probe item and review.`,
 			return
 		}
 
+		categoryChanged := cmd.Flags().Changed("category")
+		resolvedCat, lookupErr := lookupExploreCategory(cmd.Context(), c, pf, spaceID, typeID)
+		category, categoryNote, err := resolveExploreCategory(category, categoryChanged, resolvedCat, lookupErr)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+
 		wfPath, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes/"+typeID+"/workflows")
 		if err != nil {
 			handleErr(err)
@@ -102,6 +116,9 @@ without an explicit probe item and review.`,
 					"optional merge workflows[type_id] (+ legacy bug_* for Bug) if --write-profile",
 				},
 				"get_workflow": c.Preview("GET", wfPath, nil, nil),
+			}
+			if categoryNote != "" {
+				plan["category_note"] = categoryNote
 			}
 			if existingID == "" {
 				createBody := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category)
@@ -320,6 +337,7 @@ without an explicit probe item and review.`,
 		data := map[string]any{
 			"space_id":          spaceID,
 			"type_id":           typeID,
+			"category":          category,
 			"workflow_id":       wfID,
 			"workflow_name":     wfName,
 			"default_status_id": defaultStatusID,
@@ -337,6 +355,9 @@ without an explicit probe item and review.`,
 			"attempts":          probeRes.Attempts,
 			"edge_count":        workflow.CountEdges(probeRes.Edges),
 			"profile_snippet":   snippet,
+		}
+		if categoryNote != "" {
+			data["category_note"] = categoryNote
 		}
 		if profilePathWritten != "" {
 			data["profile_written"] = profilePathWritten
@@ -384,6 +405,157 @@ func workitemTypeID(item map[string]any) string {
 	return ""
 }
 
+// exploreTypeCategories is the Projex category set probed when resolving type-id.
+var exploreTypeCategories = []string{"Req", "Bug", "Task", "Risk", "Topic"}
+
+func categoryFromProfile(pf *profile.Profile, typeID string) string {
+	typeID = strings.TrimSpace(typeID)
+	if pf == nil || typeID == "" {
+		return ""
+	}
+	if pf.WorkitemDefaults != nil {
+		if d, ok := pf.WorkitemDefaults[typeID]; ok {
+			if c := strings.TrimSpace(d.Category); c != "" {
+				return c
+			}
+		}
+	}
+	if pf.Workflows != nil {
+		if wf, ok := pf.Workflows[typeID]; ok {
+			if c := strings.TrimSpace(wf.Category); c != "" {
+				return c
+			}
+		}
+	}
+	if strings.TrimSpace(pf.BugTypeID) != "" && pf.BugTypeID == typeID {
+		return "Bug"
+	}
+	return ""
+}
+
+func typeIDInWorkitemTypesList(raw any, typeID string) bool {
+	typeID = strings.TrimSpace(typeID)
+	if typeID == "" {
+		return false
+	}
+	items := client.ExtractListItems(raw)
+	if items == nil {
+		if s, ok := raw.([]any); ok {
+			items = s
+		}
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok || m == nil {
+			continue
+		}
+		id := ""
+		switch v := m["id"].(type) {
+		case string:
+			id = v
+		case float64:
+			id = fmt.Sprintf("%.0f", v)
+		default:
+			if v != nil {
+				id = strings.TrimSpace(fmt.Sprint(v))
+			}
+		}
+		if id == typeID {
+			return true
+		}
+	}
+	return false
+}
+
+func exploreCategoriesPrefer(preferred string) []string {
+	preferred = strings.TrimSpace(preferred)
+	out := make([]string, 0, len(exploreTypeCategories)+1)
+	seen := map[string]struct{}{}
+	add := func(c string) {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			return
+		}
+		key := strings.ToLower(c)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, c)
+	}
+	add(preferred)
+	for _, c := range exploreTypeCategories {
+		add(c)
+	}
+	return out
+}
+
+func lookupTypeCategoryAPI(ctx context.Context, c *client.Client, spaceID, typeID string) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("nil client")
+	}
+	path, err := c.ProjexPath(ctx, "/projects/"+spaceID+"/workitemTypes")
+	if err != nil {
+		return "", err
+	}
+	var lastErr error
+	for _, cat := range exploreCategoriesPrefer("") {
+		var raw any
+		if err := c.Get(ctx, path, map[string]string{"category": cat}, &raw); err != nil {
+			lastErr = err
+			continue
+		}
+		if typeIDInWorkitemTypesList(raw, typeID) {
+			return cat, nil
+		}
+	}
+	if lastErr != nil {
+		return "", fmt.Errorf("type-id %s not found in categories %v (last list error: %w)", typeID, exploreTypeCategories, lastErr)
+	}
+	return "", fmt.Errorf("type-id %s not found in categories %v", typeID, exploreTypeCategories)
+}
+
+func lookupExploreCategory(ctx context.Context, c *client.Client, pf *profile.Profile, spaceID, typeID string) (string, error) {
+	if cat := categoryFromProfile(pf, typeID); cat != "" {
+		return cat, nil
+	}
+	if c == nil || strings.TrimSpace(spaceID) == "" || strings.TrimSpace(typeID) == "" {
+		return "", fmt.Errorf("no profile category for type-id %s and cannot query types list", typeID)
+	}
+	return lookupTypeCategoryAPI(ctx, c, spaceID, typeID)
+}
+
+// resolveExploreCategory applies issue 60 rules: auto-override default --category when
+// type lookup succeeds; error on explicit mismatch; error when default cannot be resolved.
+func resolveExploreCategory(flagCategory string, categoryChanged bool, resolved string, lookupErr error) (category string, note string, err error) {
+	flagCategory = strings.TrimSpace(flagCategory)
+	if flagCategory == "" {
+		flagCategory = "Bug"
+	}
+	resolved = strings.TrimSpace(resolved)
+	if resolved != "" {
+		if strings.EqualFold(flagCategory, resolved) {
+			return resolved, "", nil
+		}
+		if categoryChanged {
+			return "", "", fmt.Errorf("--category %s does not match type-id category %s; omit --category to auto-select, or pass --category %s", flagCategory, resolved, resolved)
+		}
+		return resolved, fmt.Sprintf("auto-overrode --category from %s to %s (resolved from type-id)", flagCategory, resolved), nil
+	}
+	if categoryChanged {
+		note = "could not resolve category from type-id; using explicit --category"
+		if lookupErr != nil {
+			note = note + ": " + lookupErr.Error()
+		}
+		return flagCategory, note, nil
+	}
+	msg := "cannot resolve category for type-id; pass --category explicitly (Req|Bug|Task|…). Default --category Bug would inject Bug create fields and may cause mixed HTTP 400s on non-Bug types"
+	if lookupErr != nil {
+		msg = msg + ": " + lookupErr.Error()
+	}
+	return "", "", fmt.Errorf("%s", msg)
+}
+
 func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.Client, spaceID, typeID, category string) map[string]any {
 	subject := fmt.Sprintf("[cli-explore] workflow probe %s", time.Now().Format("20060102-150405"))
 	assigned := ""
@@ -426,7 +598,7 @@ func init() {
 	workitemExploreWorkflowCmd.Flags().String("type-id", "", "work item type id (required; or profile.bug_type_id when --category Bug)")
 	workitemExploreWorkflowCmd.Flags().String("space-id", "", "project/space id (default: profile.space_id)")
 	workitemExploreWorkflowCmd.Flags().String("id", "", "reuse existing work item as probe (never deleted)")
-	workitemExploreWorkflowCmd.Flags().String("category", "Bug", "work item category Req|Bug|Task (create defaults + workflows entry)")
+	workitemExploreWorkflowCmd.Flags().String("category", "Bug", "work item category Req|Bug|Task|… (default Bug; auto-overridden from type-id when mismatched)")
 	workitemExploreWorkflowCmd.Flags().String("type-name", "", "optional type display name stored in workflows[type_id].name")
 	workitemExploreWorkflowCmd.Flags().Bool("cleanup", false, "delete temp probe item if we created it (high-risk)")
 	workitemExploreWorkflowCmd.Flags().Bool("write-profile", false, "merge into profile.workflows[type_id]; also bug_edges/bug_statuses when Bug matches bug_type_id")
