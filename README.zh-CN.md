@@ -453,10 +453,11 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 已知缺口
 
-Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无明确 OpenAPI；**Topic/Risk** 工作项类型需在项目设置 UI 启用（CLI 无法启用）。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。详见 [README.md](README.md) 的 Known gaps。
+Packages **上传**、Codeup **blame/cherry-pick**、MR label detach、**工作项评论 delete/update**（个人令牌 OAPI 仅 list+create；RPC DeleteWorkitemComment 属 AccessKey 面）等仍无明确 OAPI / 未封装；**Topic/Risk** 工作项类型需在项目设置 UI 启用（CLI 无法启用）。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。详见 [README.md](README.md) 的 Known gaps。
 
 ## 变更摘要
 
+- **0.16.24** — 标明 OAPI 工作项评论无 delete/update；workitem comment --content-file UTF-8（#69）
 - **0.16.23** — +explore-workflow 区分 verified/hinted 边；支持 --custom-fields/--fields/--from（#61）（edges 仅 verified；hinted 另列）
 - **0.16.22** — mrs update --repo <数字id> 拒绝不在 profile/org 可达仓列表中的 id（#63）
 - **0.16.21** — +explore-workflow 按 --type-id 解析 category（默认自动覆盖；显式不匹配则报错）（#60）
