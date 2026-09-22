@@ -45,9 +45,12 @@ auto-overrides a mismatched default. Explicit --category that disagrees with the
 errors clearly. If category cannot be resolved, pass --category explicitly (avoids
 injecting Bug fields into Req/Task create and mixed HTTP 400s; issue 60).
 
-Limitations: required-field failures are recorded as edges with required_hints; some
-false negatives possible when errors are ambiguous. Do not run against production ZYPT
-without an explicit probe item and review.`,
+MVP (#61): needs_fields outcomes are hinted_edges (not verified edges). Pass
+--custom-fields on probe create (plus profile workitem_defaults) and optional --fields on
+each PUT. Optional --from <status> repositions before probing. Per-status required-field
+tables (generalized bug_transition_required) are deferred.
+
+Do not run against production ZYPT without an explicit probe item and review.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := applyActiveProfileOrg()
@@ -62,6 +65,22 @@ without an explicit probe item and review.`,
 		category, _ := cmd.Flags().GetString("category")
 		cleanup, _ := cmd.Flags().GetBool("cleanup")
 		writeProfile, _ := cmd.Flags().GetBool("write-profile")
+		customFieldsJSON, _ := cmd.Flags().GetString("custom-fields")
+		putFieldsJSON, _ := cmd.Flags().GetString("fields")
+		fromStatusFlag, _ := cmd.Flags().GetString("from")
+		customFields, err := parseJSONMap(customFieldsJSON)
+		if err != nil {
+			handleErr(fmt.Errorf("--custom-fields: %w", err))
+			return
+		}
+		putFields, err := parseJSONMap(putFieldsJSON)
+		if err != nil {
+			handleErr(fmt.Errorf("--fields: %w", err))
+			return
+		}
+		if putFields == nil {
+			putFields = map[string]any{}
+		}
 
 		if strings.TrimSpace(typeID) == "" && pf != nil && strings.EqualFold(category, "Bug") {
 			typeID = pf.BugTypeID
@@ -108,6 +127,9 @@ without an explicit probe item and review.`,
 				"existing_id":   existingID,
 				"cleanup":       cleanup,
 				"write_profile": writeProfile,
+				"from_status":   fromStatusFlag,
+				"custom_fields": customFields,
+				"put_fields":    putFields,
 				"steps": []string{
 					"GET type workflow statuses",
 					"obtain probe work item (reuse --id or POST create temp)",
@@ -121,7 +143,7 @@ without an explicit probe item and review.`,
 				plan["category_note"] = categoryNote
 			}
 			if existingID == "" {
-				createBody := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category)
+				createBody := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category, customFields)
 				createPath, _ := c.ProjexPath(cmd.Context(), "/workitems")
 				plan["create_probe"] = c.Preview("POST", createPath, nil, createBody)
 			} else {
@@ -173,7 +195,7 @@ without an explicit probe item and review.`,
 		}
 
 		createProbe := func() (string, string, string, error) {
-			body := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category)
+			body := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category, customFields)
 			var createdOut map[string]any
 			if err := c.Post(cmd.Context(), createPath, body, &createdOut); err != nil {
 				return "", "", "", fmt.Errorf("create probe work item: %w", err)
@@ -221,6 +243,40 @@ without an explicit probe item and review.`,
 			createdIDs = append(createdIDs, id)
 		}
 
+
+		if strings.TrimSpace(fromStatusFlag) != "" {
+			fromID, ferr := workflow.ResolveUniqueStatus(fromStatusFlag, statuses)
+			if ferr != nil {
+				handleErr(fmt.Errorf("--from: %w", ferr))
+				return
+			}
+			if startStatus != fromID {
+				putPath, perr := c.ProjexPath(cmd.Context(), "/workitems/"+probeID)
+				if perr != nil {
+					handleErr(perr)
+					return
+				}
+				body := map[string]any{"status": fromID}
+				for k, v := range putFields {
+					body[k] = v
+				}
+				var out any
+				if err := c.Put(cmd.Context(), putPath, body, &out); err != nil {
+					handleErr(fmt.Errorf("--from %s: could not move probe to status %s: %w (pass --fields for required transition fields)", fromStatusFlag, fromID, err))
+					return
+				}
+				if item, gerr := fetchWorkItem(cmd.Context(), c, probeID); gerr == nil {
+					if cur := zhiyi.CurrentStatusID(item); cur != "" {
+						startStatus = cur
+					} else {
+						startStatus = fromID
+					}
+				} else {
+					startStatus = fromID
+				}
+			}
+		}
+
 		probeRes, err := workflow.ExploreTransitions(workflow.ProbeOptions{
 			StatusIDs:     statusIDs,
 			StartStatus:   startStatus,
@@ -238,7 +294,11 @@ without an explicit probe item and review.`,
 					return err
 				}
 				var out any
-				return c.Put(cmd.Context(), putPath, map[string]any{"status": to}, &out)
+				body := map[string]any{"status": to}
+				for k, v := range putFields {
+					body[k] = v
+				}
+				return c.Put(cmd.Context(), putPath, body, &out)
 			},
 			Reset: func() (string, error) {
 				// Only auto-recreate when we own the probe items (not user --id).
@@ -295,6 +355,7 @@ without an explicit probe item and review.`,
 			DefaultStatusID: defaultStatusID,
 			Statuses:        statuses,
 			Edges:           probeRes.Edges,
+			HintedEdges:     probeRes.HintedEdges,
 		})
 		profilePathWritten := ""
 		if writeProfile {
@@ -312,6 +373,7 @@ without an explicit probe item and review.`,
 				DefaultStatusID: sw.DefaultStatusID,
 				Statuses:        sw.Statuses,
 				Edges:           sw.Edges,
+				HintedEdges:     sw.HintedEdges,
 			})
 			// Keep legacy bug_* for +bug-transition when this is the profile bug type.
 			if strings.EqualFold(category, "Bug") && (pf.BugTypeID == "" || pf.BugTypeID == typeID) {
@@ -342,8 +404,11 @@ without an explicit probe item and review.`,
 			"workflow_name":     wfName,
 			"default_status_id": defaultStatusID,
 			"statuses":          statusOut,
-			"edges":             probeRes.Edges,
+			"edges":             probeRes.Edges, // verified only (#61)
+			"verified_edges":    probeRes.Edges,
+			"hinted_edges":      probeRes.HintedEdges,
 			"required_hints":    probeRes.RequiredHints,
+			"missing_fields":    probeRes.MissingFields,
 			"probe_item_id":     probeID,
 			"probe_serial":      probeSerial,
 			"probe_created":     len(createdIDs) > 0,
@@ -354,6 +419,7 @@ without an explicit probe item and review.`,
 			"final_status_id":   probeRes.FinalStatus,
 			"attempts":          probeRes.Attempts,
 			"edge_count":        workflow.CountEdges(probeRes.Edges),
+			"hinted_edge_count": workflow.CountEdges(probeRes.HintedEdges),
 			"profile_snippet":   snippet,
 		}
 		if categoryNote != "" {
@@ -556,7 +622,7 @@ func resolveExploreCategory(flagCategory string, categoryChanged bool, resolved 
 	return "", "", fmt.Errorf("%s", msg)
 }
 
-func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.Client, spaceID, typeID, category string) map[string]any {
+func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.Client, spaceID, typeID, category string, customFields map[string]any) map[string]any {
 	subject := fmt.Sprintf("[cli-explore] workflow probe %s", time.Now().Format("20060102-150405"))
 	assigned := ""
 	if pf != nil {
@@ -588,6 +654,17 @@ func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.
 			body["customFieldValues"] = cf
 		}
 	}
+
+	if len(customFields) > 0 {
+		cf, _ := body["customFieldValues"].(map[string]any)
+		if cf == nil {
+			cf = map[string]any{}
+		}
+		for k, v := range customFields {
+			cf[k] = v
+		}
+		body["customFieldValues"] = cf
+	}
 	if pf != nil {
 		profile.ApplyWorkitemDefaults(body, typeID, pf)
 	}
@@ -602,5 +679,8 @@ func init() {
 	workitemExploreWorkflowCmd.Flags().String("type-name", "", "optional type display name stored in workflows[type_id].name")
 	workitemExploreWorkflowCmd.Flags().Bool("cleanup", false, "delete temp probe item if we created it (high-risk)")
 	workitemExploreWorkflowCmd.Flags().Bool("write-profile", false, "merge into profile.workflows[type_id]; also bug_edges/bug_statuses when Bug matches bug_type_id")
+	workitemExploreWorkflowCmd.Flags().String("custom-fields", "", "JSON object merged into probe create customFieldValues (after Bug helpers; before profile workitem_defaults)")
+	workitemExploreWorkflowCmd.Flags().String("fields", "", "JSON object merged into every probe PUT body alongside status (transition required fields)")
+	workitemExploreWorkflowCmd.Flags().String("from", "", "optional status id/name: move probe here (using --fields) before probing")
 	workitemCmd.AddCommand(workitemExploreWorkflowCmd)
 }

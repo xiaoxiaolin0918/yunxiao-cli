@@ -108,3 +108,37 @@ func unescapeJSONString(s string) string {
 	s = strings.ReplaceAll(s, `\\`, `\`)
 	return s
 }
+
+// ExtractMissingFieldNames pulls Chinese 【field】 markers and common required-field phrases
+// from API error text (e.g. 字段【计划完成时间】不能为空). Dedupes, preserves order.
+func ExtractMissingFieldNames(msg string) []string {
+	if msg == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	add := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			return
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	rest := msg
+	for {
+		i := strings.Index(rest, "【")
+		if i < 0 {
+			break
+		}
+		rest = rest[i+len("【"):]
+		j := strings.Index(rest, "】")
+		if j < 0 {
+			break
+		}
+		add(rest[:j])
+		rest = rest[j+len("】"):]
+	}
+	return out
+}
+

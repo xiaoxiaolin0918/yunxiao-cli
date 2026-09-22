@@ -97,6 +97,7 @@ yunxiao workitem +transition --id <id> --to 处理中 --fields '{"80":"2026-09-2
 Risk: **write**（真发需 `--yes`）。缺图时先 `+explore-workflow --write-profile`。
 `--dry-run`：有 `workflows` 边时本地校验路径（非法 → `ok:false`）；无边时 `request.edge_validation=skipped` + `warning`（勿当成必能流转；#59）。
 +explore-workflow：--category 默认 Bug；会按 type-id 自动覆盖（勿对 Req 硬塞 Bug）（#60）。
++explore-workflow 边契约（#61 MVP）：`edges`/`verified_edges` = 实测成功；`hinted_edges`+`required_hints`/`missing_fields` = needs_fields 假阳性（勿当 verified 消费）。可用 `--custom-fields`（create）与 `--fields`（每次 PUT）补齐字段，`--from` 先定位再探。`--write-profile` 写入 `workflows[].edges`（verified）与 `hinted_edges`。逐状态必填表（通用化 bug_transition_required）仍待做。
 
 ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yunxiao-zhiyi-ops/SKILL.md)（`workitem +bug-transition` + profile）。
 

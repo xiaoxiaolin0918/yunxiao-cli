@@ -1,0 +1,18 @@
+# Unreleased — #61 +explore-workflow verified vs hinted edges
+
+## Hypothesis
+
+`+explore-workflow` previously added `needs_fields` outcomes into the same `edges` graph as HTTP-OK transitions. Consumers (and BFS reposition) could not tell verified edges from false-positive required-field hints, and incomplete mid-graph probing was hard to unblock without create/PUT field pass-through.
+
+## MVP shipped (no version bump)
+
+- Probe / output / profile: **`edges` = verified only**; add **`verified_edges`**, **`hinted_edges`**, keep **`required_hints`**, add **`missing_fields`** (parsed `【field】` names).
+- Probe create: **`--custom-fields`** JSON (plus existing profile `workitem_defaults`).
+- Probe PUT: **`--fields`** JSON merged with `status` on every attempt.
+- Optional **`--from <status>`**: reposition probe (using `--fields`) before exploring.
+- `--write-profile` stores `workflows[type].hinted_edges` alongside verified `edges`.
+
+## Deferred
+
+- Per-status required-field table (generalize `bug_transition_required`) with auto-fill on PUT.
+- Richer interactive field discovery / retry loops per hinted edge.

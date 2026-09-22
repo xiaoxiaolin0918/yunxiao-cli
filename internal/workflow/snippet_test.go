@@ -77,3 +77,20 @@ func TestResolveUniqueStatus(t *testing.T) {
 		t.Fatal("expected miss")
 	}
 }
+
+
+func TestBuildProfileSnippetHintedEdges(t *testing.T) {
+	snip := BuildProfileSnippet(SnippetInput{
+		TypeID:   "req-type",
+		Category: "Req",
+		Statuses: []StatusInfo{{ID: "s1", Name: "待处理", DisplayName: "待处理"}},
+		Edges:    map[string][]string{"s1": {"s2"}},
+		HintedEdges: map[string][]string{"s1": {"s3"}},
+	})
+	if len(snip.Workflow.Edges["s1"]) != 1 || snip.Workflow.Edges["s1"][0] != "s2" {
+		t.Fatalf("verified edges: %v", snip.Workflow.Edges)
+	}
+	if len(snip.Workflow.HintedEdges["s1"]) != 1 || snip.Workflow.HintedEdges["s1"][0] != "s3" {
+		t.Fatalf("hinted edges: %v", snip.Workflow.HintedEdges)
+	}
+}

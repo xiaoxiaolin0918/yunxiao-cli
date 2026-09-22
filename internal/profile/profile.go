@@ -34,7 +34,8 @@ type WorkitemWorkflow struct {
 	WorkflowName    string              `json:"workflow_name,omitempty"`
 	DefaultStatusID string              `json:"default_status_id,omitempty"`
 	Statuses        map[string]string   `json:"statuses,omitempty"` // displayName or alias → id
-	Edges           map[string][]string `json:"edges,omitempty"`    // status id → []to ids
+	Edges           map[string][]string `json:"edges,omitempty"`        // status id → []to ids (verified)
+	HintedEdges     map[string][]string `json:"hinted_edges,omitempty"` // needs_fields edges (issue 61)
 }
 
 // WorkitemDefaultField is one field default captured from the type fields API.
@@ -486,6 +487,9 @@ func (p *Profile) MergeWorkflow(typeID string, wf WorkitemWorkflow) {
 	}
 	if len(wf.Edges) > 0 {
 		cur.Edges = wf.Edges
+	}
+	if wf.HintedEdges != nil {
+		cur.HintedEdges = wf.HintedEdges
 	}
 	if len(wf.Statuses) > 0 {
 		if cur.Statuses == nil {
