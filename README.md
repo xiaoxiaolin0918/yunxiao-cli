@@ -493,6 +493,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.19** — workitem create success keeps serialNumber/status (brief; re-GET when create returns null) (#62)
 - **0.16.18** — mrs comments resolve/reopen (#56)
 - **0.16.17** — `codeup mrs link|unlink` and `mrs update --work-item` for existing MRs (#54)
 - **0.16.16** — write network failures include dedupe search hint; GET already retries transport errors (#47)

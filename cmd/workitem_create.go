@@ -13,6 +13,10 @@ var workitemCreateCmd = &cobra.Command{
 	Long: `Risk: write
 HTTP: POST .../workitems
 
+Success prints a brief work item (id/serialNumber/status.displayName/subject);
+pass --full for the raw object. When create returns null serialNumber/status,
+CLI re-GETs the item so the success payload stays usable (#62).
+
 When an active profile has workitem_defaults for --type-id, create fills
 priority / trackers / 测试负责人 / 验收负责人 (and other defaults) unless
 already set by flags / --custom-fields. Pass --no-defaults to skip.
@@ -109,9 +113,17 @@ If the API returns 未启用此字段【迭代】, omit --sprint for this workit
 			handleErr(err)
 			return
 		}
+		full, _ := cmd.Flags().GetBool("full")
 		handleErr(runJSONMutating(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
-			zhiyi.EnrichWorkItemMeta(meta, asStringMap(out), profileSpaceID(), spaceID)
-			return out, meta
+			item := asStringMap(out)
+			item = zhiyi.EnsureWorkItemCreateFields(item, func(id string) (map[string]any, error) {
+				return fetchWorkItemMap(cmd.Context(), c, id)
+			})
+			zhiyi.EnrichWorkItemMeta(meta, item, profileSpaceID(), spaceID)
+			if full {
+				return item, meta
+			}
+			return zhiyi.BriefWorkItem(item), meta
 		}))
 	},
 }
