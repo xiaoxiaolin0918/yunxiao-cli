@@ -89,7 +89,6 @@ gh pr list --state open
 
 ## 当前快照（请发版或合 PR 后更新本段）
 
-- 最近发版：0.16.24（#69 content-file + OAPI 评论缺口文档）
-- 进行中：PR [#72](https://github.com/xiaoxiaolin0918/yunxiao-cli/pull/72) → 0.16.25（#71 AccessKey 评论 delete/update）；文档 Important 已修 cc396af，等复扫 / 云效评审
+- 最近发版：`v0.16.25`（#71 AccessKey 工作项评论 delete/update；需 PAT 解析 + AK 写）
+- 进行中：PR #73 bot handoff playbook（本页；合入后本段即随 main）
 - npm publish：仍默认跳过
-
