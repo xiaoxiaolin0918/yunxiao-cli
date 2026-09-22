@@ -895,6 +895,8 @@ HTTP: PUT .../changeRequests/{localId} (title/description);
 Prefer --dry-run first; real writes run only when not dry-run (Write risk).
 At least one of --title / --description / --work-item required.
 --work-item is additive (same as mrs link); does not use UpdateChangeRequest for links.
+Numeric --repo is validated against profile.repositories and organization-reachable
+repos (mismatch → clear error; aliases already fail when unregistered).
 
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --dry-run
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run
@@ -924,6 +926,10 @@ At least one of --title / --description / --work-item required.
 		}
 		c, _, err := mustClient()
 		if err != nil {
+			handleErr(err)
+			return
+		}
+		if err := ensureNumericRepoOwnership(cmd.Context(), c, repo, repositoryID); err != nil {
 			handleErr(err)
 			return
 		}

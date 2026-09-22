@@ -457,6 +457,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.22** — mrs update --repo <数字id> 拒绝不在 profile/org 可达仓列表中的 id（#63）
 - **0.16.21** — +explore-workflow 按 --type-id 解析 category（默认自动覆盖；显式不匹配则报错）（#60）
 - **0.16.20** — +transition --dry-run 有边缓存时校验流转边，无边时标注 skipped（#59）。
 - **0.16.19** — workitem create 成功响应保留 serialNumber/status（默认 brief；create 返回 null 时自动再 GET）（#62）

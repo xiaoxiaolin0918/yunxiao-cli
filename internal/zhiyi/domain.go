@@ -376,3 +376,56 @@ func WorkItemURL(item map[string]any, spaceID string) string {
 	}
 	return ""
 }
+
+var numericRepoIDRe = regexp.MustCompile(`^\d+$`)
+
+// IsNumericRepositoryID reports whether s is a pure decimal repository id (after trim).
+func IsNumericRepositoryID(s string) bool {
+	return numericRepoIDRe.MatchString(strings.TrimSpace(s))
+}
+
+// ProfileRepositoryIDSet returns numeric ids registered under profile.repositories.
+// Never returns nil (empty map when repositories is nil/empty).
+func ProfileRepositoryIDSet(repositories map[string]int64) map[string]struct{} {
+	out := make(map[string]struct{}, len(repositories))
+	for _, id := range repositories {
+		out[fmt.Sprintf("%d", id)] = struct{}{}
+	}
+	return out
+}
+
+// AddRepositoryIDsFromListItems merges repository id fields from Codeup list items into dst.
+func AddRepositoryIDsFromListItems(dst map[string]struct{}, items []any) {
+	if dst == nil {
+		return
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := strings.TrimSpace(fmt.Sprint(m["id"]))
+		if id == "" || id == "<nil>" {
+			continue
+		}
+		// fmt.Sprint(float64) may yield "11"; int/string are fine.
+		if f, ok := m["id"].(float64); ok {
+			id = fmt.Sprintf("%.0f", f)
+		}
+		dst[id] = struct{}{}
+	}
+}
+
+// ValidateNumericRepoInAllowlist errors when repoFlag is numeric and not present in allowed.
+// Non-numeric flags (aliases / org/repo paths) skip validation (alias path already gated by ResolveRepositoryID).
+// Empty allowlist rejects numeric ids — callers must populate from profile and/or organization inventory.
+func ValidateNumericRepoInAllowlist(repoFlag string, allowed map[string]struct{}) error {
+	repoFlag = strings.TrimSpace(repoFlag)
+	if !IsNumericRepositoryID(repoFlag) {
+		return nil
+	}
+	if _, ok := allowed[repoFlag]; ok {
+		return nil
+	}
+	return fmt.Errorf("repository id %q is not in organization/profile reachable repos; register under profile.repositories or pass a registered alias / id from `yunxiao codeup repos list`", repoFlag)
+}

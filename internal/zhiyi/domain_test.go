@@ -542,3 +542,71 @@ func TestResolveRepositoryID_UnknownAlias(t *testing.T) {
 		t.Fatalf("hint missing: %v", err)
 	}
 }
+
+func TestIsNumericRepositoryID(t *testing.T) {
+	if !IsNumericRepositoryID("4951346") {
+		t.Fatal("expected numeric")
+	}
+	if !IsNumericRepositoryID(" 7287010 ") {
+		t.Fatal("trim")
+	}
+	if IsNumericRepositoryID("iipmes_gy") || IsNumericRepositoryID("org/repo") || IsNumericRepositoryID("org%2Frepo") || IsNumericRepositoryID("") {
+		t.Fatal("non-numeric should be false")
+	}
+}
+
+func TestProfileRepositoryIDSet(t *testing.T) {
+	got := ProfileRepositoryIDSet(map[string]int64{"a": 1, "b": 2})
+	if _, ok := got["1"]; !ok {
+		t.Fatalf("missing 1: %v", got)
+	}
+	if _, ok := got["2"]; !ok {
+		t.Fatalf("missing 2: %v", got)
+	}
+	if ProfileRepositoryIDSet(nil) == nil {
+		t.Fatal("nil map should yield empty non-nil set")
+	}
+	if len(ProfileRepositoryIDSet(nil)) != 0 {
+		t.Fatal("expected empty")
+	}
+}
+
+func TestAddRepositoryIDsFromListItems(t *testing.T) {
+	dst := map[string]struct{}{}
+	AddRepositoryIDsFromListItems(dst, []any{
+		map[string]any{"id": "10", "name": "a"},
+		map[string]any{"id": float64(11), "name": "b"},
+		map[string]any{"id": int64(12)},
+		"skip",
+		map[string]any{"name": "no-id"},
+	})
+	for _, id := range []string{"10", "11", "12"} {
+		if _, ok := dst[id]; !ok {
+			t.Fatalf("missing %s in %v", id, dst)
+		}
+	}
+}
+
+func TestValidateNumericRepoInAllowlist(t *testing.T) {
+	if err := ValidateNumericRepoInAllowlist("skip-alias", map[string]struct{}{}); err != nil {
+		t.Fatalf("non-numeric flag should skip: %v", err)
+	}
+	allowed := map[string]struct{}{"4951346": {}}
+	if err := ValidateNumericRepoInAllowlist("4951346", allowed); err != nil {
+		t.Fatal(err)
+	}
+	err := ValidateNumericRepoInAllowlist("9999999", allowed)
+	if err == nil {
+		t.Fatal("expected mismatch error")
+	}
+	if !strings.Contains(err.Error(), "9999999") || !strings.Contains(err.Error(), "reachable") {
+		t.Fatalf("message: %v", err)
+	}
+	if !strings.Contains(err.Error(), "profile.repositories") {
+		t.Fatalf("hint: %v", err)
+	}
+	err = ValidateNumericRepoInAllowlist("123", map[string]struct{}{})
+	if err == nil || !strings.Contains(err.Error(), "reachable") {
+		t.Fatalf("empty allowlist should still reject numeric: %v", err)
+	}
+}
