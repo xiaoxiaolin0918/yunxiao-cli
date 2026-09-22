@@ -457,6 +457,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach、**工作�
 
 ## 变更摘要
 
+- **0.16.24** — 标明 OAPI 工作项评论无 delete/update；workitem comment --content-file UTF-8（#69）
 - **0.16.23** — +explore-workflow 区分 verified/hinted 边；支持 --custom-fields/--fields/--from（#61）（edges 仅 verified；hinted 另列）
 - **0.16.22** — mrs update --repo <数字id> 拒绝不在 profile/org 可达仓列表中的 id（#63）
 - **0.16.21** — +explore-workflow 按 --type-id 解析 category（默认自动覆盖；显式不匹配则报错）（#60）

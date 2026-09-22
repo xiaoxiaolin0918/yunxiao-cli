@@ -494,6 +494,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.24** — document OAPI workitem comment delete/update gap; workitem comment --content-file UTF-8 (#69)
 - **0.16.23** — +explore-workflow splits verified vs hinted edges; --custom-fields/--fields/--from  (edges = verified only; hinted separate) (#61)
 - **0.16.22** — mrs update --repo <numeric id> rejects ids outside profile/org allowlist (#63)
 - **0.16.21** — +explore-workflow resolves category from --type-id (auto-overrides default; errors on explicit mismatch) (#60)
