@@ -145,3 +145,32 @@ func TestMrsReviewersAddSchema(t *testing.T) {
 		t.Fatalf("example: %q", m.Example)
 	}
 }
+
+func TestWorkitemCommentContentFileParam(t *testing.T) {
+	m := Find("workitem.comment")
+	if m == nil {
+		t.Fatal("missing workitem.comment")
+	}
+	if !strings.Contains(m.Description, "no delete/update") {
+		t.Fatalf("description should note no delete/update: %s", m.Description)
+	}
+	var hasFile, contentNotRequired bool
+	for _, p := range m.Params {
+		if p.Name == "content-file" {
+			hasFile = true
+		}
+		if p.Name == "content" && !p.Required {
+			contentNotRequired = true
+		}
+	}
+	if !hasFile {
+		t.Fatal("missing content-file param")
+	}
+	if !contentNotRequired {
+		t.Fatal("content should not be required when content-file is allowed")
+	}
+	list := Find("workitem.comments.list")
+	if list == nil || !strings.Contains(list.Description, "no delete/update") {
+		t.Fatalf("list description: %+v", list)
+	}
+}

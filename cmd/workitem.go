@@ -23,6 +23,8 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem +explore-workflow --type-id <id> --cleanup --dry-run
   yunxiao workitem comments list --id <id>
   yunxiao workitem comment --id <id> --content '…' [--dry-run]
+  yunxiao workitem comment --id <id> --content-file ./note.md [--dry-run]  # UTF-8; avoids PS mojibake
+  # OAPI: comments list+create only — no delete/update typed commands
   yunxiao workitem create|update|delete
   yunxiao workitem relations list|create|delete
   yunxiao workitem attachments list|create

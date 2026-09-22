@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: 1.2.0
+version: 1.3.0
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -37,9 +37,12 @@ yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --c
 yunxiao workitem search --category Bug --status 100005,100010 --status-stage 1,2
 yunxiao workitem get --id <workItemId>
 yunxiao workitem comments list --id <id>   # newest first; --sort asc for oldest
+# OAPI 仅 list+create；无 delete/update（RPC DeleteWorkitemComment 属 AccessKey 面，CLI 不封装）
 yunxiao workitem search --creator self --category Task --status-stage 1,2
 yunxiao workitem comment --id <id> --content "进度更新" --dry-run   # write
 yunxiao workitem comment --id <id> --content "进度更新"             # write
+# Windows 中文：勿依赖 PowerShell --content；写 UTF-8 文件后：
+yunxiao workitem comment --id <id> --content-file ./note.md --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
@@ -54,6 +57,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 | `project list` / `workitem search` / `workitem get` / `workitem comments list` | read |
 | `workitem types list` | read |
 | `workitem create` / `workitem comment` / `workitem update` | write（先 `--dry-run` 预览） |
+| `workitem comments delete/update` | **无** — 个人令牌 OAPI 未提供；勿用 raw DELETE |
 | `workitem delete` | high-risk-write（`--yes`） |
 
 ## 参数提示
@@ -61,7 +65,8 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--category`：`Req` | `Task` | `Bug` | `Topic` | `Risk` 等
 - `--assigned-to self`：自动解析为当前用户 id
 - `--space-id`：Projex 项目/空间 id
-- 不确定 schema 时：`yunxiao schema workitem.search`
+- `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
+- 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)
 

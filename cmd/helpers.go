@@ -147,12 +147,21 @@ func readContentInput(content, contentFile string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return string(b), nil
+		return string(stripUTF8BOM(b)), nil
 	}
 	if content == "" {
 		return "", fmt.Errorf("missing --content or --content-file")
 	}
 	return content, nil
+}
+
+// stripUTF8BOM removes a leading UTF-8 BOM (EF BB BF) so Windows editors
+// that save "UTF-8 with BOM" do not send a garbage prefix to OpenAPI.
+func stripUTF8BOM(b []byte) []byte {
+	if len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+		return b[3:]
+	}
+	return b
 }
 
 // resolveContentFilePath accepts cwd-relative paths or absolute paths (incl. Windows-style

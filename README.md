@@ -471,6 +471,7 @@ Surfaces intentionally **not** wrapped (use `yunxiao api` when you have a confir
 | Topic / Risk **sprint** field binding | Some types return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint) |
 | Relation types | Working: `ASSOCIATED`, `DEPEND_ON`. `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create |
 | MR label **detach** | No OpenAPI in MCP |
+| Work item comment **delete/update** | Personal-token **OAPI** only documents list+create; raw DELETE 404. Aliyun OpenAPI RPC has `DeleteWorkitemComment` (`POST .../deleteComent`) / `UpdateWorkitemComment` but AccessKey SDK — not wrapped. Use `--content-file` (UTF-8, BOM stripped) on create for Windows Chinese. |
 | AppStack full CR lifecycle beyond list/create surfaces already shipped | Expand only when MCP is unambiguous |
 | Flow structured pipeline YAML generator (`createPipelineWithOptions`) | MCP helper only; CLI takes raw YAML `--file` |
 

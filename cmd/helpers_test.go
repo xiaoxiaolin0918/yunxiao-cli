@@ -243,3 +243,31 @@ func TestCoalesceSpaceID(t *testing.T) {
 	}
 }
 
+
+func TestStripUTF8BOM(t *testing.T) {
+	got := stripUTF8BOM([]byte{0xEF, 0xBB, 0xBF, 'a', 'b'})
+	if string(got) != "ab" {
+		t.Fatalf("%q", got)
+	}
+	got = stripUTF8BOM([]byte("plain"))
+	if string(got) != "plain" {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestReadContentInputStripsBOM(t *testing.T) {
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	payload := append([]byte{0xEF, 0xBB, 0xBF}, []byte("你好")...)
+	if err := os.WriteFile("bom.txt", payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readContentInput("", "bom.txt")
+	if err != nil || got != "你好" {
+		t.Fatalf("%q %v", got, err)
+	}
+}
