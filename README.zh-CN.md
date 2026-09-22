@@ -457,6 +457,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach 等仍无�
 
 ## 变更摘要
 
+- **0.16.20** — +transition --dry-run 有边缓存时校验流转边，无边时标注 skipped（#59）。
 - **0.16.19** — workitem create 成功响应保留 serialNumber/status（默认 brief；create 返回 null 时自动再 GET）（#62）
 - **0.16.18** — mrs comments resolve/reopen (#56)
 - **0.16.17** — 已有 MR 支持 `codeup mrs link|unlink` 与 `mrs update --work-item`（#54）
