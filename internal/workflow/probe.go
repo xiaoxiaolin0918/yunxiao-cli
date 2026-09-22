@@ -41,9 +41,16 @@ type ProbeOptions struct {
 }
 
 // ProbeResult is the discovered graph plus diagnostics.
+//
+// Edges are verified only (HTTP OK on PUT status). OutcomeNeedsFields go to
+// HintedEdges + RequiredHints / MissingFields — never into Edges — so consumers
+// and BFS reposition do not treat false-positive required-field edges as real
+// transitions (issue 61).
 type ProbeResult struct {
-	Edges         map[string][]string
-	RequiredHints map[string]string // keyed by to, or "from→to"
+	Edges         map[string][]string // verified (OutcomeOK)
+	HintedEdges   map[string][]string // needs_fields only
+	RequiredHints map[string]string   // keyed by "from→to" and optionally "to"
+	MissingFields map[string][]string // keyed by "from→to" → field display names
 	Attempts      []Attempt
 	HardToReach   []string
 	FinalStatus   string
@@ -71,7 +78,9 @@ func ExploreTransitions(opt ProbeOptions) (*ProbeResult, error) {
 	fromOrder := preferFirst(ids, opt.StartStatus)
 
 	edges := map[string][]string{}
+	hinted := map[string][]string{}
 	hints := map[string]string{}
+	missing := map[string][]string{}
 	var attempts []Attempt
 	attempted := map[string]bool{}
 	hard := map[string]bool{}
@@ -102,13 +111,19 @@ func ExploreTransitions(opt ProbeOptions) (*ProbeResult, error) {
 			From: from, To: to, OK: false, Error: snippet, Kind: kind, Outcome: out.String(),
 		})
 		if out == OutcomeNeedsFields {
-			AddEdge(edges, from, to)
+			// Hint only — do NOT AddEdge to verified graph (issue 61).
+			AddEdge(hinted, from, to)
 			pairKey := from + "→" + to
 			if _, ok := hints[pairKey]; !ok {
 				hints[pairKey] = snippet
 			}
 			if _, ok := hints[to]; !ok {
 				hints[to] = snippet
+			}
+			if fields := ExtractMissingFieldNames(snippet); len(fields) > 0 {
+				if _, ok := missing[pairKey]; !ok {
+					missing[pairKey] = fields
+				}
 			}
 		}
 		return out
@@ -268,7 +283,9 @@ func ExploreTransitions(opt ProbeOptions) (*ProbeResult, error) {
 
 	return &ProbeResult{
 		Edges:         SortedCopy(edges),
+		HintedEdges:   SortedCopy(hinted),
 		RequiredHints: hints,
+		MissingFields: missing,
 		Attempts:      attempts,
 		HardToReach:   hardList,
 		FinalStatus:   current,

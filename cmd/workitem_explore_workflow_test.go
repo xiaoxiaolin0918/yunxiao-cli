@@ -147,12 +147,12 @@ func TestBuildExploreCreateBody_BugFieldsOnlyForBug(t *testing.T) {
 			SeriousLevel: map[string]string{"normal": "s-normal"},
 		},
 	}
-	bugBody := buildExploreCreateBody(context.Background(), pf, nil, "space", "bug-t", "Bug")
+	bugBody := buildExploreCreateBody(context.Background(), pf, nil, "space", "bug-t", "Bug", nil)
 	cf, _ := bugBody["customFieldValues"].(map[string]any)
 	if cf["priority"] != "p-high" || cf["seriousLevel"] != "s-normal" {
 		t.Fatalf("bug body cf=%v body=%v", cf, bugBody)
 	}
-	reqBody := buildExploreCreateBody(context.Background(), pf, nil, "space", "req-t", "Req")
+	reqBody := buildExploreCreateBody(context.Background(), pf, nil, "space", "req-t", "Req", nil)
 	if _, ok := reqBody["customFieldValues"]; ok {
 		t.Fatalf("Req must not inject Bug fields: %v", reqBody)
 	}
@@ -232,5 +232,38 @@ func TestExploreWorkflowDryRunAutoOverridesCategory(t *testing.T) {
 	body, _ := cp["body"].(map[string]any)
 	if cf, ok := body["customFieldValues"]; ok {
 		t.Fatalf("Req probe must not have Bug customFieldValues: %v", cf)
+	}
+}
+
+
+func TestBuildExploreCreateBody_CustomFieldsAndDefaults(t *testing.T) {
+	pf := &profile.Profile{
+		DefaultAssignedTo: "u1",
+		WorkitemDefaults: map[string]profile.WorkitemTypeDefaults{
+			"req-t": {
+				Category: "Req",
+				Fields: map[string]profile.WorkitemDefaultField{
+					"priority": {Value: "p-default"},
+				},
+			},
+		},
+	}
+	body := buildExploreCreateBody(context.Background(), pf, nil, "space", "req-t", "Req", map[string]any{
+		"sprint": "s-1",
+	})
+	cf, _ := body["customFieldValues"].(map[string]any)
+	if cf["sprint"] != "s-1" {
+		t.Fatalf("custom fields not applied: %v", body)
+	}
+	if cf["priority"] != "p-default" {
+		t.Fatalf("workitem_defaults not applied after custom fields: %v", body)
+	}
+	// Flag should win over defaults when same key already set
+	body2 := buildExploreCreateBody(context.Background(), pf, nil, "space", "req-t", "Req", map[string]any{
+		"priority": "p-flag",
+	})
+	cf2, _ := body2["customFieldValues"].(map[string]any)
+	if cf2["priority"] != "p-flag" {
+		t.Fatalf("custom-fields should win over defaults: %v", body2)
 	}
 }

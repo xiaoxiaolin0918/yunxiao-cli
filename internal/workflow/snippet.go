@@ -139,7 +139,8 @@ type WorkflowSnippet struct {
 	WorkflowName    string              `json:"workflow_name,omitempty"`
 	DefaultStatusID string              `json:"default_status_id,omitempty"`
 	Statuses        map[string]string   `json:"statuses,omitempty"`
-	Edges           map[string][]string `json:"edges,omitempty"`
+	Edges           map[string][]string `json:"edges,omitempty"`        // verified only
+	HintedEdges     map[string][]string `json:"hinted_edges,omitempty"` // needs_fields (issue 61)
 }
 
 // ProfileSnippet is the best-effort fragment for --write-profile / output.
@@ -159,11 +160,13 @@ type SnippetInput struct {
 	DefaultStatusID string
 	Statuses        []StatusInfo
 	Edges           map[string][]string
+	HintedEdges     map[string][]string // optional; needs_fields edges
 }
 
 // BuildProfileSnippet builds a workflows[]-ready object plus legacy bug_* when category is Bug.
 func BuildProfileSnippet(in SnippetInput) ProfileSnippet {
 	edges := SortedCopy(in.Edges)
+	hinted := SortedCopy(in.HintedEdges)
 	statuses := BuildStatusNameMap(in.Statuses)
 	cat := strings.TrimSpace(in.Category)
 	catLower := strings.ToLower(cat)
@@ -190,6 +193,7 @@ func BuildProfileSnippet(in SnippetInput) ProfileSnippet {
 		DefaultStatusID: strings.TrimSpace(in.DefaultStatusID),
 		Statuses:        statuses,
 		Edges:           edges,
+		HintedEdges:     hinted,
 	}
 
 	out := ProfileSnippet{Workflow: wf}

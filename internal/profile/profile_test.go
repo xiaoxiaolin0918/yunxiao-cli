@@ -303,3 +303,28 @@ func TestLoadWorkitemDefaults(t *testing.T) {
 		t.Fatalf("roundtrip: %+v", p2.WorkitemDefaults)
 	}
 }
+
+
+func TestMergeWorkflowHintedEdges(t *testing.T) {
+	p := &Profile{Name: "play"}
+	p.MergeWorkflow("type-a", WorkitemWorkflow{
+		Edges:       map[string][]string{"a": {"b"}},
+		HintedEdges: map[string][]string{"a": {"c"}},
+	})
+	wf := p.Workflows["type-a"]
+	if len(wf.HintedEdges["a"]) != 1 || wf.HintedEdges["a"][0] != "c" {
+		t.Fatalf("hinted: %v", wf.HintedEdges)
+	}
+	// nil HintedEdges must not clear
+	p.MergeWorkflow("type-a", WorkitemWorkflow{Edges: map[string][]string{"a": {"b", "d"}}})
+	wf = p.Workflows["type-a"]
+	if len(wf.HintedEdges["a"]) != 1 {
+		t.Fatalf("hinted cleared unexpectedly: %v", wf.HintedEdges)
+	}
+	// empty non-nil clears
+	p.MergeWorkflow("type-a", WorkitemWorkflow{HintedEdges: map[string][]string{}})
+	wf = p.Workflows["type-a"]
+	if len(wf.HintedEdges) != 0 {
+		t.Fatalf("expected clear: %v", wf.HintedEdges)
+	}
+}
