@@ -457,6 +457,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach、**工作�
 
 ## 变更摘要
 
+- **0.16.25** — AccessKey RPC 接入 workitem comments delete|update（OAPI 仍仅 list/create）
 - **0.16.24** — 标明 OAPI 工作项评论无 delete/update；workitem comment --content-file UTF-8（#69）
 - **0.16.23** — +explore-workflow 区分 verified/hinted 边；支持 --custom-fields/--fields/--from（#61）（edges 仅 verified；hinted 另列）
 - **0.16.22** — mrs update --repo <数字id> 拒绝不在 profile/org 可达仓列表中的 id（#63）
