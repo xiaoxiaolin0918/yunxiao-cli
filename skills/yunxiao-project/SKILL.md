@@ -40,7 +40,7 @@ yunxiao workitem comments list --id <id>   # newest first; --sort asc for oldest
 # OAPI 仅 list+create；delete/update 走 AccessKey RPC（需 ALIBABA_CLOUD_ACCESS_KEY_*）
 yunxiao workitem comments delete --id <id|serial> --comment-id <cid> --dry-run
 
-See wiki: [workitem-comments-oapi-gaps.md](../docs/wiki/02-domains/workitem-comments-oapi-gaps.md)（OAPI vs AccessKey RPC）。
+See wiki: [workitem-comments-oapi-gaps.md](../../docs/wiki/02-domains/workitem-comments-oapi-gaps.md)（OAPI vs AccessKey RPC）。
 yunxiao workitem comments delete --id <id|serial> --comment-id <cid> --yes   # high-risk-write
 yunxiao workitem comments update --id <id> --comment-id <cid> --content-file ./note.md --dry-run
 yunxiao workitem search --creator self --category Task --status-stage 1,2
