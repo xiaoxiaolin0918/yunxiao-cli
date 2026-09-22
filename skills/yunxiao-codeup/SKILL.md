@@ -123,6 +123,8 @@ yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-r
 
 `update` / `link` / `unlink` 为 **write**（标题/描述或工作项关联变更），不是 high-risk-write。
 
+`mrs update` 的数字 `--repo` 会校验是否属于当前 organization/profile 可达仓（profile.repositories ∪ org GET）；不匹配直接报错（无 `--yes` 放行）。别名未注册仍按 #49 失败。
+
 ### read
 
 ```bash

@@ -43,3 +43,13 @@ yunxiao codeup mrs update --repo <id> --local-id <n> --work-item ZYPT-5573 --dry
 
 **不要**用 `UpdateChangeRequest` / `mrs update` 的 title 字段去挂工作项；`mrs update --work-item` 内部同样走 extRelationRecords（加法、幂等）。
 
+## 数字 --repo 归属校验（mrs update / #63）
+
+`mrs update --repo <数字id>` 若传错其它项目的 repo id，旧版会直接对非预期仓库写入。
+
+CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清单中：
+
+- `profile.repositories` 已注册的 id；或
+- 当前组织下 `GET .../repositories/{id}` 可达
+
+不匹配 → **直接报错**（不提供 `--yes` 绕过）。别名路径仍走 #49（未注册即失败）。

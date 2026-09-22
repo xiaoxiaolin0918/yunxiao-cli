@@ -262,6 +262,8 @@ func TestMrsUpdateWorkItemOnlyDryRun(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"localId": 125, "title": "t", "projectId": "4951320"})
 		case strings.Contains(r.URL.Path, "extRelationRecords") && r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode([]any{})
+		case strings.Contains(r.URL.Path, "/repositories/") && r.Method == http.MethodGet && !strings.Contains(r.URL.Path, "/changeRequests"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "4951320", "name": "demo"})
 		default:
 			w.WriteHeader(404)
 		}
@@ -315,6 +317,8 @@ func TestMrsUpdateCombinedDryRunIncludesLink(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"localId": 125, "title": "old", "projectId": "4951320"})
 		case strings.Contains(r.URL.Path, "extRelationRecords") && r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode([]any{})
+		case strings.Contains(r.URL.Path, "/repositories/") && r.Method == http.MethodGet && !strings.Contains(r.URL.Path, "/changeRequests"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "4951320", "name": "demo"})
 		default:
 			w.WriteHeader(404)
 		}
