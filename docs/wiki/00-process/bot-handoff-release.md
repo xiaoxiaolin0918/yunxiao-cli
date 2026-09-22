@@ -86,5 +86,5 @@ gh pr list --state open
 ## 当前快照（请发版或合 PR 后更新本段）
 
 - 最近发版：`v0.16.25`（#71 AccessKey 工作项评论 delete/update；需 PAT 解析 + AK 写）
-- 进行中：PR #73 bot handoff playbook（本页；合入后本段即随 main）
+- 进行中：无 open issue；交接手册已合入 main（本页）
 - npm publish：仍默认跳过
