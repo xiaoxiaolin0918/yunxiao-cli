@@ -493,6 +493,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.21** — +explore-workflow resolves category from --type-id (auto-overrides default; errors on explicit mismatch) (#60)
 - **0.16.20** — +transition --dry-run validates workflow edges when cached, otherwise marks skipped (#59).
 - **0.16.19** — workitem create success keeps serialNumber/status (brief; re-GET when create returns null) (#62)
 - **0.16.18** — mrs comments resolve/reopen (#56)
