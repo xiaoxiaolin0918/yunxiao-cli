@@ -31,7 +31,11 @@ named flags (--plan-due-date, --developer, …).
 Needs active profile. Discover graphs with +explore-workflow --write-profile.
 When profile edges are missing, falls back to a single-step status PUT if --to matches a
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
-sets you can also use: workitem update --status <id> [--cancel-reason …].`,
+sets you can also use: workitem update --status <id> [--cancel-reason …].
+
+--dry-run: with profile.workflows[<type>] edges, validates current→target locally (illegal
+path → ok:false). Without cached edges, dry-run still resolves the target status id but sets
+request.edge_validation=skipped and a warning — do not treat that as "transition will succeed".`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
@@ -196,7 +200,7 @@ sets you can also use: workitem update --status <id> [--cancel-reason …].`,
 		}
 
 		if globalDryRun {
-			handleErr(output.DryRunResult(string(risk.Write), map[string]any{
+			req := map[string]any{
 				"work_item":       id,
 				"resolved_id":     resolvedID,
 				"serial_number":   serial,
@@ -210,7 +214,13 @@ sets you can also use: workitem update --status <id> [--cancel-reason …].`,
 				"provided_fields": extraFields,
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
-			}))
+			}
+			ev, warn := transitionDryRunEdgeValidation(transitionMode, wf.Edges)
+			req["edge_validation"] = ev
+			if warn != "" {
+				req["warning"] = warn
+			}
+			handleErr(output.DryRunResult(string(risk.Write), req))
 			return
 		}
 
@@ -291,6 +301,19 @@ type profileWorkflowView struct {
 	Edges    map[string][]string
 	Statuses map[string]string
 	Source   string
+}
+
+
+// transitionDryRunEdgeValidation reports whether --dry-run validated current→target
+// against profile workflow edges (issue #59).
+//
+// When edges are missing (direct_status / empty edges), dry-run must not pretend the
+// transition is legal — only the target status id was resolved.
+func transitionDryRunEdgeValidation(transitionMode string, edges map[string][]string) (status, warning string) {
+	if transitionMode == "direct_status" || len(edges) == 0 {
+		return "skipped", "未校验流转边：无 profile.workflows 缓存边（仅解析目标状态 id / api_workflow_statuses）；真实 PUT 仍可能 HTTP 400「不能流转到目标状态」。可先 workitem +explore-workflow --write-profile 缓存边后再 --dry-run。"
+	}
+	return "validated", ""
 }
 
 // tryDirectStatusFromAPI loads GET .../workitemTypes/{type}/workflows statuses and
