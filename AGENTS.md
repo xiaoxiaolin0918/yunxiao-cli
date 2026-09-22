@@ -4,6 +4,8 @@ Practical rules for humans and AI agents working on **yunxiao-cli** (阿里云�
 
 ## Purpose
 
+- **Bot handoff / release playbook** (keep shippable without chat memory): [docs/wiki/00-process/bot-handoff-release.md](docs/wiki/00-process/bot-handoff-release.md). Update that page's current-snapshot section when you merge or release.
+
 - Migrating from GitHub CLI or public npm `yx`? See [docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md).
 
 - CLI binary: `yunxiao` — DevOps API client for Yunxiao (organization, Projex, Codeup, Flow, Packages, Testhub, AppStack).
