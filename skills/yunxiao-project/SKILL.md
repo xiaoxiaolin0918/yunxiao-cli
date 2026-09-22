@@ -102,7 +102,7 @@ ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yun
 ## meta.url / relations 富化（CLI 0.15.x）
 
 - `workitem get/create/update` 与 `+transition` 成功时 `meta` 常含可点击 `url`（及 `serial_number` / `resolved_id`）。
-- `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。
+- `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。依赖完整 create JSON 的脚本请加 --full。
 - `workitem relations list` 会尽力为每条关联补齐 `serial_number` / `subject` / `url`（及 category）。
 - 取消态更新可用 `--cancel-reason <text>`（自动查找「取消原因」字段）；dry-run 可能带 soft-warn 提示。
 
