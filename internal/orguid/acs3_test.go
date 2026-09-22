@@ -9,7 +9,7 @@ import (
 
 func TestSignACS3_SetsAuthHeader(t *testing.T) {
 	ak := AKEnv{AccessKeyID: "LTAI_test", AccessKeySecret: "secret"}
-	hdr, err := SignACS3("GET", "devops.cn-hangzhou.aliyuncs.com", "/organization/o1/members", url.Values{"maxResults": {"2"}}, nil, ak, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	hdr, err := SignACS3("GET", "devops.cn-hangzhou.aliyuncs.com", "/organization/o1/members", "ListOrganizationMembers", url.Values{"maxResults": {"2"}}, nil, ak, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,6 +25,21 @@ func TestSignACS3_SetsAuthHeader(t *testing.T) {
 	}
 	if hdr.Get("x-acs-signature-nonce") == "" {
 		t.Fatal("missing nonce")
+	}
+}
+
+func TestSignACS3_DeleteWorkitemCommentAction(t *testing.T) {
+	ak := AKEnv{AccessKeyID: "LTAI_test", AccessKeySecret: "secret"}
+	body := []byte(`{"identifier":"wi1","commentId":12}`)
+	hdr, err := SignACS3("POST", "devops.cn-hangzhou.aliyuncs.com", "/organization/o1/workitems/deleteComent", "DeleteWorkitemComment", nil, body, ak, time.Date(2026, 9, 22, 8, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Get("x-acs-action") != "DeleteWorkitemComment" {
+		t.Fatalf("action=%q", hdr.Get("x-acs-action"))
+	}
+	if hdr.Get("x-acs-content-sha256") == "" {
+		t.Fatal("missing content sha256")
 	}
 }
 

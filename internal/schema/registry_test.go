@@ -151,8 +151,8 @@ func TestWorkitemCommentContentFileParam(t *testing.T) {
 	if m == nil {
 		t.Fatal("missing workitem.comment")
 	}
-	if !strings.Contains(m.Description, "no delete/update") {
-		t.Fatalf("description should note no delete/update: %s", m.Description)
+	if !strings.Contains(m.Description, "delete/update") && !strings.Contains(m.Description, "AccessKey") {
+		t.Fatalf("description should mention delete/update RPC: %s", m.Description)
 	}
 	var hasFile, contentNotRequired bool
 	for _, p := range m.Params {
@@ -170,7 +170,21 @@ func TestWorkitemCommentContentFileParam(t *testing.T) {
 		t.Fatal("content should not be required when content-file is allowed")
 	}
 	list := Find("workitem.comments.list")
-	if list == nil || !strings.Contains(list.Description, "no delete/update") {
-		t.Fatalf("list description: %+v", list)
+	if list == nil {
+		t.Fatal("missing workitem.comments.list")
+	}
+	del := Find("workitem.comments.delete")
+	if del == nil || del.Risk != risk.HighRiskWrite {
+		t.Fatalf("delete: %+v", del)
+	}
+	if !strings.Contains(del.Path, "deleteComent") {
+		t.Fatalf("delete path typo: %s", del.Path)
+	}
+	upd := Find("workitem.comments.update")
+	if upd == nil || upd.Risk != risk.Write {
+		t.Fatalf("update: %+v", upd)
+	}
+	if !strings.Contains(upd.Path, "commentUpdate") {
+		t.Fatalf("update path: %s", upd.Path)
 	}
 }
