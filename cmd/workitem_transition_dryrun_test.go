@@ -331,3 +331,211 @@ func TestTransitionDryRunValidatedWhenEdgesPresent(t *testing.T) {
 		t.Fatalf("mode=%v", req["transition_mode"])
 	}
 }
+
+func TestTransitionDryRunEdgeValidation_IllegalAndHinted(t *testing.T) {
+	edges := map[string][]string{
+		"st-pending": {"st-test"},
+		"st-test":    {"st-dev-done"},
+		"st-deploy":  {"st-regress"},
+	}
+	hinted := map[string][]string{
+		"st-pending": {"st-cancel", "st-design", "st-test"},
+		"st-dev-done": {"st-test"},
+	}
+
+	// Legal edge in edges → validated
+	st, warn, illegal := transitionDryRunEdgeValidationFull("profile_graph", "st-pending", "st-test", edges, hinted)
+	if st != "validated" || warn != "" || illegal {
+		t.Fatalf("legal: %q %q illegal=%v", st, warn, illegal)
+	}
+
+	// Only in hinted → hinted/unverified, not validated, not illegal
+	st, warn, illegal = transitionDryRunEdgeValidationFull("profile_graph", "st-pending", "st-design", edges, hinted)
+	if st != "hinted" || illegal {
+		t.Fatalf("hinted-only: %q warn=%q illegal=%v", st, warn, illegal)
+	}
+	if warn == "" {
+		t.Fatal("hinted-only should warn")
+	}
+
+	// In neither → illegal
+	st, warn, illegal = transitionDryRunEdgeValidationFull("profile_graph", "st-pending", "st-done", edges, hinted)
+	if !illegal || st == "validated" {
+		t.Fatalf("illegal: %q warn=%q illegal=%v", st, warn, illegal)
+	}
+
+	// Source not in edges keys (passthrough bug) + target unknown → illegal
+	st, warn, illegal = transitionDryRunEdgeValidationFull("profile_graph", "st-regress", "st-done", edges, hinted)
+	if !illegal {
+		t.Fatalf("source-side-branch: %q warn=%q illegal=%v", st, warn, illegal)
+	}
+}
+
+func TestTransitionDryRunIllegalEdgeReturnsOkFalse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/workitems/") && r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":             "wi-75",
+				"serialNumber":   "ZYPT-5866",
+				"spaceId":        "space-1",
+				"categoryId":     "Req",
+				"workitemTypeId": "type-req-1",
+				"status":         map[string]any{"id": "st-pending", "displayName": "待处理"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	writeTransitionTestProfile(t, xdg, &profile.Profile{
+		Name:           "t75",
+		OrganizationID: "org-75",
+		SpaceID:        "space-1",
+		Workflows: map[string]profile.WorkitemWorkflow{
+			"type-req-1": {
+				Category: "Req",
+				Statuses: map[string]string{
+					"待处理": "st-pending", "待测试": "st-test", "设计中": "st-design", "已完成": "st-done",
+				},
+				Edges: map[string][]string{
+					"st-pending": {"st-test"},
+					"st-test":    {"st-dev-done"},
+				},
+				HintedEdges: map[string][]string{
+					"st-pending": {"st-design", "st-test"},
+				},
+			},
+		},
+	})
+
+	t.Setenv(config.EnvAccessToken, "test-token-transition-75-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-75")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "t75")
+
+	stderr := &bytes.Buffer{}
+	prevErr := output.Stderr
+	output.Stderr = stderr
+	t.Cleanup(func() { output.Stderr = prevErr })
+
+	prevExit := processExit
+	var gotCode int
+	processExit = func(code int) {
+		gotCode = code
+		panic(exitPanic{code: code})
+	}
+	t.Cleanup(func() { processExit = prevExit })
+
+	globalProfile = "t75"
+	resetStringFlags(t, workitemTransitionCmd, "id", "to", "type-id", "fields")
+	rootCmd.SetArgs([]string{
+		"workitem", "+transition",
+		"--id", "ZYPT-5866",
+		"--to", "已完成",
+		"--dry-run",
+	})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(exitPanic); !ok {
+					panic(r)
+				}
+			}
+		}()
+		_ = rootCmd.Execute()
+	}()
+
+	if gotCode != 1 {
+		t.Fatalf("exit=%d stderr=%s", gotCode, stderr.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stderr.Bytes(), &env); err != nil {
+		t.Fatalf("stderr JSON: %v / %s", err, stderr.Bytes())
+	}
+	if env.OK {
+		t.Fatalf("want ok:false for illegal edge, got %+v", env)
+	}
+}
+
+func TestTransitionDryRunHintedEdgeNotValidated(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/workitems/") && r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":             "wi-75h",
+				"serialNumber":   "ZYPT-5866",
+				"spaceId":        "space-1",
+				"categoryId":     "Req",
+				"workitemTypeId": "type-req-1",
+				"status":         map[string]any{"id": "st-pending", "displayName": "待处理"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	writeTransitionTestProfile(t, xdg, &profile.Profile{
+		Name:           "t75h",
+		OrganizationID: "org-75",
+		SpaceID:        "space-1",
+		Workflows: map[string]profile.WorkitemWorkflow{
+			"type-req-1": {
+				Category: "Req",
+				Statuses: map[string]string{
+					"待处理": "st-pending", "设计中": "st-design", "待测试": "st-test",
+				},
+				Edges: map[string][]string{
+					"st-pending": {"st-test"},
+				},
+				HintedEdges: map[string][]string{
+					"st-pending": {"st-design", "st-test"},
+				},
+			},
+		},
+	})
+
+	t.Setenv(config.EnvAccessToken, "test-token-transition-75-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-75")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "t75h")
+
+	stdout := withCmdJSONCapture(t)
+	globalProfile = "t75h"
+	resetStringFlags(t, workitemTransitionCmd, "id", "to", "type-id", "fields")
+	rootCmd.SetArgs([]string{
+		"workitem", "+transition",
+		"--id", "ZYPT-5866",
+		"--to", "设计中",
+		"--dry-run",
+	})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstdout=%s", err, stdout.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if !env.OK || !env.DryRun {
+		t.Fatalf("%+v", env)
+	}
+	raw, _ := json.Marshal(env.Request)
+	var req map[string]any
+	_ = json.Unmarshal(raw, &req)
+	if req["edge_validation"] != "hinted" {
+		t.Fatalf("edge_validation=%v req=%s", req["edge_validation"], raw)
+	}
+	if _, ok := req["warning"]; !ok {
+		t.Fatalf("expected warning for hinted edge; req=%s", raw)
+	}
+}
