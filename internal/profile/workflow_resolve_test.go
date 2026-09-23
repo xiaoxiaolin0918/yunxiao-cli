@@ -62,3 +62,37 @@ func TestResolveWorkflowMissing(t *testing.T) {
 		t.Fatalf("expected one-off update hint: %v", err)
 	}
 }
+
+func TestResolveWorkflowHintedOnly(t *testing.T) {
+	// #82: empty verified edges + non-empty hinted_edges still resolves profile_graph.
+	p := &Profile{
+		Name: "t82",
+		Workflows: map[string]WorkitemWorkflow{
+			"type-req-1": {
+				Category: "Req",
+				Statuses: map[string]string{"待处理": "st-pending", "设计中": "st-design"},
+				Edges:    map[string][]string{},
+				HintedEdges: map[string][]string{
+					"st-pending": {"st-design"},
+				},
+			},
+		},
+	}
+	wf, err := p.ResolveWorkflow("type-req-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wf.Source != "workflows" {
+		t.Fatalf("source=%q", wf.Source)
+	}
+	if len(wf.HintedEdges["st-pending"]) != 1 {
+		t.Fatalf("hinted=%v", wf.HintedEdges)
+	}
+	if len(wf.Edges) != 0 {
+		t.Fatalf("edges should stay empty: %v", wf.Edges)
+	}
+	ids := wf.AllStatusIDs()
+	if !ids["st-pending"] || !ids["st-design"] {
+		t.Fatalf("AllStatusIDs=%v", ids)
+	}
+}

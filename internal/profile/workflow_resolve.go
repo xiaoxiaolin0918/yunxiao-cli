@@ -40,6 +40,7 @@ func (w WorkflowResolve) AllStatusIDs() map[string]bool {
 }
 
 // ResolveWorkflow loads edges/statuses for typeID from workflows[typeID].
+// Accepts an entry when verified edges and/or hinted_edges are non-empty (#82).
 // When missing, falls back to legacy bug_edges/bug_statuses if typeID matches bug_type_id.
 func (p *Profile) ResolveWorkflow(typeID string) (WorkflowResolve, error) {
 	typeID = strings.TrimSpace(typeID)
@@ -50,7 +51,7 @@ func (p *Profile) ResolveWorkflow(typeID string) (WorkflowResolve, error) {
 		return WorkflowResolve{}, fmt.Errorf("type_id required to resolve workflow")
 	}
 
-	if wf, ok := p.Workflows[typeID]; ok && len(wf.Edges) > 0 {
+	if wf, ok := p.Workflows[typeID]; ok && (len(wf.Edges) > 0 || len(wf.HintedEdges) > 0) {
 		statuses := wf.Statuses
 		if statuses == nil {
 			statuses = map[string]string{}

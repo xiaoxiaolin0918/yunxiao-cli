@@ -1,8 +1,11 @@
 // Package termui gates fancy terminal control (clear-screen / cursor) for agent captures.
 //
-// Issue #76: some hosts (notably Windows Git Bash + agent capture) observe ESC[H ESC[2J ESC[3J
-// on the tty device even when stdout/stderr are redirected. yunxiao itself does not emit those
-// sequences today, but we still:
+// Issue #76 / follow-up #81: some hosts (notably Windows Git Bash + agent capture) observe
+// ESC[H ESC[2J ESC[3J on the tty device even when stdout/stderr are redirected. Reproduction
+// on 0.16.26+ (project list / --help under redirected non-TTY and script(1) capture) shows
+// yunxiao itself does not emit those CSI sequences — deps are cobra/gojq/yaml only; no TUI
+// library writes clear-screen. Configure() remains the gate; WriteTTY / StripClearScreen stay
+// available for any future TUI path:
 //   - honor YUNXIAO_NO_TUI=1, NO_COLOR, TERM=dumb
 //   - treat non-TTY stdout as non-interactive
 //   - provide WriteTTY / StripClearScreen so any future TUI path can no-op or sanitize
