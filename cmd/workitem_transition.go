@@ -373,7 +373,6 @@ func edgePathExists(edges map[string][]string, from, to string) bool {
 	if from == to {
 		return true
 	}
-	type node struct{ id string }
 	queue := []string{from}
 	seen := map[string]bool{from: true}
 	for len(queue) > 0 {
