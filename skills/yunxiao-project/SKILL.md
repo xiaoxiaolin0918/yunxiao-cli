@@ -107,7 +107,7 @@ yunxiao workitem +transition --id <id> --to 处理中 --fields '{"80":"2026-09-2
 
 Risk: **write**（真发需 `--yes`）。缺图时先 `+explore-workflow --write-profile`。
 `--dry-run`（#75）：须先有**非空 verified** `workflows[].edges` 才进入路径分类——`edges` 为空时仍 `edge_validation=skipped` + `warning`（#59，即使仅有 `hinted_edges` 也不做 hinted 判定）。有边时按 edges∪hinted_edges：实证边 → `validated`；仅 hinted → `hinted`+warning；两边皆无（含源不在边表）→ `ok:false`。勿把 `skipped`/`hinted` 当成必能流转。
-`--write-profile`：`MergeWorkflow` 对 `edges`/`hinted_edges` 做**并集**，不会整表覆写冲掉手工回填的实证边。
+`--write-profile`：`MergeWorkflow` 对 verified `edges` 做**并集**（保留手工回填实证边）；`hinted_edges` 若写入方非空则**整表替换**（非并集）。
 +explore-workflow：--category 默认 Bug；会按 type-id 自动覆盖（勿对 Req 硬塞 Bug）（#60）。
 +explore-workflow 边契约（#61 MVP）：`edges`/`verified_edges` = 实测成功；`hinted_edges`+`required_hints`/`missing_fields` = needs_fields 假阳性（勿当 verified 消费）。可用 `--custom-fields`（create）与 `--fields`（每次 PUT）补齐字段，`--from` 先定位再探。`--write-profile` 写入 `workflows[].edges`（verified）与 `hinted_edges`。逐状态必填表（通用化 bug_transition_required）仍待做。
 
