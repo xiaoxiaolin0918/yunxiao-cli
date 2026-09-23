@@ -33,11 +33,12 @@ When profile edges are missing, falls back to a single-step status PUT if --to m
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
 sets you can also use: workitem update --status <id> [--cancel-reason …].
 
---dry-run: with profile.workflows[<type>] edges, validates current→target locally
-(edge_validation=validated|hinted|illegal; illegal → ok:false). Hinted-only edges
-(hinted_edges / needs_fields) are not "validated". Without cached edges, dry-run still
-resolves the target status id but sets edge_validation=skipped and a warning — do not
-treat that as "transition will succeed".`,
+--dry-run: with profile.workflows[<type>] edges and/or hinted_edges, validates
+current→target locally (edge_validation=validated|hinted|illegal; illegal → ok:false).
+Hinted-only edges (hinted_edges / needs_fields) are not "validated"; when verified
+edges are empty but hinted_edges is non-empty, dry-run still classifies (#82).
+Only when both maps are empty (or transition_mode=direct_status) does dry-run set
+edge_validation=skipped with a warning — do not treat that as "transition will succeed".`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
@@ -319,15 +320,15 @@ func transitionDryRunEdgeValidation(transitionMode string, edges map[string][]st
 	return st, warn
 }
 
-// transitionDryRunEdgeValidationFull classifies current→target against edges / hinted_edges (#75).
+// transitionDryRunEdgeValidationFull classifies current→target against edges / hinted_edges (#75/#82).
 //
-//   - skipped: no cached edges (direct_status / empty)
+//   - skipped: direct_status, or both verified edges and hinted_edges empty
 //   - validated: path exists in verified edges
-//   - hinted: only reachable via hinted_edges (needs_fields / unverified)
-//   - illegal: known graph but target not in edges∪hinted_edges (including source-not-on-graph passthrough)
+//   - hinted: only reachable via hinted_edges (needs_fields / unverified) — including when verified edges are empty (#82)
+//   - illegal: known graph (edges and/or hinted non-empty) but target not in edges∪hinted_edges
 func transitionDryRunEdgeValidationFull(transitionMode, current, target string, edges, hinted map[string][]string) (status, warning string, illegal bool) {
-	if transitionMode == "direct_status" || len(edges) == 0 {
-		return "skipped", "未校验流转边：无 profile.workflows 缓存边（仅解析目标状态 id / api_workflow_statuses）；真实 PUT 仍可能 HTTP 400「不能流转到目标状态」。可先 workitem +explore-workflow --write-profile 缓存边后再 --dry-run。", false
+	if transitionMode == "direct_status" || (len(edges) == 0 && len(hinted) == 0) {
+		return "skipped", "未校验流转边：无 profile.workflows 缓存边（edges 与 hinted_edges 皆空；仅解析目标状态 id / api_workflow_statuses）；真实 PUT 仍可能 HTTP 400「不能流转到目标状态」。可先 workitem +explore-workflow --write-profile 缓存边后再 --dry-run。", false
 	}
 	// Backward-compat helper call without current/target: presence of edges ⇒ validated.
 	if current == "" && target == "" {
