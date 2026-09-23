@@ -495,8 +495,8 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
-- **0.16.26** — non-TTY/`YUNXIAO_NO_TUI` clear-screen guard (#76); transition dry-run edges∪hinted validation (#75); `+bug-create --verifier` + serious-level synonym (#77)
 - **0.16.27** — dry-run classifies against hinted_edges when verified edges empty (#82); #81 confirms no CLI clear CSI, Configure gate enough
+- **0.16.26** — non-TTY/`YUNXIAO_NO_TUI` clear-screen guard (#76); transition dry-run edges∪hinted validation (#75); `+bug-create --verifier` + serious-level synonym (#77)
 - **0.16.25** — workitem comments delete|update via AccessKey RPC (OAPI still list/create only) (#71)
 - **0.16.24** — document OAPI workitem comment delete/update gap; workitem comment --content-file UTF-8 (#69)
 - **0.16.23** — +explore-workflow splits verified vs hinted edges; --custom-fields/--fields/--from  (edges = verified only; hinted separate) (#61)

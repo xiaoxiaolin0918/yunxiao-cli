@@ -459,8 +459,8 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类
 
 ## 变更摘要
 
-- **0.16.26** — 非 TTY/`YUNXIAO_NO_TUI` 清屏防护（#76）；`+transition --dry-run` edges∪hinted 校验（#75）；`+bug-create --verifier` 与 serious-level 同义（#77）
 - **0.16.27** — dry-run 在仅有 `hinted_edges` 时仍分类（#82）；#81 确认无 CLI 清屏 CSI，Configure 门控足够
+- **0.16.26** — 非 TTY/`YUNXIAO_NO_TUI` 清屏防护（#76）；`+transition --dry-run` edges∪hinted 校验（#75）；`+bug-create --verifier` 与 serious-level 同义（#77）
 - **0.16.25** — AccessKey RPC 接入 workitem comments delete|update（OAPI 仍仅 list/create）（#71）
 - **0.16.24** — 标明 OAPI 工作项评论无 delete/update；workitem comment --content-file UTF-8（#69）
 - **0.16.23** — +explore-workflow 区分 verified/hinted 边；支持 --custom-fields/--fields/--from（#61）（edges 仅 verified；hinted 另列）
