@@ -10,9 +10,10 @@ type WorkflowResolve struct {
 	TypeID   string
 	Category string
 	Name     string
-	Edges    map[string][]string
-	Statuses map[string]string // alias/displayName → status id
-	Source   string            // "workflows" | "bug_legacy"
+	Edges       map[string][]string
+	HintedEdges map[string][]string
+	Statuses    map[string]string // alias/displayName → status id
+	Source      string            // "workflows" | "bug_legacy"
 }
 
 // AllStatusIDs returns every known status id (statuses values + edge endpoints).
@@ -23,13 +24,15 @@ func (w WorkflowResolve) AllStatusIDs() map[string]bool {
 			out[id] = true
 		}
 	}
-	for from, tos := range w.Edges {
-		if from != "" {
-			out[from] = true
-		}
-		for _, to := range tos {
-			if to != "" {
-				out[to] = true
+	for _, graph := range []map[string][]string{w.Edges, w.HintedEdges} {
+		for from, tos := range graph {
+			if from != "" {
+				out[from] = true
+			}
+			for _, to := range tos {
+				if to != "" {
+					out[to] = true
+				}
 			}
 		}
 	}
@@ -53,12 +56,13 @@ func (p *Profile) ResolveWorkflow(typeID string) (WorkflowResolve, error) {
 			statuses = map[string]string{}
 		}
 		return WorkflowResolve{
-			TypeID:   typeID,
-			Category: wf.Category,
-			Name:     wf.Name,
-			Edges:    wf.Edges,
-			Statuses: statuses,
-			Source:   "workflows",
+			TypeID:      typeID,
+			Category:    wf.Category,
+			Name:        wf.Name,
+			Edges:       wf.Edges,
+			HintedEdges: wf.HintedEdges,
+			Statuses:    statuses,
+			Source:      "workflows",
 		}, nil
 	}
 

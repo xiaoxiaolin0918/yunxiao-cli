@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/alias"
+	"github.com/yunxiao-cli/yunxiao/internal/termui"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/version"
 )
@@ -40,6 +41,7 @@ Help: https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		termui.Configure() // #76: disable clear-screen/TUI when non-TTY / NO_COLOR / YUNXIAO_NO_TUI
 		output.Format = globalFormat
 		output.JQ = globalJQ
 		maybeStartUpdateHint(cmd)

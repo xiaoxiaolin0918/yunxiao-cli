@@ -36,3 +36,16 @@ func TestResolveSeriousLevelID_RequiresMapForAlias(t *testing.T) {
 		t.Fatalf("got %q err %v", got, err)
 	}
 }
+
+func TestResolveSeriousLevelID_SynonymSevereSerious(t *testing.T) {
+	p := &Profile{}
+	p.BugCreateFields.SeriousLevel = map[string]string{"severe": "opt-severe", "slight": "opt-slight"}
+	got, err := p.ResolveSeriousLevelID("serious")
+	if err != nil || got != "opt-severe" {
+		t.Fatalf("serious→severe: got=%q err=%v", got, err)
+	}
+	got, err = p.ResolveSeriousLevelID("minor")
+	if err != nil || got != "opt-slight" {
+		t.Fatalf("minor→slight: got=%q err=%v", got, err)
+	}
+}

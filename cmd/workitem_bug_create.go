@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -40,10 +41,15 @@ force subject/description/priority/seriousLevel/sprint/assignedTo only.
 If --sprint is omitted, searches recent Bug sprints and errors with a suggestion (does not create).
 
 Defaults: --environment 测试环境, --module MES, --priority high, --serious-level normal,
---assigned-to from profile.default_assigned_to (or self).
+--assigned-to from profile.default_assigned_to (or self),
+--verifier from flag → profile.default_verifier → workitem_defaults[bug_type_id].verifier
+(warn on stderr if still unset — SOP expects a verifier at create time).
+
+--serious-level aliases: fatal / severe (synonym: serious) / normal / slight (synonym: minor).
+Help lists the profile map keys; serious↔severe and minor↔slight are accepted interchangeably.
 
 When profile.workitem_defaults has an entry for bug_type_id, create also pulls
-priority/trackers/测试负责人/验收负责人 (etc.) unless already set by BuildCreateBugArgs
+priority/trackers/verifier/测试负责人/验收负责人 (etc.) unless already set by BuildCreateBugArgs
 or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/exp.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
@@ -152,6 +158,20 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 			return
 		}
 
+		verifierFlag, _ := cmd.Flags().GetString("verifier")
+		verifierExplicit := strings.TrimSpace(verifierFlag)
+		if verifierExplicit == "" {
+			verifierExplicit = strings.TrimSpace(pf.DefaultVerifier)
+		}
+		var verifier string
+		if verifierExplicit != "" {
+			verifier, err = resolveSelfID(cmd.Context(), c, verifierExplicit)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+		}
+
 		body, err := zhiyi.BuildCreateBugArgs(zhiyi.CreateBugInput{
 			Title:              title,
 			Description:        description,
@@ -171,6 +191,13 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 		noDefaults, _ := cmd.Flags().GetBool("no-defaults")
 		if !noDefaults {
 			profile.ApplyWorkitemDefaults(body, pf.BugTypeID, pf)
+		}
+		if verifier != "" {
+			body["verifier"] = verifier
+		} else if v, _ := body["verifier"].(string); strings.TrimSpace(v) != "" {
+			verifier = strings.TrimSpace(v)
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: +bug-create verifier unset (pass --verifier <userId|self> or set profile.default_verifier / workitem_defaults verifier)\n")
 		}
 
 		path, err := c.ProjexPath(cmd.Context(), "/workitems")
@@ -197,6 +224,9 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 		result := map[string]any{
 			"created": created,
 		}
+		if verifier != "" {
+			result["verifier"] = verifier
+		}
 		if internal != "" {
 			result["internal_id"] = internal
 			getPath, err := c.ProjexPath(cmd.Context(), "/workitems/"+internal)
@@ -208,10 +238,16 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 						result["url"] = u
 					}
 					result["item"] = full
+					if verifier == "" {
+						if vv := zhiyi.VerifierID(full); vv != "" {
+							result["verifier"] = vv
+							verifier = vv
+						}
+					}
 				}
 			}
 		}
-		handleErr(output.Success(result, map[string]any{"risk": risk.Write, "profile": pf.Name, "minimal": minimal}))
+		handleErr(output.Success(result, map[string]any{"risk": risk.Write, "profile": pf.Name, "minimal": minimal, "verifier": verifier}))
 	},
 }
 
@@ -221,10 +257,11 @@ func init() {
 	workitemBugCreateCmd.Flags().String("environment", "测试环境", "生产环境 / 测试环境 (only if profile configures environment field)")
 	workitemBugCreateCmd.Flags().String("module", "MES", "MES / OMS / PDM / 系统服务 (only if profile configures module field)")
 	workitemBugCreateCmd.Flags().String("priority", "high", "urgent/high/medium/low (needs bug_create_fields.priority map) or option id")
-	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal/serious|severe/normal/slight|minor (needs bug_create_fields.serious_level map) or option id")
+	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal/severe/normal/slight (synonyms: serious→severe, minor→slight; needs bug_create_fields.serious_level map) or option id")
 	workitemBugCreateCmd.Flags().String("expected-completion", "", "YYYY-MM-DD (required only if profile configures ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().String("sprint", "", "sprint id (required; omit to get suggestion)")
 	workitemBugCreateCmd.Flags().String("assigned-to", "", "assignee user id (default: profile.default_assigned_to or self)")
+	workitemBugCreateCmd.Flags().String("verifier", "", "verifier user id or self (default: profile.default_verifier or workitem_defaults verifier)")
 	workitemBugCreateCmd.Flags().Bool("minimal", false, "only subject/description/priority/seriousLevel/sprint/assignedTo (skip module/env/ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for bug_type_id")
 	workitemCmd.AddCommand(workitemBugCreateCmd)

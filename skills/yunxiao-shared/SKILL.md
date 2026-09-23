@@ -143,3 +143,16 @@ yunxiao update --yes            # 非交互直接更新（脚本/CI）
 - File: `~/.config/yunxiao/aliases.json`
 
 > **Network (#47):** GETs retry transient transport errors; create/write network failures print check before retry: with a list/search command on the error — run that search before re-POSTing (do not blindly retry create).
+
+## Agent 捕获 / 非 TTY (#76)
+
+Agent 或管道捕获输出时请导出：
+
+```bash
+export YUNXIAO_NO_TUI=1
+# 或
+export NO_COLOR=1
+export TERM=dumb
+```
+
+非 TTY stdout 时 CLI 也会自动禁用清屏/花哨终端控制，避免 ESC 清屏序列污染捕获流。

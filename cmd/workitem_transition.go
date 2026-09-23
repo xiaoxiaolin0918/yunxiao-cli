@@ -33,9 +33,11 @@ When profile edges are missing, falls back to a single-step status PUT if --to m
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
 sets you can also use: workitem update --status <id> [--cancel-reason …].
 
---dry-run: with profile.workflows[<type>] edges, validates current→target locally (illegal
-path → ok:false). Without cached edges, dry-run still resolves the target status id but sets
-request.edge_validation=skipped and a warning — do not treat that as "transition will succeed".`,
+--dry-run: with profile.workflows[<type>] edges, validates current→target locally
+(edge_validation=validated|hinted|illegal; illegal → ok:false). Hinted-only edges
+(hinted_edges / needs_fields) are not "validated". Without cached edges, dry-run still
+resolves the target status id but sets edge_validation=skipped and a warning — do not
+treat that as "transition will succeed".`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
@@ -118,11 +120,12 @@ request.edge_validation=skipped and a warning — do not treat that as "transiti
 		wfResolved, resolveErr := pf.ResolveWorkflow(typeID)
 		if resolveErr == nil {
 			wf = profileWorkflowView{
-				Category: wfResolved.Category,
-				Name:     wfResolved.Name,
-				Edges:    wfResolved.Edges,
-				Statuses: wfResolved.Statuses,
-				Source:   wfResolved.Source,
+				Category:    wfResolved.Category,
+				Name:        wfResolved.Name,
+				Edges:       wfResolved.Edges,
+				HintedEdges: wfResolved.HintedEdges,
+				Statuses:    wfResolved.Statuses,
+				Source:      wfResolved.Source,
 			}
 			target = zhiyi.ResolveBugStatusId(to, wf.Statuses)
 			steps, err = zhiyi.TransitionSteps(current, target, wf.Edges, wfResolved.AllStatusIDs())
@@ -215,10 +218,14 @@ request.edge_validation=skipped and a warning — do not treat that as "transiti
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
 			}
-			ev, warn := transitionDryRunEdgeValidation(transitionMode, wf.Edges)
+			ev, warn, illegal := transitionDryRunEdgeValidationFull(transitionMode, current, target, wf.Edges, wf.HintedEdges)
 			req["edge_validation"] = ev
 			if warn != "" {
 				req["warning"] = warn
+			}
+			if illegal {
+				handleErr(fmt.Errorf("非法流转（dry-run）：%s → %s 不在 profile edges∪hinted_edges 中；真实 PUT 会 HTTP 400。先 workitem +explore-workflow 核实边，或改用 workitem update --status", current, target))
+				return
 			}
 			handleErr(output.DryRunResult(string(risk.Write), req))
 			return
@@ -296,24 +303,94 @@ func init() {
 
 // profileWorkflowView is a slim view used by +transition (profile graph or API fallback).
 type profileWorkflowView struct {
-	Category string
-	Name     string
-	Edges    map[string][]string
-	Statuses map[string]string
-	Source   string
+	Category    string
+	Name        string
+	Edges       map[string][]string
+	HintedEdges map[string][]string
+	Statuses    map[string]string
+	Source      string
 }
 
 
 // transitionDryRunEdgeValidation reports whether --dry-run validated current→target
-// against profile workflow edges (issue #59).
-//
-// When edges are missing (direct_status / empty edges), dry-run must not pretend the
-// transition is legal — only the target status id was resolved.
+// against profile workflow edges (issue #59). Kept for older unit tests.
 func transitionDryRunEdgeValidation(transitionMode string, edges map[string][]string) (status, warning string) {
+	st, warn, _ := transitionDryRunEdgeValidationFull(transitionMode, "", "", edges, nil)
+	return st, warn
+}
+
+// transitionDryRunEdgeValidationFull classifies current→target against edges / hinted_edges (#75).
+//
+//   - skipped: no cached edges (direct_status / empty)
+//   - validated: path exists in verified edges
+//   - hinted: only reachable via hinted_edges (needs_fields / unverified)
+//   - illegal: known graph but target not in edges∪hinted_edges (including source-not-on-graph passthrough)
+func transitionDryRunEdgeValidationFull(transitionMode, current, target string, edges, hinted map[string][]string) (status, warning string, illegal bool) {
 	if transitionMode == "direct_status" || len(edges) == 0 {
-		return "skipped", "未校验流转边：无 profile.workflows 缓存边（仅解析目标状态 id / api_workflow_statuses）；真实 PUT 仍可能 HTTP 400「不能流转到目标状态」。可先 workitem +explore-workflow --write-profile 缓存边后再 --dry-run。"
+		return "skipped", "未校验流转边：无 profile.workflows 缓存边（仅解析目标状态 id / api_workflow_statuses）；真实 PUT 仍可能 HTTP 400「不能流转到目标状态」。可先 workitem +explore-workflow --write-profile 缓存边后再 --dry-run。", false
 	}
-	return "validated", ""
+	// Backward-compat helper call without current/target: presence of edges ⇒ validated.
+	if current == "" && target == "" {
+		return "validated", "", false
+	}
+	if current == target {
+		return "validated", "", false
+	}
+	if edgePathExists(edges, current, target) {
+		return "validated", "", false
+	}
+	if edgePathExists(hinted, current, target) || edgePathExists(mergeEdgeMaps(edges, hinted), current, target) {
+		return "hinted", "目标边仅在 hinted_edges（needs_fields / 未实证）；dry-run 不保证真实 PUT 成功。", false
+	}
+	return "illegal", "当前状态→目标不在 edges∪hinted_edges；真实 PUT 会失败。", true
+}
+
+func mergeEdgeMaps(a, b map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	for _, src := range []map[string][]string{a, b} {
+		for from, tos := range src {
+			seen := map[string]bool{}
+			for _, t := range out[from] {
+				seen[t] = true
+			}
+			for _, t := range tos {
+				if t == "" || seen[t] {
+					continue
+				}
+				seen[t] = true
+				out[from] = append(out[from], t)
+			}
+		}
+	}
+	return out
+}
+
+// edgePathExists is BFS on adjacency; also true for direct membership.
+func edgePathExists(edges map[string][]string, from, to string) bool {
+	if len(edges) == 0 || from == "" || to == "" {
+		return false
+	}
+	if from == to {
+		return true
+	}
+	type node struct{ id string }
+	queue := []string{from}
+	seen := map[string]bool{from: true}
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+		for _, next := range edges[n] {
+			if next == to {
+				return true
+			}
+			if seen[next] {
+				continue
+			}
+			seen[next] = true
+			queue = append(queue, next)
+		}
+	}
+	return false
 }
 
 // tryDirectStatusFromAPI loads GET .../workitemTypes/{type}/workflows statuses and

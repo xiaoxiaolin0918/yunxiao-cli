@@ -65,7 +65,7 @@ yunxiao workitem +bug-create --profile zhiyi \
 # 预览
 yunxiao workitem +bug-create --profile zhiyi \
   --title "标题" --description "描述" --expected-completion 2026-09-20 \
-  --sprint <id> --dry-run
+  --sprint <id> --verifier <userId|self> --dry-run
 
 # 真发：write，需 --yes
 yunxiao workitem +bug-create --profile zhiyi \
@@ -131,3 +131,13 @@ Risk: **high-risk-write**（`--dry-run` / 真发需 `--yes`）。`--repo` 可为
 ## 主线别名 → 状态（profile）
 
 见 `profiles/zhiyi.example.json` 的 `bug_statuses` / `bug_edges` / `bug_transition_required` / `bug_create_fields` / `repositories`。
+
+## +bug-create verifier (#77)
+
+创建缺陷时必须带验证者（SOP）：
+
+```bash
+yunxiao workitem +bug-create --profile zhiyi   --title "…" --description "…" --expected-completion YYYY-MM-DD   --sprint <id> --verifier <userId|self> --yes
+```
+
+缺省顺序：`--verifier` → `profile.default_verifier` → `workitem_defaults[bug_type_id].verifier`。未设置会 stderr 告警。成功回显 `data.verifier`。

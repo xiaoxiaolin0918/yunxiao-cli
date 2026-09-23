@@ -328,3 +328,23 @@ func TestMergeWorkflowHintedEdges(t *testing.T) {
 		t.Fatalf("expected clear: %v", wf.HintedEdges)
 	}
 }
+
+func TestMergeWorkflowEdgesUnion(t *testing.T) {
+	p := &Profile{Name: "t"}
+	p.MergeWorkflow("type-a", WorkitemWorkflow{
+		Edges: map[string][]string{"st-a": {"st-b"}, "st-deploy": {"st-regress"}},
+	})
+	p.MergeWorkflow("type-a", WorkitemWorkflow{
+		Edges: map[string][]string{"st-a": {"st-c"}, "st-b": {"st-d"}},
+	})
+	wf := p.Workflows["type-a"]
+	if len(wf.Edges["st-a"]) != 2 {
+		t.Fatalf("st-a should union: %v", wf.Edges["st-a"])
+	}
+	if len(wf.Edges["st-deploy"]) != 1 || wf.Edges["st-deploy"][0] != "st-regress" {
+		t.Fatalf("manual edge dropped: %v", wf.Edges)
+	}
+	if len(wf.Edges["st-b"]) != 1 {
+		t.Fatalf("new edge missing: %v", wf.Edges)
+	}
+}

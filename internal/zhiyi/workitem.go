@@ -67,3 +67,29 @@ func SerialNumber(item map[string]any) string {
 	}
 	return ""
 }
+
+// VerifierID extracts verifier user id from a work item (string or {id:…} object).
+func VerifierID(item map[string]any) string {
+	if item == nil {
+		return ""
+	}
+	switch v := item["verifier"].(type) {
+	case string:
+		return v
+	case map[string]any:
+		switch id := v["id"].(type) {
+		case string:
+			return id
+		case float64:
+			return fmt.Sprintf("%.0f", id)
+		default:
+			if id != nil {
+				s := fmt.Sprint(id)
+				if s != "" && s != "<nil>" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}

@@ -72,6 +72,7 @@ type Profile struct {
 	AllowedEnvironments   []string                        `json:"allowed_environments,omitempty"`
 	AllowedModules        []string                        `json:"allowed_modules,omitempty"`
 	DefaultAssignedTo     string                          `json:"default_assigned_to,omitempty"`
+	DefaultVerifier       string                          `json:"default_verifier,omitempty"`
 	SerialPrefix          string                          `json:"serial_prefix,omitempty"`
 }
 
@@ -302,7 +303,17 @@ func (p *Profile) ResolvePriorityID(aliasOrID string) (string, error) {
 	return aliasOrID, nil
 }
 
+// seriousLevelSynonyms maps help/docs aliases onto the other common key so a profile
+// that only maps "severe" still accepts "serious" (and minor↔slight). Issue #77.
+var seriousLevelSynonyms = map[string]string{
+	"serious": "severe",
+	"severe":  "serious",
+	"minor":   "slight",
+	"slight":  "minor",
+}
+
 // ResolveSeriousLevelID maps alias → option id (same rules as ResolvePriorityID).
+// Also tries serious↔severe and minor↔slight synonyms when the primary key is missing (#77).
 func (p *Profile) ResolveSeriousLevelID(aliasOrID string) (string, error) {
 	aliasOrID = strings.TrimSpace(aliasOrID)
 	if aliasOrID == "" {
@@ -315,6 +326,11 @@ func (p *Profile) ResolveSeriousLevelID(aliasOrID string) (string, error) {
 		}
 		if id, ok := p.BugCreateFields.SeriousLevel[key]; ok && id != "" {
 			return id, nil
+		}
+		if syn, ok := seriousLevelSynonyms[key]; ok {
+			if id, ok := p.BugCreateFields.SeriousLevel[syn]; ok && id != "" {
+				return id, nil
+			}
 		}
 	}
 	if isKnownSeriousAlias(aliasOrID) {
@@ -451,7 +467,29 @@ func (p *Profile) MergeBugWorkflow(statuses map[string]string, edges map[string]
 	}
 }
 
-// MergeWorkflow upserts wf into Workflows[typeID]. Edges replace when non-empty;
+
+// mergeEdgeMapsUnion returns the union of two adjacency maps (deduped destinations).
+func mergeEdgeMapsUnion(a, b map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	for _, src := range []map[string][]string{a, b} {
+		for from, tos := range src {
+			seen := map[string]bool{}
+			for _, t := range out[from] {
+				seen[t] = true
+			}
+			for _, t := range tos {
+				if t == "" || seen[t] {
+					continue
+				}
+				seen[t] = true
+				out[from] = append(out[from], t)
+			}
+		}
+	}
+	return out
+}
+
+// MergeWorkflow upserts wf into Workflows[typeID]. Edges union-merge when non-empty;
 // status name/alias maps merge key-by-key. Empty TypeID on wf is set to typeID.
 func (p *Profile) MergeWorkflow(typeID string, wf WorkitemWorkflow) {
 	if p == nil {
@@ -486,7 +524,8 @@ func (p *Profile) MergeWorkflow(typeID string, wf WorkitemWorkflow) {
 		cur.DefaultStatusID = wf.DefaultStatusID
 	}
 	if len(wf.Edges) > 0 {
-		cur.Edges = wf.Edges
+		// Union merge (#75): keep manually backfilled verified edges across explore re-runs.
+		cur.Edges = mergeEdgeMapsUnion(cur.Edges, wf.Edges)
 	}
 	if wf.HintedEdges != nil {
 		cur.HintedEdges = wf.HintedEdges
