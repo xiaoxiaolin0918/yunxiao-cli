@@ -26,7 +26,7 @@ yunxiao profile show
 
 有 `organization_id` 时，若未设 `YUNXIAO_ORGANIZATION_ID` / `--organization-id`，会用 profile 的 org。
 
-Wave 2 profile 额外字段：`repositories`、`bug_create_fields`（priority/serious_level 别名 + module/environment/ExpCompletionTime）、`allowed_environments`、`allowed_modules`、`default_assigned_to`。
+Wave 2 profile 额外字段：`repositories`、`bug_create_fields`（priority/serious_level 别名 + module/environment/ExpCompletionTime）、`allowed_environments`、`allowed_modules`、`default_assigned_to`、`default_verifier`。
 
 ## 产品主题与需求关联
 
