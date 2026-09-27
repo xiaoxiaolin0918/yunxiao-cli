@@ -134,12 +134,19 @@ func requireFlags(pairs ...string) error {
 	return nil
 }
 
-func readContentInput(content, contentFile string) (string, error) {
-	if content != "" && contentFile != "" {
-		return "", fmt.Errorf("use only one of --content or --content-file")
+// readFlagOrFile returns text from --name or --name-file (UTF-8, BOM stripped).
+// Mutual exclusion is always enforced. When required, at least one must be set
+// and the resulting content must be non-empty after TrimSpace.
+func readFlagOrFile(inline, file, flagName string, required bool) (string, error) {
+	inlineFlag := "--" + flagName
+	fileFlag := "--" + flagName + "-file"
+	if inline != "" && file != "" {
+		return "", fmt.Errorf("use only one of %s or %s", inlineFlag, fileFlag)
 	}
-	if contentFile != "" {
-		path, err := resolveContentFilePath(contentFile)
+	var text string
+	var usedFlag string
+	if file != "" {
+		path, err := resolveContentFilePath(file, flagName+"-file")
 		if err != nil {
 			return "", err
 		}
@@ -147,12 +154,35 @@ func readContentInput(content, contentFile string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return string(stripUTF8BOM(b)), nil
+		text = string(stripUTF8BOM(b))
+		usedFlag = fileFlag
+	} else if inline == "" {
+		if required {
+			return "", fmt.Errorf("missing %s or %s", inlineFlag, fileFlag)
+		}
+		return "", nil
+	} else {
+		text = inline
+		usedFlag = inlineFlag
 	}
-	if content == "" {
-		return "", fmt.Errorf("missing --content or --content-file")
+	if required && strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("empty %s", usedFlag)
 	}
-	return content, nil
+	return text, nil
+}
+
+func readContentInput(content, contentFile string) (string, error) {
+	return readFlagOrFile(content, contentFile, "content", true)
+}
+
+// readJSONMapFlagOrFile reads an optional JSON object from --name or --name-file
+// (UTF-8, BOM stripped). Empty returns (nil, nil).
+func readJSONMapFlagOrFile(inline, file, flagName string) (map[string]any, error) {
+	text, err := readFlagOrFile(inline, file, flagName, false)
+	if err != nil {
+		return nil, err
+	}
+	return parseJSONMap(text)
 }
 
 // stripUTF8BOM removes a leading UTF-8 BOM (EF BB BF) so Windows editors
@@ -166,10 +196,15 @@ func stripUTF8BOM(b []byte) []byte {
 
 // resolveContentFilePath accepts cwd-relative paths or absolute paths (incl. Windows-style
 // drive paths like C:\foo when running on Windows). Relative paths may not escape via "..".
-func resolveContentFilePath(p string) (string, error) {
+// flagName is the CLI flag without leading dashes (e.g. "subject-file", "content-file").
+func resolveContentFilePath(p, flagName string) (string, error) {
+	if flagName == "" {
+		flagName = "content-file"
+	}
+	flag := "--" + flagName
 	p = strings.TrimSpace(p)
 	if p == "" {
-		return "", fmt.Errorf("empty --content-file")
+		return "", fmt.Errorf("empty %s", flag)
 	}
 	// Normalize Windows drive paths on non-Windows (treat as absolute if they look like one).
 	if looksAbsolutePath(p) {
@@ -177,7 +212,7 @@ func resolveContentFilePath(p string) (string, error) {
 	}
 	cleaned := filepath.Clean(p)
 	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("unsafe file path: --content-file relative path must stay under cwd (got %q)", p)
+		return "", fmt.Errorf("unsafe file path: %s relative path must stay under cwd (got %q)", flag, p)
 	}
 	return cleaned, nil
 }
@@ -218,7 +253,7 @@ func loadJSONBodyFromFlags(data, dataFile string) (any, error) {
 	}
 	var raw []byte
 	if dataFile != "" {
-		path, err := resolveContentFilePath(dataFile)
+		path, err := resolveContentFilePath(dataFile, "data-file")
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +263,7 @@ func loadJSONBodyFromFlags(data, dataFile string) (any, error) {
 		}
 		raw = b
 	} else if strings.HasPrefix(data, "@") {
-		path, err := resolveContentFilePath(strings.TrimPrefix(data, "@"))
+		path, err := resolveContentFilePath(strings.TrimPrefix(data, "@"), "data")
 		if err != nil {
 			return nil, err
 		}

@@ -22,19 +22,43 @@ priority / trackers / 测试负责人 / 验收负责人 (and other defaults) unl
 already set by flags / --custom-fields. Pass --no-defaults to skip.
 
 If the API returns 未启用此字段【迭代】, omit --sprint for this workitem type
-(Topic/Risk and some custom types do not enable 迭代).`,
+(Topic/Risk and some custom types do not enable 迭代).
+
+Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
+prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
+stripped) over inline flags. Use only one of each pair (--custom-fields vs
+--custom-fields-file, etc.).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
 		typeID, _ := cmd.Flags().GetString("type-id")
-		subject, _ := cmd.Flags().GetString("subject")
+		subjectFlag, _ := cmd.Flags().GetString("subject")
+		subjectFile, _ := cmd.Flags().GetString("subject-file")
 		assignedTo, _ := cmd.Flags().GetString("assigned-to")
-		description, _ := cmd.Flags().GetString("description")
+		descriptionFlag, _ := cmd.Flags().GetString("description")
+		descriptionFile, _ := cmd.Flags().GetString("description-file")
 		formatType, _ := cmd.Flags().GetString("format-type")
 		parentID, _ := cmd.Flags().GetString("parent-id")
 		sprint, _ := cmd.Flags().GetString("sprint")
 		labels, _ := cmd.Flags().GetString("labels")
-		if err := requireFlags("space-id", spaceID, "type-id", typeID, "subject", subject, "assigned-to", assignedTo); err != nil {
+		subject, err := readFlagOrFile(subjectFlag, subjectFile, "subject", true)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		description, err := readFlagOrFile(descriptionFlag, descriptionFile, "description", false)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		cfJSON, _ := cmd.Flags().GetString("custom-fields")
+		cfFile, _ := cmd.Flags().GetString("custom-fields-file")
+		cf, err := readJSONMapFlagOrFile(cfJSON, cfFile, "custom-fields")
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		if err := requireFlags("space-id", spaceID, "type-id", typeID, "assigned-to", assignedTo); err != nil {
 			handleErr(err)
 			return
 		}
@@ -56,6 +80,9 @@ If the API returns 未启用此字段【迭代】, omit --sprint for this workit
 		}
 		if description != "" {
 			body["description"] = description
+		}
+		if cf != nil {
+			body["customFieldValues"] = cf
 		}
 		if formatType != "" {
 			body["formatType"] = formatType
@@ -89,15 +116,6 @@ If the API returns 未启用此字段【迭代】, omit --sprint for this workit
 		}
 		if versions != "" {
 			body["versions"] = splitCSV(versions)
-		}
-		cfJSON, _ := cmd.Flags().GetString("custom-fields")
-		if cfJSON != "" {
-			cf, err := parseJSONMap(cfJSON)
-			if err != nil {
-				handleErr(err)
-				return
-			}
-			body["customFieldValues"] = cf
 		}
 		noDefaults, _ := cmd.Flags().GetBool("no-defaults")
 		if !noDefaults {
