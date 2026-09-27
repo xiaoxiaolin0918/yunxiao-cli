@@ -72,6 +72,31 @@ func TestReadFlagOrFile(t *testing.T) {
 	if _, err := readFlagOrFile("", "../note.txt", "subject", true); err == nil {
 		t.Fatal("parent escape should fail")
 	}
+	// empty / whitespace required file content must fail (not return "")
+	if err := os.WriteFile("empty.txt", []byte(""), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("blank.txt", []byte("  \n\t  "), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readFlagOrFile("", "empty.txt", "subject", true); err == nil || !strings.Contains(err.Error(), "subject-file") {
+		t.Fatalf("empty required file: %v", err)
+	}
+	if _, err := readFlagOrFile("", "blank.txt", "subject", true); err == nil || !strings.Contains(err.Error(), "subject-file") {
+		t.Fatalf("whitespace required file: %v", err)
+	}
+	if _, err := readFlagOrFile("   \t  ", "", "subject", true); err == nil || !strings.Contains(err.Error(), "subject") {
+		t.Fatalf("whitespace required inline: %v", err)
+	}
+	// optional empty/whitespace file still ok
+	got, err = readFlagOrFile("", "empty.txt", "description", false)
+	if err != nil || got != "" {
+		t.Fatalf("optional empty file: %q %v", got, err)
+	}
+	got, err = readFlagOrFile("", "blank.txt", "description", false)
+	if err != nil || strings.TrimSpace(got) != "" {
+		t.Fatalf("optional blank file: %q %v", got, err)
+	}
 }
 
 func TestReadFlagOrFileStripsBOM(t *testing.T) {
@@ -273,6 +298,76 @@ func TestWorkitemCreateCustomFieldsMutexCLI(t *testing.T) {
 			t.Fatalf("message=%q", env.Error.Message)
 		}
 		_ = stdout // keep capture installed for consistency
+	}()
+	_ = rootCmd.Execute()
+}
+
+func TestWorkitemCreateEmptySubjectFileFails(t *testing.T) {
+	prevExit := processExit
+	var code int
+	processExit = func(c int) { code = c; panic(exitPanic{code: c}) }
+	t.Cleanup(func() { processExit = prevExit })
+
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("empty-subject.txt", []byte("   \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(config.EnvAccessToken, "test-token-wi-create-empty-subject-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-wi-create-empty-subject")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, "http://127.0.0.1:9")
+	t.Setenv("YUNXIAO_PROFILE", "")
+
+	stdout := withCmdJSONCapture(t)
+	resetStringFlags(t, workitemCreateCmd,
+		"space-id", "type-id", "subject", "subject-file", "assigned-to",
+		"description", "description-file", "custom-fields", "custom-fields-file")
+	_ = workitemCreateCmd.Flags().Set("no-defaults", "true")
+	t.Cleanup(func() { _ = workitemCreateCmd.Flags().Set("no-defaults", "false") })
+
+	rootCmd.SetArgs([]string{
+		"workitem", "create",
+		"--space-id", "s",
+		"--type-id", "t",
+		"--assigned-to", "u1",
+		"--subject-file", "empty-subject.txt",
+		"--no-defaults",
+		"--dry-run",
+	})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	var stderr bytes.Buffer
+	prevErr := output.Stderr
+	output.Stderr = &stderr
+	t.Cleanup(func() { output.Stderr = prevErr })
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected processExit panic")
+		}
+		if _, ok := r.(exitPanic); !ok {
+			panic(r)
+		}
+		if code != 1 {
+			t.Fatalf("exit code=%d stderr=%s stdout=%s", code, stderr.String(), stdout.String())
+		}
+		var env output.Envelope
+		if err := json.Unmarshal(stderr.Bytes(), &env); err != nil {
+			t.Fatalf("stderr: %v / %s", err, stderr.Bytes())
+		}
+		if env.OK || env.Error == nil {
+			t.Fatalf("want ok=false error: %+v", env)
+		}
+		if !strings.Contains(env.Error.Message, "subject-file") {
+			t.Fatalf("message=%q", env.Error.Message)
+		}
 	}()
 	_ = rootCmd.Execute()
 }

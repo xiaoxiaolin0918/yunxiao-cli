@@ -57,20 +57,25 @@ func TestReadContentInput(t *testing.T) {
 }
 
 func TestResolveContentFilePath(t *testing.T) {
-	if _, err := resolveContentFilePath("../x"); err == nil {
+	if _, err := resolveContentFilePath("../x", "subject-file"); err == nil {
 		t.Fatal("..")
+	} else if !strings.Contains(err.Error(), "--subject-file") {
+		t.Fatalf("unsafe err should name flag: %v", err)
 	}
-	got, err := resolveContentFilePath("ok.txt")
+	got, err := resolveContentFilePath("ok.txt", "content-file")
 	if err != nil || got != "ok.txt" {
 		t.Fatalf("%q %v", got, err)
 	}
-	got, err = resolveContentFilePath("/tmp/abs.txt")
+	got, err = resolveContentFilePath("/tmp/abs.txt", "description-file")
 	if err != nil || got != "/tmp/abs.txt" {
 		t.Fatalf("abs: %q %v", got, err)
 	}
-	got, err = resolveContentFilePath("C:/Users/a/b.txt")
+	got, err = resolveContentFilePath("C:/Users/a/b.txt", "custom-fields-file")
 	if err != nil || got == "" {
 		t.Fatalf("windows path: %q %v", got, err)
+	}
+	if _, err := resolveContentFilePath("  ", "subject-file"); err == nil || !strings.Contains(err.Error(), "--subject-file") {
+		t.Fatalf("empty path: %v", err)
 	}
 }
 
