@@ -134,12 +134,16 @@ func requireFlags(pairs ...string) error {
 	return nil
 }
 
-func readContentInput(content, contentFile string) (string, error) {
-	if content != "" && contentFile != "" {
-		return "", fmt.Errorf("use only one of --content or --content-file")
+// readFlagOrFile returns text from --name or --name-file (UTF-8, BOM stripped).
+// Mutual exclusion is always enforced. When required, at least one must be set.
+func readFlagOrFile(inline, file, flagName string, required bool) (string, error) {
+	inlineFlag := "--" + flagName
+	fileFlag := "--" + flagName + "-file"
+	if inline != "" && file != "" {
+		return "", fmt.Errorf("use only one of %s or %s", inlineFlag, fileFlag)
 	}
-	if contentFile != "" {
-		path, err := resolveContentFilePath(contentFile)
+	if file != "" {
+		path, err := resolveContentFilePath(file)
 		if err != nil {
 			return "", err
 		}
@@ -149,10 +153,27 @@ func readContentInput(content, contentFile string) (string, error) {
 		}
 		return string(stripUTF8BOM(b)), nil
 	}
-	if content == "" {
-		return "", fmt.Errorf("missing --content or --content-file")
+	if inline == "" {
+		if required {
+			return "", fmt.Errorf("missing %s or %s", inlineFlag, fileFlag)
+		}
+		return "", nil
 	}
-	return content, nil
+	return inline, nil
+}
+
+func readContentInput(content, contentFile string) (string, error) {
+	return readFlagOrFile(content, contentFile, "content", true)
+}
+
+// readJSONMapFlagOrFile reads an optional JSON object from --name or --name-file
+// (UTF-8, BOM stripped). Empty returns (nil, nil).
+func readJSONMapFlagOrFile(inline, file, flagName string) (map[string]any, error) {
+	text, err := readFlagOrFile(inline, file, flagName, false)
+	if err != nil {
+		return nil, err
+	}
+	return parseJSONMap(text)
 }
 
 // stripUTF8BOM removes a leading UTF-8 BOM (EF BB BF) so Windows editors

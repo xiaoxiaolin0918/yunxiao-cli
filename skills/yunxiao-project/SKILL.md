@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.0"
+version: "1.4.1"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -48,6 +48,9 @@ yunxiao workitem comment --id <id> --content "进度更新" --dry-run   # write
 yunxiao workitem comment --id <id> --content "进度更新"             # write
 # Windows 中文：勿依赖 PowerShell --content；写 UTF-8 文件后：
 yunxiao workitem comment --id <id> --content-file ./note.md --dry-run
+# Windows 中文：subject/description/custom-fields 优先写 UTF-8 文件（去 BOM），勿依赖 WinPS 内联 argv
+yunxiao workitem create --space-id <sid> --type-id <tid> --assigned-to self \
+  --subject-file ./title.txt --description-file ./desc.md --custom-fields-file ./cf.json --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
@@ -72,6 +75,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--assigned-to self`：自动解析为当前用户 id
 - `--space-id`：Projex 项目/空间 id
 - `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
+- `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)
