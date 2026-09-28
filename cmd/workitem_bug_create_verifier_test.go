@@ -43,7 +43,7 @@ func TestBugCreateDryRunIncludesVerifierFromFlag(t *testing.T) {
 
 	stdout := withCmdJSONCapture(t)
 	globalProfile = "t77"
-	resetStringFlags(t, workitemBugCreateCmd, "title", "description", "environment", "module", "priority", "serious-level", "expected-completion", "sprint", "assigned-to", "verifier")
+	resetStringFlags(t, workitemBugCreateCmd, "title", "title-file", "description", "description-file", "environment", "module", "priority", "serious-level", "expected-completion", "sprint", "assigned-to", "verifier")
 	_ = workitemBugCreateCmd.Flags().Set("minimal", "true")
 	t.Cleanup(func() { _ = workitemBugCreateCmd.Flags().Set("minimal", "false") })
 
@@ -108,7 +108,7 @@ func TestBugCreateWarnsWhenVerifierUnset(t *testing.T) {
 
 	stdout := withCmdJSONCapture(t)
 	globalProfile = "t77w"
-	resetStringFlags(t, workitemBugCreateCmd, "title", "description", "environment", "module", "priority", "serious-level", "expected-completion", "sprint", "assigned-to", "verifier")
+	resetStringFlags(t, workitemBugCreateCmd, "title", "title-file", "description", "description-file", "environment", "module", "priority", "serious-level", "expected-completion", "sprint", "assigned-to", "verifier")
 	_ = workitemBugCreateCmd.Flags().Set("minimal", "true")
 	t.Cleanup(func() { _ = workitemBugCreateCmd.Flags().Set("minimal", "false") })
 

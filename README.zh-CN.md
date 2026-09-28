@@ -455,10 +455,11 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 **鉴权双通道：** 个人令牌 **OAPI** 仍无工作项评论 delete/update（raw DELETE 404）。CLI 已通过 AccessKey RPC 封装 workitem comments delete / update（凭证同 --include-aliyun-uid 的 ALIBABA_CLOUD_ACCESS_KEY_*）。详见 [docs/wiki/02-domains/workitem-comments-oapi-gaps.md](docs/wiki/02-domains/workitem-comments-oapi-gaps.md)。
 
-Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。详见 [README.md](README.md) 的 Known gaps。
+Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。`workitem create` 已有 `--subject-file` / `--description-file` / `--custom-fields-file`（#85）；本版本 `+bug-create` 对齐 `--title-file` / `--description-file`（#89）。详见 [README.md](README.md) 的 Known gaps。
 
 ## 变更摘要
 
+- **0.16.29** — workitem +bug-create 增加 `--title-file` / `--description-file`（UTF-8 去 BOM；Windows 中文安全；对齐 #85）(#89)
 - **0.16.28** — workitem create 增加 `--subject-file` / `--description-file` / `--custom-fields-file`（UTF-8 去 BOM；Windows 中文安全）(#85)
 - **0.16.27** — dry-run 在仅有 `hinted_edges` 时仍分类（#82）；#81 确认无 CLI 清屏 CSI，Configure 门控足够
 - **0.16.26** — 非 TTY/`YUNXIAO_NO_TUI` 清屏防护（#76）；`+transition --dry-run` edges∪hinted 校验（#75）；`+bug-create --verifier` 与 serious-level 同义（#77）
