@@ -177,6 +177,37 @@ func TestWorkitemCreateSchemaDocumentsFileFlags(t *testing.T) {
 	}
 }
 
+
+func TestWorkitemBugCreateSchemaDocumentsFileFlags(t *testing.T) {
+	m := Find("workitem.bug_create")
+	if m == nil {
+		t.Fatal("missing workitem.bug_create")
+	}
+	want := []string{"title-file", "description-file"}
+	found := map[string]bool{}
+	for _, p := range m.Params {
+		for _, name := range want {
+			if p.Name == name {
+				found[name] = true
+				if p.Required {
+					t.Fatalf("%s should not be required", name)
+				}
+				if !strings.Contains(strings.ToLower(p.Desc), "windows") {
+					t.Fatalf("%s desc should mention Windows: %q", name, p.Desc)
+				}
+			}
+		}
+	}
+	for _, name := range want {
+		if !found[name] {
+			t.Fatalf("missing param %s", name)
+		}
+	}
+	if !strings.Contains(m.Example, "title-file") {
+		t.Fatalf("example should show title-file: %s", m.Example)
+	}
+}
+
 func TestWorkitemCommentContentFileParam(t *testing.T) {
 	m := Find("workitem.comment")
 	if m == nil {

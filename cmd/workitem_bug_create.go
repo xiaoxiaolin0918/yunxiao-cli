@@ -27,10 +27,14 @@ Optional create fields (module / environment / ExpCompletionTime) are sent only 
 configured on the profile. Omit them in play/sandbox profiles, or pass --minimal to
 force subject/description/priority/seriousLevel/sprint/assignedTo only.
 
-  # Zhiyi (full fields)
+Windows / PowerShell: for Chinese title or description, prefer --title-file /
+--description-file (UTF-8, BOM stripped) over inline flags. Use only one of each
+pair (--title vs --title-file, --description vs --description-file).
+
+  # Zhiyi (full fields); Windows Chinese prefer *-file
   yunxiao workitem +bug-create --profile zhiyi \
-    --title "标题" --description "描述" --expected-completion 2026-09-20 \
-    --sprint <id> --dry-run
+    --title-file ./title.txt --description-file ./desc.md \
+    --expected-completion 2026-09-20 --sprint <id> --dry-run
 
   # Sandbox / non-Zhiyi (play)
   yunxiao workitem +bug-create --profile play \
@@ -63,8 +67,10 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 			return
 		}
 
-		title, _ := cmd.Flags().GetString("title")
-		description, _ := cmd.Flags().GetString("description")
+		titleFlag, _ := cmd.Flags().GetString("title")
+		titleFile, _ := cmd.Flags().GetString("title-file")
+		descriptionFlag, _ := cmd.Flags().GetString("description")
+		descriptionFile, _ := cmd.Flags().GetString("description-file")
 		environment, _ := cmd.Flags().GetString("environment")
 		module, _ := cmd.Flags().GetString("module")
 		priority, _ := cmd.Flags().GetString("priority")
@@ -74,7 +80,13 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 		assignedTo, _ := cmd.Flags().GetString("assigned-to")
 		minimal, _ := cmd.Flags().GetBool("minimal")
 
-		if err := requireFlags("title", title, "description", description); err != nil {
+		title, err := readFlagOrFile(titleFlag, titleFile, "title", true)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		description, err := readFlagOrFile(descriptionFlag, descriptionFile, "description", true)
+		if err != nil {
 			handleErr(err)
 			return
 		}
@@ -252,8 +264,10 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 }
 
 func init() {
-	workitemBugCreateCmd.Flags().String("title", "", "bug title (required)")
-	workitemBugCreateCmd.Flags().String("description", "", "Markdown description (required)")
+	workitemBugCreateCmd.Flags().String("title", "", "bug title (required unless --title-file)")
+	workitemBugCreateCmd.Flags().String("title-file", "", "UTF-8 file for title (BOM stripped; preferred on Windows for Chinese)")
+	workitemBugCreateCmd.Flags().String("description", "", "Markdown description (required unless --description-file)")
+	workitemBugCreateCmd.Flags().String("description-file", "", "UTF-8 Markdown file (BOM stripped; preferred on Windows for Chinese)")
 	workitemBugCreateCmd.Flags().String("environment", "测试环境", "生产环境 / 测试环境 (only if profile configures environment field)")
 	workitemBugCreateCmd.Flags().String("module", "MES", "MES / OMS / PDM / 系统服务 (only if profile configures module field)")
 	workitemBugCreateCmd.Flags().String("priority", "high", "urgent/high/medium/low (needs bug_create_fields.priority map) or option id")

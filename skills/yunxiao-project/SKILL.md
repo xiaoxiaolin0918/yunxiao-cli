@@ -76,6 +76,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--space-id`：Projex 项目/空间 id
 - `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
 - `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）
+- `workitem +bug-create` 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)

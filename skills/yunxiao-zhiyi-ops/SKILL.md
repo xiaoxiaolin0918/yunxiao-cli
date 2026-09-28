@@ -57,20 +57,23 @@ Risk: **read**。
 
 ## 创建缺陷（`workitem +bug-create`）
 
+Windows 含中文时优先 `--title-file` / `--description-file`（UTF-8，去 BOM；与内联 `--title` / `--description` 互斥），对齐 `workitem create`（#85/#89）。
+
 ```bash
 # 未带 --sprint 时会先查最近迭代并报错提示（不创建）
 yunxiao workitem +bug-create --profile zhiyi \
   --title "标题" --description "描述" --expected-completion 2026-09-20
 
-# 预览
+# 预览（Windows 中文推荐 *-file）
 yunxiao workitem +bug-create --profile zhiyi \
-  --title "标题" --description "描述" --expected-completion 2026-09-20 \
+  --title-file ./title.txt --description-file ./desc.md \
+  --expected-completion 2026-09-20 \
   --sprint <id> --verifier <userId|self> --dry-run
 
 # 真发：write，需 --yes
 yunxiao workitem +bug-create --profile zhiyi \
-  --title "标题" --description "描述" --expected-completion 2026-09-20 \
-  --sprint <id> --yes
+  --title-file ./title.txt --description-file ./desc.md \
+  --expected-completion 2026-09-20 --sprint <id> --yes
 ```
 
 默认：`--environment 测试环境`、`--module MES`、`--priority high`、`--serious-level normal`；`--assigned-to` 默认 profile `default_assigned_to`（空则 `self`）。
