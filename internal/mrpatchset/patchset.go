@@ -86,10 +86,11 @@ func Parse(out any) ([]PatchSet, error) {
 // (versionNo, has-parseable-createTime, createTime, response position): highest version
 // wins; among equal versions an item with a parseable createTime beats one without, then
 // the later createTime, then the later position. MERGE_TARGET items are never returned.
-// Items without a relatedMergeItemType are candidates only when the payload has no typed
-// entries at all (any relatedMergeItemType value disables the fallback, even on an entry
-// without patchSetBizId); a typed payload without MERGE_SOURCE yields
-// ErrNoSourcePatchSet. Entries without patchSetBizId are never returned.
+// Items without a relatedMergeItemType are candidates only when there is no MERGE_SOURCE
+// candidate and no entry has a MERGE_TARGET or unknown relatedMergeItemType (such a value
+// disables the fallback, even on an entry without patchSetBizId). With such a value and no
+// MERGE_SOURCE candidate, Latest returns ErrNoSourcePatchSet. Entries without
+// patchSetBizId are never returned.
 func Latest(sets []PatchSet) (PatchSet, error) {
 	var source, untyped []PatchSet
 	sawTyped := false // any relatedMergeItemType other than MERGE_SOURCE (MERGE_TARGET or unknown)
