@@ -25,6 +25,28 @@ const (
 	maxRetryAfter = 30 * time.Second
 )
 
+type retryPolicyKey struct{}
+
+type retryPolicy struct {
+	maxAttempts int
+	maxDelay    time.Duration
+}
+
+// WithRetryPolicy bounds idempotent-request retries for calls made with the returned
+// context: at most maxAttempts tries (>= 1) and at most maxDelay per backoff sleep
+// (including server Retry-After). Used by best-effort lookups that must not stall.
+func WithRetryPolicy(ctx context.Context, maxAttempts int, maxDelay time.Duration) context.Context {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	return context.WithValue(ctx, retryPolicyKey{}, retryPolicy{maxAttempts: maxAttempts, maxDelay: maxDelay})
+}
+
+func retryPolicyFrom(ctx context.Context) (retryPolicy, bool) {
+	p, ok := ctx.Value(retryPolicyKey{}).(retryPolicy)
+	return p, ok
+}
+
 // sleepWithContext waits d or until ctx is done. Tests may override to skip delays.
 var sleepWithContext = func(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
@@ -500,6 +522,17 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 	if idempotentMethod(method) {
 		attempts = maxAttempts
 	}
+	policy, hasPolicy := retryPolicyFrom(ctx)
+	if hasPolicy && policy.maxAttempts < attempts {
+		attempts = policy.maxAttempts
+	}
+	backoff := func(attempt int, h http.Header) time.Duration {
+		d := backoffDuration(attempt, h)
+		if hasPolicy && policy.maxDelay > 0 && d > policy.maxDelay {
+			d = policy.maxDelay
+		}
+		return d
+	}
 
 	var lastHeader http.Header
 	var lastStatus int
@@ -530,7 +563,7 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 			if attempt+1 >= attempts || !idempotentMethod(method) {
 				return nil, 0, AnnotateWriteNetworkError(lastErr, method, "")
 			}
-			if err := sleepWithContext(ctx, backoffDuration(attempt, nil)); err != nil {
+			if err := sleepWithContext(ctx, backoff(attempt, nil)); err != nil {
 				return nil, 0, err
 			}
 			continue
@@ -543,7 +576,7 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 			if attempt+1 >= attempts || !idempotentMethod(method) {
 				return lastHeader, lastStatus, lastErr
 			}
-			if err := sleepWithContext(ctx, backoffDuration(attempt, resp.Header)); err != nil {
+			if err := sleepWithContext(ctx, backoff(attempt, resp.Header)); err != nil {
 				return lastHeader, lastStatus, err
 			}
 			continue
@@ -558,7 +591,7 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 			}
 			lastHeader, lastStatus, lastErr = resp.Header, resp.StatusCode, ae
 			if idempotentMethod(method) && retryableStatus(resp.StatusCode) && attempt+1 < attempts {
-				if err := sleepWithContext(ctx, backoffDuration(attempt, resp.Header)); err != nil {
+				if err := sleepWithContext(ctx, backoff(attempt, resp.Header)); err != nil {
 					return lastHeader, lastStatus, err
 				}
 				continue

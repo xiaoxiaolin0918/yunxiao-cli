@@ -38,7 +38,8 @@ const wiFieldsFixture = `[
 type wiCreateServer struct {
 	mu           sync.Mutex
 	fields       string
-	fieldsStatus int // non-zero: fields GET answers with this status
+	fieldsStatus int    // non-zero: fields GET answers with this status
+	retryAfter   string // Retry-After header on fields GET errors
 	postStatus   int // non-zero: POST answers with this status
 	postBody     string
 	fieldsGETs   int
@@ -57,6 +58,9 @@ func newWiCreateServer(t *testing.T, fields string) *wiCreateServer {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/projects/space-1/workitemTypes/type-req/fields"):
 			s.fieldsGETs++
 			if s.fieldsStatus != 0 {
+				if s.retryAfter != "" {
+					w.Header().Set("Retry-After", s.retryAfter)
+				}
 				w.WriteHeader(s.fieldsStatus)
 				_, _ = io.WriteString(w, `{"errorCode":"Forbidden","errorMessage":"no permission"}`)
 				return
@@ -89,8 +93,8 @@ func newWiCreateServer(t *testing.T, fields string) *wiCreateServer {
 }
 
 type wiCreateRun struct {
-	stdout, stderr, warn string
-	code                 int
+	stdout, stderr string
+	code           int
 }
 
 // runWiCreate runs `workitem create` for space-1 / type-req with subject + assignee
@@ -101,13 +105,10 @@ func runWiCreate(t *testing.T, dryRun, useDefaults bool, extra ...string) wiCrea
 	prevDry := globalDryRun
 	globalDryRun = dryRun
 	t.Cleanup(func() { globalDryRun = prevDry })
-	var stderr, warn bytes.Buffer
+	var stderr bytes.Buffer
 	prevErr := output.Stderr
 	output.Stderr = &stderr
 	t.Cleanup(func() { output.Stderr = prevErr })
-	prevWarn := precheckWarnOut
-	precheckWarnOut = &warn
-	t.Cleanup(func() { precheckWarnOut = prevWarn })
 	prevExit := processExit
 	code := 0
 	processExit = func(c int) { code = c; panic(exitPanic{code: c}) }
@@ -140,7 +141,7 @@ func runWiCreate(t *testing.T, dryRun, useDefaults bool, extra ...string) wiCrea
 			t.Fatalf("execute: %v", err)
 		}
 	}()
-	return wiCreateRun{stdout: stdout.String(), stderr: stderr.String(), warn: warn.String(), code: code}
+	return wiCreateRun{stdout: stdout.String(), stderr: stderr.String(), code: code}
 }
 
 func wiErrorBody(t *testing.T, stderr string) output.ErrorBody {
@@ -268,11 +269,15 @@ func TestWorkitemCreatePrecheckPassesWhenComplete(t *testing.T) {
 	}
 	env := wiEnvelope(t, r.stdout)
 	pc, _ := env.Meta["precheck"].(map[string]any)
-	if !env.OK || pc["status"] != "ok" || pc["required_checked"] != float64(4) {
+	if !env.OK || pc["status"] != "ok" || pc["source"] != "fields" || pc["required_checked"] != float64(4) {
 		t.Fatalf("envelope=%s", r.stdout)
 	}
-	if r.warn != "" {
-		t.Fatalf("no warning expected: %s", r.warn)
+	// 来源 (src) has a server defaultValue: skipped, but listed.
+	if sd, _ := pc["skipped_default"].([]any); len(sd) != 1 || sd[0] != "src" {
+		t.Fatalf("skipped_default=%#v", pc["skipped_default"])
+	}
+	if _, ok := pc["warning"]; ok || r.stderr != "" {
+		t.Fatalf("no warning expected: meta=%#v stderr=%q", pc, r.stderr)
 	}
 }
 
@@ -362,13 +367,13 @@ func TestWorkitemCreatePrecheckDegradesWhenFieldsUnavailable(t *testing.T) {
 			pc, _ := env.Meta["precheck"].(map[string]any)
 			reason, _ := pc["reason"].(string)
 			hint, _ := pc["hint"].(string)
-			if pc["status"] != "skipped" || !strings.Contains(reason, tc.reason) || !strings.Contains(hint, "yunxiao workitem fields --space-id space-1 --type-id type-req") {
+			if pc["status"] != "skipped" || pc["source"] != "none" || !strings.Contains(reason, tc.reason) || !strings.Contains(hint, "yunxiao workitem fields --space-id space-1 --type-id type-req") {
 				t.Fatalf("meta.precheck=%#v", pc)
 			}
-			for _, want := range []string{"warning:", "precheck skipped", "yunxiao workitem fields --space-id space-1 --type-id type-req"} {
-				if !strings.Contains(r.warn, want) {
-					t.Fatalf("warning missing %q: %q", want, r.warn)
-				}
+			// The warning lives in meta.precheck (JSON); stderr stays empty on success.
+			warning, _ := pc["warning"].(string)
+			if !strings.Contains(warning, "precheck skipped") || r.stderr != "" {
+				t.Fatalf("warning=%q stderr=%q", warning, r.stderr)
 			}
 		})
 	}
@@ -430,5 +435,118 @@ func TestWorkitemCreateHelpDocumentsPrecheck(t *testing.T) {
 		if !strings.Contains(workitemCreateCmd.Long, want) {
 			t.Fatalf("help missing %q", want)
 		}
+	}
+}
+// A required root field (sprint) only counts when passed via its flag, not in customFieldValues.
+func TestWorkitemCreatePrecheckRootFieldNotInCustomFields(t *testing.T) {
+	fixture := strings.Replace(wiFieldsFixture, `{"id":"note",`, `{"id":"sprint","name":"迭代","type":"NativeField","format":"sprint","required":true,"showWhenCreate":true},
+ {"id":"note",`, 1)
+	s := newWiCreateServer(t, fixture)
+	r := runWiCreate(t, true, false, "--custom-fields", `{"priority":"prio-high","mod-1":"m-a","sprint":"sp-1"}`)
+	eb := wiErrorBody(t, r.stderr)
+	missing, _ := eb.Details["missing"].([]any)
+	if r.code != 1 || len(missing) != 1 || missing[0].(map[string]any)["field_id"] != "sprint" || missing[0].(map[string]any)["pass_via"] != "--sprint" {
+		t.Fatalf("code=%d error=%+v", r.code, eb)
+	}
+	r = runWiCreate(t, true, false, "--custom-fields", `{"priority":"prio-high","mod-1":"m-a"}`, "--sprint", "sp-1")
+	if r.code != 0 || s.fieldsGETs != 2 {
+		t.Fatalf("code=%d stderr=%s gets=%d", r.code, r.stderr, s.fieldsGETs)
+	}
+}
+
+// An empty field config is reported as status "empty" (not ok with required_checked 0).
+func TestWorkitemCreatePrecheckEmptyConfig(t *testing.T) {
+	s := newWiCreateServer(t, `[]`)
+	r := runWiCreate(t, false, false)
+	if r.code != 0 || len(s.posts) != 1 {
+		t.Fatalf("code=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
+	}
+	pc, _ := wiEnvelope(t, r.stdout).Meta["precheck"].(map[string]any)
+	warning, _ := pc["warning"].(string)
+	if pc["status"] != "empty" || pc["source"] != "none" || !strings.Contains(warning, "no fields") {
+		t.Fatalf("meta.precheck=%#v", pc)
+	}
+	if _, ok := pc["required_checked"]; ok {
+		t.Fatalf("empty config must not claim required_checked: %#v", pc)
+	}
+}
+
+// 401 on the field-config GET is an auth problem: fail (no degrade, no POST).
+func TestWorkitemCreatePrecheckUnauthorizedFails(t *testing.T) {
+	for _, dry := range []bool{false, true} {
+		s := newWiCreateServer(t, wiFieldsFixture)
+		s.fieldsStatus = http.StatusUnauthorized
+		r := runWiCreate(t, dry, false)
+		eb := wiErrorBody(t, r.stderr)
+		if r.code != 1 || eb.Type != "api" || eb.Code != http.StatusUnauthorized || len(s.posts) != 0 || r.stdout != "" {
+			t.Fatalf("dry=%v code=%d error=%+v posts=%d", dry, r.code, eb, len(s.posts))
+		}
+	}
+}
+
+// The fields GET uses a short retry bound: at most 1 retry, backoff capped at 1s even
+// with Retry-After: 30, so degrading cannot stall ~90s.
+func TestWorkitemCreatePrecheckShortRetry(t *testing.T) {
+	var sleeps []time.Duration
+	t.Cleanup(client.SetRetrySleepForTest(func(ctx context.Context, d time.Duration) error {
+		sleeps = append(sleeps, d)
+		return nil
+	}))
+	s := newWiCreateServer(t, wiFieldsFixture)
+	s.fieldsStatus = http.StatusServiceUnavailable
+	s.retryAfter = "30"
+	r := runWiCreate(t, false, false)
+	if r.code != 0 || len(s.posts) != 1 {
+		t.Fatalf("code=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
+	}
+	if s.fieldsGETs != 2 || len(sleeps) != 1 || sleeps[0] > time.Second {
+		t.Fatalf("fieldsGETs=%d sleeps=%v", s.fieldsGETs, sleeps)
+	}
+	pc, _ := wiEnvelope(t, r.stdout).Meta["precheck"].(map[string]any)
+	if pc["status"] != "skipped" {
+		t.Fatalf("meta.precheck=%#v", pc)
+	}
+}
+
+// Field config unavailable/empty + profile create_required → warn-only fallback, never blocks.
+func TestWorkitemCreatePrecheckProfileFallback(t *testing.T) {
+	cases := []struct {
+		name, fields, status string
+		fieldsStatus         int
+	}{
+		{"forbidden", wiFieldsFixture, "skipped", http.StatusForbidden},
+		{"empty", `[]`, "empty", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newWiCreateServer(t, tc.fields)
+			s.fieldsStatus = tc.fieldsStatus
+			xdg := t.TempDir()
+			t.Setenv("XDG_CONFIG_HOME", xdg)
+			writeTransitionTestProfile(t, xdg, &profile.Profile{
+				Name: "p95fb", OrganizationID: "org-wi-precheck", SpaceID: "space-1",
+				WorkitemDefaults: map[string]profile.WorkitemTypeDefaults{
+					"type-req": {Name: "产品需求", CreateRequired: []string{"subject", "priority", "mod-1", "sprint"}},
+				},
+			})
+			t.Setenv("YUNXIAO_PROFILE", "p95fb")
+			prevProfile := globalProfile
+			globalProfile = "p95fb"
+			t.Cleanup(func() { globalProfile = prevProfile })
+			// --no-defaults: the fallback still reads create_required from the profile.
+			r := runWiCreate(t, false, false, "--custom-fields", `{"mod-1":"m-a"}`)
+			if r.code != 0 || len(s.posts) != 1 || r.stderr != "" {
+				t.Fatalf("code=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
+			}
+			pc, _ := wiEnvelope(t, r.stdout).Meta["precheck"].(map[string]any)
+			warning, _ := pc["warning"].(string)
+			mp, _ := pc["profile_missing"].([]any)
+			if pc["status"] != tc.status || pc["source"] != "profile_fallback" || len(mp) != 2 || mp[0] != "priority" || mp[1] != "sprint" {
+				t.Fatalf("meta.precheck=%#v", pc)
+			}
+			if !strings.Contains(warning, "priority") || !strings.Contains(warning, "sprint") || !strings.Contains(warning, "create_required") {
+				t.Fatalf("warning=%q", warning)
+			}
+		})
 	}
 }

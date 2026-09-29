@@ -32,11 +32,18 @@ compares required fields with the final body (flags, --description-file /
 once (exit 1, error.subtype missing_required_fields, error.details.missing[] with
 field_id / name / pass_via / options) and nothing is POSTed. Skipped: optional fields,
 showWhenCreate=false, server-managed (status, creator, …) and fields with a server
-defaultValue. If the field config cannot be read (HTTP error, network, unexpected
-payload) the precheck degrades: warning on stderr, meta.precheck.status=skipped, and
-the create proceeds as before. Success / dry-run carry meta.precheck (or
-request.precheck) {status: ok, required_checked}. --no-precheck skips the GET. Values
-you pass are never changed; other server validation errors pass through unchanged.
+defaultValue (listed in meta.precheck.skipped_default). Root fields (subject, sprint,
+labels, …) count only when passed via their flag, custom fields only via
+--custom-fields(-file). Success / dry-run carry meta.precheck (or request.precheck)
+{status: ok, source: fields, required_checked}.
+401 on the fields GET fails the command. Otherwise, if the config cannot be read (HTTP
+error, network, unexpected payload; at most 1 retry, backoff <= 1s) status=skipped,
+or if it is empty status=empty: the create proceeds and meta.precheck carries reason,
+hint and warning (JSON only; nothing is printed to stderr). If the profile has
+workitem_defaults[type].create_required, those ids are checked instead
+(source=profile_fallback, profile_missing[]), warn-only.
+--no-precheck skips the GET (old behavior; use offline). Values you pass are never
+changed; other server validation errors pass through unchanged.
 
 Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
@@ -149,7 +156,13 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 		// #95: one-shot required-field precheck against the type's field config.
 		var precheck map[string]any
 		if noPrecheck, _ := cmd.Flags().GetBool("no-precheck"); !noPrecheck {
-			precheck, err = precheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body)
+			// Fallback ids when the field config is unusable (read even with --no-defaults;
+			// a broken profile was already reported above when defaults are on).
+			var profileRequired []string
+			if pf, perr := applyActiveProfileOrg(); perr == nil && pf != nil {
+				profileRequired = pf.WorkitemDefaults[typeID].CreateRequired
+			}
+			precheck, err = precheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body, profileRequired)
 			if err != nil {
 				handleErr(err)
 				return

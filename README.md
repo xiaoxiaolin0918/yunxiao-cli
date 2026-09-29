@@ -503,7 +503,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
-- **0.16.33** — workitem create: one-shot required-field precheck before POST (also dry-run); lists every missing field with field_id / options; degrades to a warning when fields can't be read; `--no-precheck` (#95)
+- **0.16.33** — workitem create: one-shot required-field precheck before POST (also dry-run); lists every missing field with field_id / options; `--no-precheck` (#95). **Compatibility:** (1) `--dry-run` now needs credentials + network (one GET) and exits 1 when required fields are missing; (2) a missing-field failure changes from the server's `type:"api"` 400 to `type:"cli"` + `subtype:"missing_required_fields"`; (3) one extra GET per create; (4) if the field config can't be read it degrades after at most 1 retry (backoff ≤1s, not the default ~90s GET retry policy) with a warning in `meta.precheck`, and 401 fails; (5) `--no-precheck` restores the old behavior (use it offline)
 - **0.16.32** — mrs diffs: marks the latest patchset (per-item `latest: true|false`, `meta.latest_patchset_biz_id` / `meta.latest_version_no`; same rule as #93; fields and order unchanged) (#94)
 - **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required); `--comment-type` is now validated (case-insensitive; invalid values error) (#93)
 - **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)

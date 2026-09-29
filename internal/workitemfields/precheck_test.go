@@ -164,3 +164,35 @@ func TestMissingRequiredCapsOptions(t *testing.T) {
 		t.Fatalf("missing=%+v", missing)
 	}
 }
+// Root-level fields count only when set on the body root (as the CLI flag sends them),
+// not when smuggled into customFieldValues.
+func TestMissingRequiredRootFieldOnlyAtRoot(t *testing.T) {
+	cfg := `[{"id":"sprint","name":"迭代","required":true},{"id":"mod-1","name":"所属模块","required":true}]`
+	missing, _ := MissingRequired(parse(t, cfg), map[string]any{"customFieldValues": map[string]any{"sprint": "sp-1", "mod-1": "m"}})
+	if ids(missing) != "sprint" || missing[0].PassVia != "--sprint" {
+		t.Fatalf("missing=%+v", missing)
+	}
+	if missing, _ := MissingRequired(parse(t, cfg), map[string]any{"sprint": "sp-1", "customFieldValues": map[string]any{"mod-1": "m"}}); len(missing) != 0 {
+		t.Fatalf("root sprint must count: %+v", missing)
+	}
+}
+
+// Custom fields count only inside customFieldValues (a root key is not sent as a field value).
+func TestMissingRequiredCustomFieldOnlyInCustomFieldValues(t *testing.T) {
+	cfg := `[{"id":"mod-1","name":"所属模块","required":true}]`
+	if missing, _ := MissingRequired(parse(t, cfg), map[string]any{"mod-1": "m"}); ids(missing) != "mod-1" {
+		t.Fatalf("missing=%+v", missing)
+	}
+}
+
+// DefaultSkipped lists the required, create-visible, user fields skipped for a server defaultValue.
+func TestDefaultSkipped(t *testing.T) {
+	cfg := `[{"id":"src","name":"来源","required":true,"defaultValue":"s1"},
+	 {"id":"opt","name":"可选","required":false,"defaultValue":"x"},
+	 {"id":"hid","name":"隐藏","required":true,"showWhenCreate":false,"defaultValue":"x"},
+	 {"id":"status","name":"状态","required":true,"defaultValue":"100005"},
+	 {"id":"prio","name":"优先级","required":true}]`
+	if got := DefaultSkipped(parse(t, cfg)); len(got) != 1 || got[0] != "src" {
+		t.Fatalf("got %v", got)
+	}
+}

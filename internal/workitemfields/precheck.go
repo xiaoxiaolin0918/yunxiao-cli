@@ -144,25 +144,23 @@ func Parse(raw any) ([]Field, error) {
 // and how many required fields were checked. It never mutates body.
 //
 // Checked = required && showWhenCreate != false && not server-managed (status, creator, …)
-// && no server defaultValue. Root fields (subject, assignedTo, sprint, labels, …) count
-// as present when set on the body root or in customFieldValues; other fields when set in
-// customFieldValues (or, leniently, on the root). Blank strings / empty lists / null are
-// missing; numbers and bools are present.
+// && no server defaultValue (see DefaultSkipped). Root fields (subject, assignedTo,
+// sprint, labels, …) count as present only when set on the body root (where their CLI
+// flag puts them), never via customFieldValues; other fields only when set in
+// customFieldValues. Blank strings / empty lists / null are missing; numbers and bools
+// are present.
 func MissingRequired(fields []Field, body map[string]any) (missing []Missing, checked int) {
 	cf, _ := body["customFieldValues"].(map[string]any)
 	for _, f := range fields {
-		if !f.Required || serverManaged[f.ID] || f.DefaultValue != "" {
-			continue
-		}
-		if f.ShowWhenCreate != nil && !*f.ShowWhenCreate {
+		if !userRequired(f) || f.DefaultValue != "" {
 			continue
 		}
 		checked++
 		passVia := "customFieldValues"
-		present := isSet(cf[f.ID]) || isSet(body[f.ID])
+		present := isSet(cf[f.ID])
 		if rf, ok := rootFields[f.ID]; ok {
 			passVia = rf.flag
-			present = present || isSet(body[rf.key])
+			present = isSet(body[rf.key])
 		}
 		if present {
 			continue
@@ -184,6 +182,27 @@ func MissingRequired(fields []Field, body map[string]any) (missing []Missing, ch
 		missing = append(missing, ms)
 	}
 	return missing, checked
+}
+
+// DefaultSkipped returns the ids of required, create-visible user fields that
+// MissingRequired skips because the server config carries a defaultValue (assumed to be
+// auto-filled on create; unverified), in config order.
+func DefaultSkipped(fields []Field) []string {
+	var out []string
+	for _, f := range fields {
+		if userRequired(f) && f.DefaultValue != "" {
+			out = append(out, f.ID)
+		}
+	}
+	return out
+}
+
+// userRequired: required, shown on create (or unknown) and not server-managed.
+func userRequired(f Field) bool {
+	if !f.Required || serverManaged[f.ID] {
+		return false
+	}
+	return f.ShowWhenCreate == nil || *f.ShowWhenCreate
 }
 
 func isSet(v any) bool {
