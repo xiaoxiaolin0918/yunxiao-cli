@@ -501,7 +501,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
-- **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required) (#93)
+- **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required); `--comment-type` is now validated (case-insensitive; invalid values error) (#93)
 - **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)
 - **0.16.29** — workitem +bug-create `--title-file` / `--description-file` (UTF-8, BOM strip; Windows-safe Chinese; align #85) (#89)
 - **0.16.28** — workitem create `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM strip; Windows-safe Chinese) (#85)

@@ -78,9 +78,29 @@ func mustClient() (*client.Client, config.Resolved, error) {
 	return c, r, nil
 }
 
+// apiErrorBody is the error envelope body for an API error: type "api", status code,
+// apiErrorHint, and yaml_validation subtype + details for Flow YAML errors.
+func apiErrorBody(ae *client.APIError) output.ErrorBody {
+	body := output.ErrorBody{
+		Type:    "api",
+		Message: ae.Error(),
+		Hint:    apiErrorHint(ae),
+		Code:    ae.Status,
+	}
+	if code, issues, ok := pipelineyaml.ParseYAMLValidationError(ae.Body); ok {
+		body.Subtype = "yaml_validation"
+		if body.Hint == "" {
+			body.Hint = "Flow YAML validation failed; see error.details.issues (path + errorMessage)"
+		}
+		body.Details = map[string]any{"errorCode": code, "issues": issues}
+	}
+	return body
+}
+
 // contextError prefixes err with what the CLI was doing ("<Context>: <err>") and adds
-// Hint. handleErr still reports a wrapped *client.APIError as type "api" with its status
-// code, joining the API hint and Hint; other causes are type "cli".
+// Hint. handleErr still reports a wrapped *client.APIError exactly like an unwrapped one
+// (type "api", status code, subtype/details) with the API hint and Hint joined by "; ";
+// other causes are type "cli".
 type contextError struct {
 	Context string
 	Hint    string
@@ -112,10 +132,14 @@ func handleErr(err error) {
 		body := output.ErrorBody{Type: "cli", Message: ce.Error(), Hint: ce.Hint}
 		var ae *client.APIError
 		if errors.As(ce.Err, &ae) {
-			body.Type = "api"
-			body.Code = ae.Status
-			if h := apiErrorHint(ae); h != "" {
-				body.Hint = h + "; " + ce.Hint
+			// Same body as an unwrapped APIError (type/code/hint/subtype/details),
+			// with the context-prefixed message and the context hint appended.
+			body = apiErrorBody(ae)
+			body.Message = ce.Error()
+			if body.Hint != "" {
+				body.Hint += "; " + ce.Hint
+			} else {
+				body.Hint = ce.Hint
 			}
 		}
 		_ = output.Fail(body, 1)
@@ -123,20 +147,7 @@ func handleErr(err error) {
 		return
 	}
 	if ae, ok := err.(*client.APIError); ok {
-		body := output.ErrorBody{
-			Type:    "api",
-			Message: ae.Error(),
-			Hint:    apiErrorHint(ae),
-			Code:    ae.Status,
-		}
-		if code, issues, ok := pipelineyaml.ParseYAMLValidationError(ae.Body); ok {
-			body.Subtype = "yaml_validation"
-			if body.Hint == "" {
-				body.Hint = "Flow YAML validation failed; see error.details.issues (path + errorMessage)"
-			}
-			body.Details = map[string]any{"errorCode": code, "issues": issues}
-		}
-		_ = output.Fail(body, 1)
+		_ = output.Fail(apiErrorBody(ae), 1)
 		processExit(1)
 	}
 	_ = output.Fail(output.ErrorBody{

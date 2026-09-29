@@ -22,8 +22,8 @@ const (
 var (
 	// ErrNoPatchSets means the MR has no usable patch set (empty list / no biz ids).
 	ErrNoPatchSets = errors.New("MR has no patchsets")
-	// ErrNoSourcePatchSet means the payload is typed (has MERGE_TARGET entries) but
-	// carries no MERGE_SOURCE patch set.
+	// ErrNoSourcePatchSet means the payload has typed entries (MERGE_TARGET or any other
+	// relatedMergeItemType) but no MERGE_SOURCE patch set.
 	ErrNoSourcePatchSet = errors.New("MR has no MERGE_SOURCE patchset")
 )
 
@@ -87,11 +87,11 @@ func Parse(out any) ([]PatchSet, error) {
 // wins; among equal versions an item with a parseable createTime beats one without, then
 // the later createTime, then the later position. MERGE_TARGET items are never returned.
 // Items without a relatedMergeItemType are candidates only when the payload has no typed
-// items at all (no MERGE_SOURCE and no MERGE_TARGET); a typed payload without
-// MERGE_SOURCE yields ErrNoSourcePatchSet.
+// entries at all (any relatedMergeItemType value disables the fallback); a typed payload
+// without MERGE_SOURCE yields ErrNoSourcePatchSet.
 func Latest(sets []PatchSet) (PatchSet, error) {
 	var source, untyped []PatchSet
-	sawTarget := false
+	sawTyped := false // any relatedMergeItemType other than MERGE_SOURCE (MERGE_TARGET or unknown)
 	for _, ps := range sets {
 		if ps.BizID == "" {
 			continue
@@ -102,15 +102,15 @@ func Latest(sets []PatchSet) (PatchSet, error) {
 		case "":
 			untyped = append(untyped, ps)
 		default:
-			sawTarget = true
+			sawTyped = true
 		}
 	}
 	cands := source
-	if len(cands) == 0 && !sawTarget {
+	if len(cands) == 0 && !sawTyped {
 		cands = untyped
 	}
 	if len(cands) == 0 {
-		if sawTarget {
+		if sawTyped {
 			return PatchSet{}, ErrNoSourcePatchSet
 		}
 		return PatchSet{}, ErrNoPatchSets
@@ -214,13 +214,14 @@ func firstNonEmpty(vals ...string) string {
 var timeLayouts = []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999999", "2006-01-02 15:04:05.999999999"}
 
 // parseTime accepts RFC3339, zoneless "YYYY-MM-DD[T ]hh:mm:ss[.frac]" (UTC) and
-// all-digit epoch values (>= 1e11 → milliseconds, otherwise seconds).
+// all-digit epoch values of at least 10 digits (>= 1e11 → milliseconds, otherwise
+// seconds). Shorter numerics (e.g. date-like "20260929") are not treated as epoch.
 func parseTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
 	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-		if n <= 0 {
+		if n < 1e9 { // fewer than 10 digits (or <= 0): not an epoch
 			return time.Time{}
 		}
 		if n >= 1e11 {

@@ -1215,15 +1215,18 @@ GLOBAL_COMMENT needs --content; --patchset-biz-id is optional (0.16.31+): when o
 the CLI sends one read-only GET .../diffs/patches (also under --dry-run, so credentials
 and network are required; a failed GET is an error "resolve latest patchset for MR <n>:
 ...", no fallback) and uses the latest patchset. Candidates: MERGE_SOURCE items; items
-without relatedMergeItemType only when the response has no MERGE_SOURCE and no
-MERGE_TARGET (typed response without MERGE_SOURCE = error); MERGE_TARGET never.
+without relatedMergeItemType only when the response has no typed entries at all (any
+relatedMergeItemType value, e.g. MERGE_TARGET, disables this fallback; typed response
+without MERGE_SOURCE = error); MERGE_TARGET never.
 Order: highest versionNo, then items with a parseable createTime (RFC3339; zoneless =
-UTC; epoch s/ms) before those without, newest first, then later in the response.
+UTC; all-digit values of 10+ digits = epoch s/ms) before those without, newest first,
+then later in the response.
 Dry-run shows it under request.resolved (patchset_biz_id, patchset_source=latest,
 resolved_via, version_no when known); success meta carries patchset_biz_id +
 patchset_source=latest. An explicit --patchset-biz-id always wins and skips the GET.
 Replies (--parent-comment-biz-id) without --patchset-biz-id also attach to the latest
-patchset, not the parent's; pass the parent's patchset explicitly if needed.
+patchset, not the parent's (the official docs do not say whether a reply must share
+the parent's patchset); pass the parent's patchset explicitly if you need the same one.
 INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
 --from-patchset-biz-id --to-patchset-biz-id --file-path --line-number (no defaulting).
 

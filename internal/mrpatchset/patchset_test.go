@@ -259,3 +259,27 @@ func TestLatestFullTieUsesLaterPosition(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+// Only long numerics (>= 10 digits) are epoch s/ms; date-like "20260929" is not an epoch.
+func TestParseShortNumericIsNotEpoch(t *testing.T) {
+	sets, err := Parse(decode(t, `[{"patchSetBizId":"a","createTime":"20260929"},{"patchSetBizId":"b","createTime":20260929},{"patchSetBizId":"c","createTime":"172760000"},{"patchSetBizId":"d","createTime":"1727600000"}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ps := range sets[:3] {
+		if !ps.Created.IsZero() {
+			t.Fatalf("%s (%s) must not parse as epoch: %v", ps.BizID, ps.CreateTime, ps.Created)
+		}
+	}
+	if want := time.Unix(1727600000, 0).UTC(); !sets[3].Created.Equal(want) {
+		t.Fatalf("10-digit seconds: %v", sets[3].Created)
+	}
+}
+
+// Any typed entry (not only MERGE_TARGET) disables the untyped fallback.
+func TestLatestUntypedIgnoredWhenAnyTypePresent(t *testing.T) {
+	sets, _ := Parse(decode(t, `[{"patchSetBizId":"u","versionNo":2},{"patchSetBizId":"x","versionNo":1,"relatedMergeItemType":"SOMETHING_ELSE"}]`))
+	if got, err := Latest(sets); !errors.Is(err, ErrNoSourcePatchSet) {
+		t.Fatalf("got %+v err=%v", got, err)
+	}
+}
