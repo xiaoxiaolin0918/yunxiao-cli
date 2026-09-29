@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/mrpatchset"
@@ -29,14 +30,15 @@ func fetchMRPatchSets(ctx context.Context, c *client.Client, repoID, localID str
 
 // resolveLatestMRPatchSet returns the MR's latest MERGE_SOURCE patch set, or an
 // actionable error when none exists. API errors are returned unchanged.
-func resolveLatestMRPatchSet(ctx context.Context, c *client.Client, repoID, localID string) (mrpatchset.PatchSet, error) {
+// repoArg is the user's --repo value (id or alias), echoed in the hint.
+func resolveLatestMRPatchSet(ctx context.Context, c *client.Client, repoArg, repoID, localID string) (mrpatchset.PatchSet, error) {
 	sets, err := fetchMRPatchSets(ctx, c, repoID, localID)
 	if err != nil {
 		return mrpatchset.PatchSet{}, err
 	}
 	ps, err := mrpatchset.Latest(sets)
 	if err != nil {
-		return ps, fmt.Errorf("cannot default --patchset-biz-id for MR %s: %v (inspect with: yunxiao codeup mrs diffs --repo <repo> --local-id %s; or pass --patchset-biz-id explicitly)", localID, err, localID)
+		return ps, fmt.Errorf("cannot default --patchset-biz-id for MR %s: %v (inspect with: yunxiao codeup mrs diffs --repo %s --local-id %s; or pass --patchset-biz-id explicitly)", localID, err, shellArg(repoArg), shellArg(localID))
 	}
 	return ps, nil
 }
@@ -45,4 +47,12 @@ func resolveLatestMRPatchSet(ctx context.Context, c *client.Client, repoID, loca
 type requestPreviewWithResolved struct {
 	client.RequestPreview
 	Resolved map[string]any `json:"resolved,omitempty"`
+}
+
+// shellArg quotes a value for copy-paste hints when it contains whitespace or quotes.
+func shellArg(v string) string {
+	if v == "" || strings.ContainsAny(v, " \t\"'") {
+		return fmt.Sprintf("%q", v)
+	}
+	return v
 }

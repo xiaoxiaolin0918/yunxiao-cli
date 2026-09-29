@@ -53,3 +53,12 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 - 当前组织下 `GET .../repositories/{id}` 可达
 
 不匹配 → **直接报错**（不提供 `--yes` 绕过）。别名路径仍走 #49（未注册即失败）。
+
+## comments create 缺省 patchset（0.16.31+ / #93）
+
+`GLOBAL_COMMENT` 省略 `--patchset-biz-id` 时，CLI 发一次只读 `GET .../changeRequests/{localId}/diffs/patches`（`--dry-run` 也会发，需凭证与网络；失败直接报错、不回退），按以下规则选版本：
+
+1. 候选：`relatedMergeItemType=MERGE_SOURCE`；若没有任何 MERGE_SOURCE 条目，退而使用未带 `relatedMergeItemType` 的条目；`MERGE_TARGET`（目标分支快照）永不选中——它的 `createTime` 可能最新，单纯按时间排序会选错。
+2. 排序：`versionNo` 最大 → `createTime` 最新 → 返回顺序靠后。
+
+dry-run 结果在 `request.resolved` 展示所选 `patchset_biz_id` / `version_no`；显式 `--patchset-biz-id` 优先且跳过该 GET。回复（`--parent-comment-biz-id`）未显式传 patchset 时也挂到最新版本，而不是父评论所在版本；需要同版本请从 `comments list` 取父评论的 `related_patchset.patchSetBizId` 显式传入。`INLINE_COMMENT` 不做缺省：`--patchset-biz-id` / `--from-patchset-biz-id` / `--to-patchset-biz-id` / `--file-path` / `--line-number` 全部必填。

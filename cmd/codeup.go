@@ -1209,12 +1209,17 @@ var codeupMrsCommentsCreateCmd = &cobra.Command{
 	Long: `Risk: write
 
 HTTP: POST .../changeRequests/{localId}/comments
-GLOBAL_COMMENT needs --content; --patchset-biz-id is optional: when omitted the CLI
-reads GET .../diffs/patches and uses the latest MERGE_SOURCE patchset (highest versionNo,
-then newest createTime). Dry-run shows it under request.resolved; success meta carries
-patchset_biz_id + patchset_source=latest. An explicit --patchset-biz-id always wins.
-INLINE_COMMENT still requires --patchset-biz-id plus --file-path --line-number
---from-patchset-biz-id --to-patchset-biz-id.
+GLOBAL_COMMENT needs --content; --patchset-biz-id is optional (0.16.31+): when omitted
+the CLI sends one read-only GET .../diffs/patches (also under --dry-run, so credentials
+and network are required; a failed GET is an error, no fallback) and uses the latest
+patchset: MERGE_SOURCE items (or, if none is typed, items without relatedMergeItemType;
+MERGE_TARGET never), highest versionNo, then newest createTime, then later in the
+response. Dry-run shows it under request.resolved; success meta carries patchset_biz_id +
+patchset_source=latest. An explicit --patchset-biz-id always wins and skips the GET.
+Replies (--parent-comment-biz-id) without --patchset-biz-id also attach to the latest
+patchset, not the parent's; pass the parent's patchset explicitly if needed.
+INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
+--from-patchset-biz-id --to-patchset-biz-id --file-path --line-number (no defaulting).
 
   yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -1263,7 +1268,7 @@ INLINE_COMMENT still requires --patchset-biz-id plus --file-path --line-number
 		// #93: GLOBAL_COMMENT without --patchset-biz-id → latest MERGE_SOURCE patchset (read GET, also in dry-run).
 		var defaulted map[string]any
 		if patchset == "" {
-			ps, err := resolveLatestMRPatchSet(cmd.Context(), c, repoID, localID)
+			ps, err := resolveLatestMRPatchSet(cmd.Context(), c, repo, repoID, localID)
 			if err != nil {
 				handleErr(err)
 				return

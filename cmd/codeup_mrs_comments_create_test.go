@@ -205,7 +205,8 @@ func TestMrsCommentsCreateNoPatchsetsClearError(t *testing.T) {
 			if code != 1 {
 				t.Fatalf("expected exit 1, got %d stderr=%s", code, stderr)
 			}
-			for _, want := range []string{"patchset", "--patchset-biz-id", "mrs diffs"} {
+			// M5: hint carries the actual --repo / --local-id values, not a placeholder.
+			for _, want := range []string{"patchset", "--patchset-biz-id", "yunxiao codeup mrs diffs --repo 4951320 --local-id 125"} {
 				if !strings.Contains(stderr, want) {
 					t.Fatalf("stderr missing %q: %s", want, stderr)
 				}
@@ -214,5 +215,32 @@ func TestMrsCommentsCreateNoPatchsetsClearError(t *testing.T) {
 				t.Fatalf("must not POST when no patchset: %#v", s.posts)
 			}
 		})
+	}
+}
+
+// Replies without --patchset-biz-id attach to the latest source patchset (documented
+// behavior; the OpenAPI does not require the parent's patchset).
+func TestMrsCommentsCreateReplyDefaultsToLatestPatchset(t *testing.T) {
+	s := newMrsCommentServer(t, mrsPatchesFixture)
+	stdout, stderr, code := runMrsCommentsCreate(t, true, "--parent-comment-biz-id", "parent-1", "--dry-run")
+	if code != 0 {
+		t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	req := decodeDryRunRequest(t, stdout)
+	body, _ := req["body"].(map[string]any)
+	if body["parent_comment_biz_id"] != "parent-1" || body["patchset_biz_id"] != "ps-v3" {
+		t.Fatalf("body=%#v", body)
+	}
+	if s.patchGETs != 1 {
+		t.Fatalf("patchGETs=%d", s.patchGETs)
+	}
+}
+
+func TestShellArgQuotesOnlyWhenNeeded(t *testing.T) {
+	cases := map[string]string{"4951320": "4951320", "group/repo": "group/repo", "my repo": `"my repo"`, "": `""`}
+	for in, want := range cases {
+		if got := shellArg(in); got != want {
+			t.Fatalf("shellArg(%q)=%s want %s", in, got, want)
+		}
 	}
 }
