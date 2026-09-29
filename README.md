@@ -417,8 +417,14 @@ Profiles are **project-scoped** (`space_id`); discovered workitem graphs live un
 
 ```bash
 yunxiao profile install-example zhiyi   # or: play
-export YUNXIAO_PROFILE=zhiyi            # or play
+# placeholders only: edit org/space/type ids in the installed file, then refresh graphs
+yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
+export YUNXIAO_PROFILE=zhiyi            # or play (or pass --profile zhiyi per command)
 yunxiao profile show
+# Refresh the state graph. WRITES data: creates a probe workitem, moves it through states,
+# and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
+# --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
+yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
 yunxiao profile doctor                 # diff profile vs live fields/workflow (read)
 yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
 yunxiao sprint +current --dry-run
@@ -440,7 +446,9 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`.
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary (and shipped under the npm package `profiles/`), so `install-example` works from npm / GitHub Release installs; an on-disk `profiles/<name>.example.json` takes precedence (#92). npm installs keep them at `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`. The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan); check with `yunxiao profile doctor`.
+
+**Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 
 ## Risk / dry-run / --yes
 
@@ -470,8 +478,6 @@ Surfaces intentionally **not** wrapped (use `yunxiao api` when you have a confir
 | Packages **upload** / repo create-delete | Not clear in MCP `operations/packages` / no OpenAPI for upload |
 | Codeup **blame**, **cherry-pick** | No solid OpenAPI confirmed — do not invent |
 | Projex **Topic / Risk** type enable on a project | Org may define types; project must enable them in **project settings UI**. Create returns `工作项类型未启用！` (work item type not enabled); no OpenAPI to enable — CLI cannot enable Topic/Risk |
-| Topic / Risk **sprint** field binding | Some types return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint) |
-| Relation types | Working: `ASSOCIATED`, `DEPEND_ON`. `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create |
 | MR label **detach** | No OpenAPI in MCP |
 | AppStack full CR lifecycle beyond list/create surfaces already shipped | Expand only when MCP is unambiguous |
 | Flow structured pipeline YAML generator (`createPipelineWithOptions`) | MCP helper only; CLI takes raw YAML `--file` |
@@ -495,6 +501,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)
 - **0.16.29** — workitem +bug-create `--title-file` / `--description-file` (UTF-8, BOM strip; Windows-safe Chinese; align #85) (#89)
 - **0.16.28** — workitem create `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM strip; Windows-safe Chinese) (#85)
 - **0.16.27** — dry-run classifies against hinted_edges when verified edges empty (#82); #81 confirms no CLI clear CSI, Configure gate enough

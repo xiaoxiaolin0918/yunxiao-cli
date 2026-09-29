@@ -146,7 +146,7 @@ Source layout: `skills/yunxiao-*` (each has `SKILL.md`, optional `references/`).
 | `yunxiao-packages` | Artifact repos / artifacts |
 | `yunxiao-testhub` | Test plans / results / comments |
 | `yunxiao-appstack` | Apps, change-orders, orchestrations, tags, VGs |
-| `yunxiao-yunxiao-zhiyi-ops` | Zhiyi/ZYPT profile + sprint/bug-create/transition/MR shortcuts |
+| `yunxiao-zhiyi-ops` | Zhiyi/ZYPT profile + sprint/bug-create/transition/MR shortcuts |
 
 ### Install into agent skills dir
 
@@ -191,7 +191,7 @@ List/read paths that go through `runRead` / `Do` + `MetaWithPagination` automati
 
 **play vs zhiyi:** `zhiyi` keeps the full Zhiyi/ZYPT field set; `play` is sandbox-accurate (minimal `bug_create_fields`, `bug_transition_required` only `{"100010":["80"]}`, sandbox bug statuses). Profiles may include `workitem_defaults` (per-`type_id` OpenAPI field defaults + `create_required`). Creates (`workitem create`, `+bug-create`) pull priority/trackers/测试负责人/验收负责人 from `workitem_defaults` unless overridden or `--no-defaults`. Use `yunxiao profile doctor` (read) to diff profile field/status ids vs live `fields` + `workflow` (also lists `workitem_defaults` type_ids).
 
-For 智衣 tenant bug workflow: install profile (`yunxiao profile install-example zhiyi`), set `YUNXIAO_PROFILE=zhiyi`, use `workitem get ZYPT-…`, `sprint +current`, `workitem +bug-create`, `workitem +bug-transition`, `workitem +transition` (any type via `workflows`), `codeup mrs +create`. For sandbox regression: `--profile play` / `YUNXIAO_PROFILE=play` and `+bug-create` without module/env (or `--minimal`). Profiles are project-scoped (`space_id`); `workflows` is keyed by `type_id`. Relation types that work in sims: `ASSOCIATED`, `DEPEND_ON` (`RELATED`/`PARENT_SUB` often fail; Task parent via `--parent-id`). Codeup `--content-file` accepts absolute or cwd-relative paths. `workitem create` likewise accepts `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM stripped; prefer on Windows for Chinese). `+bug-create` accepts `--title-file` / `--description-file` the same way (#89). To refresh graphs when OpenAPI workflows omit transitions: `workitem +explore-workflow --type-id <id> --category <Req|Bug|Task> --cleanup --write-profile --yes` (sandbox first; never auto-run on ZYPT). That writes `workflows[<type-id>]` with **verified** `edges` plus `hinted_edges` for needs_fields (#61); for the profile `bug_type_id` it also updates legacy `bug_edges` / `bug_statuses` used by `+bug-transition`. Prefer `verified_edges` / `edges` over `hinted_edges` when consuming graphs. See skill `yunxiao-yunxiao-zhiyi-ops`. Do not hardcode Zhiyi status/field IDs into shared defaults.
+For 智衣 tenant bug workflow: install profile (`yunxiao profile install-example zhiyi`; zhiyi/play examples are embedded in the binary via `profiles/embed.go` and shipped in the npm package `profiles/` by `npm/scripts/sync-profiles.js` prepack, on-disk copies win — #92), set `YUNXIAO_PROFILE=zhiyi`, use `workitem get ZYPT-…`, `sprint +current`, `workitem +bug-create`, `workitem +bug-transition`, `workitem +transition` (any type via `workflows`), `codeup mrs +create`. For sandbox regression: `--profile play` / `YUNXIAO_PROFILE=play` and `+bug-create` without module/env (or `--minimal`). Profiles are project-scoped (`space_id`); `workflows` is keyed by `type_id`. Relation types that work in sims: `ASSOCIATED`, `DEPEND_ON` (`RELATED`/`PARENT_SUB` often fail; Task parent via `--parent-id`). Codeup `--content-file` accepts absolute or cwd-relative paths. `workitem create` likewise accepts `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM stripped; prefer on Windows for Chinese). `+bug-create` accepts `--title-file` / `--description-file` the same way (#89). To refresh graphs when OpenAPI workflows omit transitions: `workitem +explore-workflow --type-id <id> --category <Req|Bug|Task> --cleanup --write-profile --yes` (sandbox first; never auto-run on ZYPT). That writes `workflows[<type-id>]` with **verified** `edges` plus `hinted_edges` for needs_fields (#61); for the profile `bug_type_id` it also updates legacy `bug_edges` / `bug_statuses` used by `+bug-transition`. Prefer `verified_edges` / `edges` over `hinted_edges` when consuming graphs. See skill `yunxiao-zhiyi-ops`. Do not hardcode Zhiyi status/field IDs into shared defaults.
 
 ## Source layout
 
@@ -207,7 +207,7 @@ For 智衣 tenant bug workflow: install profile (`yunxiao profile install-exampl
 | `internal/profile` | Tenant profiles (`~/.config/yunxiao/profiles`) |
 | `internal/workflow` | Status-transition probe / graph helpers |
 | `internal/zhiyi` | Bug transition BFS, create-bug body, sprint aggregate, MR helpers |
-| `profiles/` | Example tenant profiles (`zhiyi.example.json`, `play.example.json`) |
+| `profiles/` | Example tenant profiles (`zhiyi.example.json`, `play.example.json`); `embed.go` embeds them into the binary (#92) |
 | `skills/` | Companion agent skills (`yunxiao-*`) |
 | `testdata/` | Fixtures |
 

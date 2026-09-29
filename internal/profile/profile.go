@@ -195,6 +195,25 @@ func InstallExample(name, srcExamplePath string, force bool) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read example %s: %w", srcExamplePath, err)
 	}
+	return writeExample(dst, b)
+}
+
+// InstallExampleData writes example content (e.g. embedded in the binary, #92)
+// to profiles/<name>.json. Refuses to overwrite unless force.
+func InstallExampleData(name string, data []byte, force bool) (string, error) {
+	dst, err := Path(name)
+	if err != nil {
+		return "", err
+	}
+	if !force {
+		if _, err := os.Stat(dst); err == nil {
+			return "", fmt.Errorf("profile already exists at %s (use --force to overwrite)", dst)
+		}
+	}
+	return writeExample(dst, data)
+}
+
+func writeExample(dst string, b []byte) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return "", err
 	}

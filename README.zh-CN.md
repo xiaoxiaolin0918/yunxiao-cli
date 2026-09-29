@@ -424,14 +424,22 @@ yunxiao schema
 
 ```bash
 yunxiao profile install-example zhiyi   # 或 play
-export YUNXIAO_PROFILE=zhiyi
-yunxiao profile doctor
+# 示例只有占位符：编辑安装后的文件填 org/space/type id，再回填状态图
+yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
+export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --profile zhiyi）
+yunxiao profile show
+# 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
+# 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
+yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
+yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
+
+**使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 
 ## 风险门禁
 
@@ -455,10 +463,20 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 **鉴权双通道：** 个人令牌 **OAPI** 仍无工作项评论 delete/update（raw DELETE 404）。CLI 已通过 AccessKey RPC 封装 workitem comments delete / update（凭证同 --include-aliyun-uid 的 ALIBABA_CLOUD_ACCESS_KEY_*）。详见 [docs/wiki/02-domains/workitem-comments-oapi-gaps.md](docs/wiki/02-domains/workitem-comments-oapi-gaps.md)。
 
-Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类型未启用**迭代**时请省略 `--sprint`。关联类型可用 `ASSOCIATED`/`DEPEND_ON`（`RELATED`/`PARENT_SUB` 常失败）。`profile doctor` 可对照线上字段/工作流。Codeup tags / protected-branches 已支持；`--content-file` 支持绝对路径。`workitem create` 已有 `--subject-file` / `--description-file` / `--custom-fields-file`（#85）；本版本 `+bug-create` 对齐 `--title-file` / `--description-file`（#89）。详见 [README.md](README.md) 的 Known gaps。
+以下能力**有意未封装**（有已确认的 OpenAPI 路径时可用 `yunxiao api`），与 [README.md](README.md) 的 Known gaps 表一致：
+
+| 缺口 | 原因 |
+|------|------|
+| Packages **上传** / 制品仓库创建删除 | MCP `operations/packages` 不明确 / 无上传 OpenAPI |
+| Codeup **blame**、**cherry-pick** | 未确认可靠 OpenAPI，不臆造 |
+| 在项目上启用 Projex **Topic / Risk** 类型 | 组织可定义类型，但须在**项目设置 UI** 启用；创建返回 `工作项类型未启用！`；无启用 OpenAPI，CLI 无法启用 |
+| MR 标签 **detach** | MCP 无对应 OpenAPI（仅 Get + Attach） |
+| AppStack 完整变更单生命周期（超出已提供的 list/create 能力） | 仅在 MCP 明确时扩展 |
+| Flow 结构化流水线 YAML 生成器（`createPipelineWithOptions`） | 仅 MCP helper；CLI 接收原始 YAML `--file` |
 
 ## 变更摘要
 
+- **0.16.30** — npm 包携带 `profiles/*.example.json`，二进制内嵌 zhiyi/play 示例，npm / GitHub Release 安装后 `profile install-example` 可用 (#92)
 - **0.16.29** — workitem +bug-create 增加 `--title-file` / `--description-file`（UTF-8 去 BOM；Windows 中文安全；对齐 #85）(#89)
 - **0.16.28** — workitem create 增加 `--subject-file` / `--description-file` / `--custom-fields-file`（UTF-8 去 BOM；Windows 中文安全）(#85)
 - **0.16.27** — dry-run 在仅有 `hinted_edges` 时仍分类（#82）；#81 确认无 CLI 清屏 CSI，Configure 门控足够
