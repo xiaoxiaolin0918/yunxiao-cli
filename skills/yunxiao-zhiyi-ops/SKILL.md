@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.0
+version: 1.3.1
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -22,7 +22,11 @@ export YUNXIAO_PROFILE=zhiyi          # 或每次 --profile zhiyi
 yunxiao profile show
 ```
 
-示例已内嵌进二进制（npm / GitHub Release 安装无需源码仓库；0.16.30 起，#92），`--dry-run` 预览里 `from` 为 `embedded:profiles/zhiyi.example.json`；磁盘上存在 `profiles/zhiyi.example.json` 时优先。也可手动：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`。
+示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`。查找顺序是**磁盘副本优先**：源码仓库或 npm 安装（`$(npm root -g)/sanzhi-yunxiao-cli/profiles/`）下存在 `profiles/zhiyi.example.json` 时，`--dry-run` 预览的 `from` 是该磁盘路径；没有磁盘副本时（如 GitHub Release 归档、`go install`），`from` 为 `embedded:profiles/zhiyi.example.json`。
+
+装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --write-profile` 回填状态图，`yunxiao profile doctor` 校验。
+
+手动复制仅在**源码仓库**内可用：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`；其他环境可下载 https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/profiles/zhiyi.example.json。
 
 有 `organization_id` 时，若未设 `YUNXIAO_ORGANIZATION_ID` / `--organization-id`，会用 profile 的 org。
 

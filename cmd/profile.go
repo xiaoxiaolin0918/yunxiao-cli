@@ -131,7 +131,7 @@ var profileInstallExampleCmd = &cobra.Command{
 		}
 		handleErr(output.Success(map[string]any{
 			"installed": dst,
-			"hint":      fmt.Sprintf("example uses placeholders only — fill org/space/type IDs via profile set / explore-workflow; then: export YUNXIAO_PROFILE=%s  # or --profile %s", name, name),
+			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, refresh graphs via workitem +explore-workflow --write-profile, verify with profile doctor; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
 		}, map[string]any{"risk": risk.Write}))
 	},
 }
