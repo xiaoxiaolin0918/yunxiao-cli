@@ -95,11 +95,12 @@ yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,us
 
 **GLOBAL_COMMENT 缺省 patchset（0.16.31+；更早版本仍必填 `--patchset-biz-id`，#93）：** 省略 `--patchset-biz-id` 时，CLI 直接 `GET …/changeRequests/{localId}/diffs/patches`（与 `mrs diffs` 同一端点，只读）选最新 patchset：
 
-1. 候选：`relatedMergeItemType=MERGE_SOURCE` 的条目；若一个都没有，退而使用**未带** `relatedMergeItemType` 的条目；`MERGE_TARGET` 永不选中。
-2. 排序：`versionNo` 最大 → `createTime` 最新（带时区比较）→ 仍并列时取返回顺序中**靠后**的一条。
+1. 候选：`relatedMergeItemType=MERGE_SOURCE` 的条目；**仅当**返回里既无 MERGE_SOURCE 也无 MERGE_TARGET（整批未带类型）时，才退而使用**未带** `relatedMergeItemType` 的条目；有 MERGE_TARGET 但没有 MERGE_SOURCE → 报错；`MERGE_TARGET` 永不选中。
+2. 排序（全序，与返回顺序无关）：`versionNo` 最大（字符串按数值比，`"10"` > `"9"`；`"3.0"` 视为 3）→ 有可解析 `createTime` 的优先 → `createTime` 最新（RFC3339 带时区比较；无时区按 UTC；纯数字按 epoch 秒/毫秒）→ 仍完全并列时取返回顺序中**靠后**的一条。
 
-- 这次 GET 在 `--dry-run` 下**也会发出**：需要有效凭证与网络；GET 失败或没有候选时直接报错（不回退、不发评论），提示里带实际的 `mrs diffs --repo <你传的值> --local-id <n>`。
-- dry-run 在 `request.resolved` 展示 `patchset_biz_id` / `version_no` / `patchset_source=latest`；成功时 `meta.patchset_biz_id` + `meta.patchset_source=latest`。
+- `--comment-type` 大小写不敏感，只接受 `GLOBAL_COMMENT` / `INLINE_COMMENT`；只有 GLOBAL 自动解析（`inline_comment` 缺 `--patchset-biz-id` 照样报必填）。
+- 这次 GET 在 `--dry-run` 下**也会发出**：需要有效凭证与网络；GET 失败或没有候选时直接报错 `resolve latest patchset for MR <n>: …`（不回退、不发评论；HTTP 错误仍为 `type:"api"` + 状态码），hint 里带实际的 `mrs diffs --repo <你传的值> --local-id <n>` 或提示显式传 `--patchset-biz-id`。
+- dry-run 在 `request.resolved` 展示 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET …/diffs/patches`）/ `version_no`（缺失时省略）；成功时 `meta.patchset_biz_id` + `meta.patchset_source=latest`。
 - 显式传 `--patchset-biz-id` 始终优先，且**跳过**这次 GET。
 - 回复（`--parent-comment-biz-id`）未显式传 patchset 时同样挂到**最新** patchset，而不是父评论所在版本（OpenAPI 不要求二者一致）；需要同版本时，从 `comments list` 中父评论的 `related_patchset.patchSetBizId`（旧字段 `relatedPatchSet`）取值显式传入。
 

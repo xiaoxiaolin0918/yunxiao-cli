@@ -4,8 +4,10 @@
 package mrpatchset
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +22,8 @@ const (
 var (
 	// ErrNoPatchSets means the MR has no usable patch set (empty list / no biz ids).
 	ErrNoPatchSets = errors.New("MR has no patchsets")
-	// ErrNoSourcePatchSet means only MERGE_TARGET patch sets exist.
+	// ErrNoSourcePatchSet means the payload is typed (has MERGE_TARGET entries) but
+	// carries no MERGE_SOURCE patch set.
 	ErrNoSourcePatchSet = errors.New("MR has no MERGE_SOURCE patchset")
 )
 
@@ -28,11 +31,11 @@ var (
 type PatchSet struct {
 	BizID      string    // patchSetBizId
 	Name       string    // patchSetName
-	VersionNo  int64     // versionNo (legacy: patchSetNo); 0 when absent
+	VersionNo  int64     // versionNo (legacy: patchSetNo); 0 when absent / not an integer
 	Type       string    // relatedMergeItemType (MERGE_SOURCE|MERGE_TARGET|"")
 	CommitID   string    // commitId
-	CreateTime string    // raw createTime (legacy: createdAt)
-	Created    time.Time // parsed CreateTime; zero when unparseable
+	CreateTime string    // createTime (legacy: createdAt); numeric epoch values kept as digits
+	Created    time.Time // parsed CreateTime (UTC for zoneless / epoch values); zero when unparseable
 	Index      int       // position in the API response (lets callers mark the raw item)
 }
 
@@ -52,7 +55,7 @@ func Parse(out any) ([]PatchSet, error) {
 			}
 		}
 		if list == nil {
-			return nil, fmt.Errorf("unexpected patchsets payload: object without result/data/items array")
+			return nil, fmt.Errorf("unexpected patchsets payload: object without result/data/items/patchSets array")
 		}
 	}
 	sets := make([]PatchSet, 0, len(list))
@@ -66,7 +69,7 @@ func Parse(out any) ([]PatchSet, error) {
 			Name:       str(m["patchSetName"]),
 			Type:       strings.ToUpper(str(m["relatedMergeItemType"])),
 			CommitID:   str(m["commitId"]),
-			CreateTime: firstNonEmpty(str(m["createTime"]), str(m["createdAt"])),
+			CreateTime: firstNonEmpty(timeStr(m["createTime"]), timeStr(m["createdAt"])),
 			Index:      i,
 		}
 		ps.VersionNo = num(m["versionNo"])
@@ -79,9 +82,13 @@ func Parse(out any) ([]PatchSet, error) {
 	return sets, nil
 }
 
-// Latest returns the newest MERGE_SOURCE patch set: highest versionNo, then latest
-// createTime, then later position. Items without a relatedMergeItemType are used only
-// when no item is typed MERGE_SOURCE; MERGE_TARGET items are never returned.
+// Latest returns the newest MERGE_SOURCE patch set by the total order
+// (versionNo, has-parseable-createTime, createTime, response position): highest version
+// wins; among equal versions an item with a parseable createTime beats one without, then
+// the later createTime, then the later position. MERGE_TARGET items are never returned.
+// Items without a relatedMergeItemType are candidates only when the payload has no typed
+// items at all (no MERGE_SOURCE and no MERGE_TARGET); a typed payload without
+// MERGE_SOURCE yields ErrNoSourcePatchSet.
 func Latest(sets []PatchSet) (PatchSet, error) {
 	var source, untyped []PatchSet
 	sawTarget := false
@@ -99,7 +106,7 @@ func Latest(sets []PatchSet) (PatchSet, error) {
 		}
 	}
 	cands := source
-	if len(cands) == 0 {
+	if len(cands) == 0 && !sawTarget {
 		cands = untyped
 	}
 	if len(cands) == 0 {
@@ -117,12 +124,18 @@ func Latest(sets []PatchSet) (PatchSet, error) {
 	return best, nil
 }
 
-// newer reports whether a should be preferred over b.
+// newer reports whether a sorts after b in the lexicographic key
+// (VersionNo, !Created.IsZero(), Created, Index). Being a strict total order, the
+// pick does not depend on response order except for exact ties (then later wins).
 func newer(a, b PatchSet) bool {
 	if a.VersionNo != b.VersionNo {
 		return a.VersionNo > b.VersionNo
 	}
-	if !a.Created.IsZero() && !b.Created.IsZero() && !a.Created.Equal(b.Created) {
+	aHas, bHas := !a.Created.IsZero(), !b.Created.IsZero()
+	if aHas != bHas {
+		return aHas
+	}
+	if aHas && !a.Created.Equal(b.Created) {
 		return a.Created.After(b.Created)
 	}
 	return a.Index > b.Index
@@ -134,26 +147,58 @@ func str(v any) string {
 		return strings.TrimSpace(t)
 	case nil:
 		return ""
+	case json.Number:
+		return t.String()
+	case float64:
+		// Avoid fmt's %v scientific notation for large integral values (1.7e+12).
+		return strconv.FormatFloat(t, 'f', -1, 64)
 	default:
 		return strings.TrimSpace(fmt.Sprint(t))
 	}
 }
 
+// timeStr is str for createTime: numeric epoch values stay plain digits.
+func timeStr(v any) string {
+	if f, ok := v.(float64); ok && f == math.Trunc(f) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return str(v)
+}
+
+// num parses an integral version. Integral floats ("3.0", 3.0) are accepted;
+// fractional or non-numeric values yield 0 (treated as "no version").
 func num(v any) int64 {
 	switch t := v.(type) {
 	case float64:
-		return int64(t)
+		return integral(t)
 	case int64:
 		return t
 	case int:
 		return int64(t)
+	case json.Number:
+		return numString(t.String())
 	case string:
-		n, err := strconv.ParseInt(strings.TrimSpace(t), 10, 64)
-		if err == nil {
-			return n
-		}
+		return numString(t)
 	}
 	return 0
+}
+
+func numString(s string) int64 {
+	s = strings.TrimSpace(s)
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return n
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return integral(f)
+	}
+	return 0
+}
+
+func integral(f float64) int64 {
+	if f != math.Trunc(f) || math.IsInf(f, 0) || math.IsNaN(f) {
+		return 0
+	}
+	return int64(f)
 }
 
 func firstNonEmpty(vals ...string) string {
@@ -165,14 +210,26 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-var timeLayouts = []string{time.RFC3339Nano, "2006-01-02T15:04:05", "2006-01-02 15:04:05"}
+// Zoned layouts first; zoneless layouts are interpreted as UTC (not the host's zone).
+var timeLayouts = []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999999", "2006-01-02 15:04:05.999999999"}
 
+// parseTime accepts RFC3339, zoneless "YYYY-MM-DD[T ]hh:mm:ss[.frac]" (UTC) and
+// all-digit epoch values (>= 1e11 → milliseconds, otherwise seconds).
 func parseTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+		if n <= 0 {
+			return time.Time{}
+		}
+		if n >= 1e11 {
+			return time.UnixMilli(n).UTC()
+		}
+		return time.Unix(n, 0).UTC()
+	}
 	for _, l := range timeLayouts {
-		if t, err := time.ParseInLocation(l, s, time.Local); err == nil {
+		if t, err := time.ParseInLocation(l, s, time.UTC); err == nil {
 			return t
 		}
 	}

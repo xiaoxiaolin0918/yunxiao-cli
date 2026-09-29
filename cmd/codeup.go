@@ -1209,12 +1209,18 @@ var codeupMrsCommentsCreateCmd = &cobra.Command{
 	Long: `Risk: write
 
 HTTP: POST .../changeRequests/{localId}/comments
+--comment-type is case-insensitive; only GLOBAL_COMMENT (default) and INLINE_COMMENT
+are accepted.
 GLOBAL_COMMENT needs --content; --patchset-biz-id is optional (0.16.31+): when omitted
 the CLI sends one read-only GET .../diffs/patches (also under --dry-run, so credentials
-and network are required; a failed GET is an error, no fallback) and uses the latest
-patchset: MERGE_SOURCE items (or, if none is typed, items without relatedMergeItemType;
-MERGE_TARGET never), highest versionNo, then newest createTime, then later in the
-response. Dry-run shows it under request.resolved; success meta carries patchset_biz_id +
+and network are required; a failed GET is an error "resolve latest patchset for MR <n>:
+...", no fallback) and uses the latest patchset. Candidates: MERGE_SOURCE items; items
+without relatedMergeItemType only when the response has no MERGE_SOURCE and no
+MERGE_TARGET (typed response without MERGE_SOURCE = error); MERGE_TARGET never.
+Order: highest versionNo, then items with a parseable createTime (RFC3339; zoneless =
+UTC; epoch s/ms) before those without, newest first, then later in the response.
+Dry-run shows it under request.resolved (patchset_biz_id, patchset_source=latest,
+resolved_via, version_no when known); success meta carries patchset_biz_id +
 patchset_source=latest. An explicit --patchset-biz-id always wins and skips the GET.
 Replies (--parent-comment-biz-id) without --patchset-biz-id also attach to the latest
 patchset, not the parent's; pass the parent's patchset explicitly if needed.
@@ -1236,6 +1242,14 @@ INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
 		fromPS, _ := cmd.Flags().GetString("from-patchset-biz-id")
 		toPS, _ := cmd.Flags().GetString("to-patchset-biz-id")
 		parent, _ := cmd.Flags().GetString("parent-comment-biz-id")
+		// Case-insensitive, validated: an unknown / lowercase type must not fall into the
+		// GLOBAL defaulting path and silently drop inline fields.
+		rawType := commentType
+		commentType = strings.ToUpper(strings.TrimSpace(commentType))
+		if commentType != "GLOBAL_COMMENT" && commentType != "INLINE_COMMENT" {
+			handleErr(fmt.Errorf("invalid --comment-type %q: want GLOBAL_COMMENT or INLINE_COMMENT", rawType))
+			return
+		}
 		isInline := commentType == "INLINE_COMMENT"
 		required := []string{"repo", repo, "local-id", localID, "content", content}
 		if isInline {
@@ -1267,14 +1281,17 @@ INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
 		}
 		// #93: GLOBAL_COMMENT without --patchset-biz-id → latest MERGE_SOURCE patchset (read GET, also in dry-run).
 		var defaulted map[string]any
-		if patchset == "" {
-			ps, err := resolveLatestMRPatchSet(cmd.Context(), c, repo, repoID, localID)
+		if patchset == "" && commentType == "GLOBAL_COMMENT" {
+			ps, via, err := resolveLatestMRPatchSet(cmd.Context(), c, repo, repoID, localID)
 			if err != nil {
 				handleErr(err)
 				return
 			}
 			patchset = ps.BizID
-			defaulted = map[string]any{"patchset_biz_id": ps.BizID, "patchset_source": "latest", "version_no": ps.VersionNo}
+			defaulted = map[string]any{"patchset_biz_id": ps.BizID, "patchset_source": "latest", "resolved_via": via}
+			if ps.VersionNo != 0 {
+				defaulted["version_no"] = ps.VersionNo
+			}
 			if ps.Name != "" {
 				defaulted["patchset_name"] = ps.Name
 			}
@@ -1295,22 +1312,17 @@ INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
 		if parent != "" {
 			body["parent_comment_biz_id"] = parent
 		}
-		if defaulted == nil {
-			handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs comments create", risk.Write, "POST", path, nil, body, nil))
-			return
-		}
-		preview := requestPreviewWithResolved{RequestPreview: c.Preview("POST", path, nil, body), Resolved: defaulted}
-		handleErr(runMutating("codeup mrs comments create", risk.Write, globalDryRun, globalYes, preview, func() error {
-			var out any
-			if _, err := c.Do(cmd.Context(), "POST", path, nil, body, &out); err != nil {
-				return err
+		var preview any = c.Preview("POST", path, nil, body)
+		var after func(out any, meta map[string]any) (any, map[string]any)
+		if defaulted != nil {
+			preview = requestPreviewWithResolved{RequestPreview: c.Preview("POST", path, nil, body), Resolved: defaulted}
+			after = func(out any, meta map[string]any) (any, map[string]any) {
+				meta["patchset_biz_id"] = patchset
+				meta["patchset_source"] = "latest"
+				return out, meta
 			}
-			return output.Success(out, map[string]any{
-				"risk":            risk.Write,
-				"patchset_biz_id": patchset,
-				"patchset_source": "latest",
-			})
-		}))
+		}
+		handleErr(runJSONMutatingPreview(cmd.Context(), c, "codeup mrs comments create", risk.Write, "POST", path, nil, body, preview, after))
 	},
 }
 

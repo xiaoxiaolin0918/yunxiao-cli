@@ -14,33 +14,39 @@ func mrPatchSetsPath(ctx context.Context, c *client.Client, repoID, localID stri
 	return c.CodeupPath(ctx, "/repositories/"+repoID+"/changeRequests/"+localID+"/diffs/patches")
 }
 
-// fetchMRPatchSets lists and parses an MR's patch sets (unordered, no "latest" marker).
-// Shared by comments create (#93); mrs diffs latest marking (#94) can reuse it.
-func fetchMRPatchSets(ctx context.Context, c *client.Client, repoID, localID string) ([]mrpatchset.PatchSet, error) {
+// fetchMRPatchSets lists and parses an MR's patch sets (unordered, no "latest" marker)
+// and returns the GET path it used. Shared by comments create (#93) and mrs diffs (#94).
+func fetchMRPatchSets(ctx context.Context, c *client.Client, repoID, localID string) ([]mrpatchset.PatchSet, string, error) {
 	path, err := mrPatchSetsPath(ctx, c, repoID, localID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var out any
 	if _, err := c.Do(ctx, "GET", path, nil, nil, &out); err != nil {
-		return nil, err
+		return nil, path, err
 	}
-	return mrpatchset.Parse(out)
+	sets, err := mrpatchset.Parse(out)
+	return sets, path, err
 }
 
-// resolveLatestMRPatchSet returns the MR's latest MERGE_SOURCE patch set, or an
-// actionable error when none exists. API errors are returned unchanged.
+// resolveLatestMRPatchSet returns the MR's latest MERGE_SOURCE patch set and how it was
+// resolved ("GET <path>"). Failures are wrapped as "resolve latest patchset for MR <n>: …"
+// (contextError keeps *client.APIError reporting) with a hint to pass --patchset-biz-id.
 // repoArg is the user's --repo value (id or alias), echoed in the hint.
-func resolveLatestMRPatchSet(ctx context.Context, c *client.Client, repoArg, repoID, localID string) (mrpatchset.PatchSet, error) {
-	sets, err := fetchMRPatchSets(ctx, c, repoID, localID)
+func resolveLatestMRPatchSet(ctx context.Context, c *client.Client, repoArg, repoID, localID string) (mrpatchset.PatchSet, string, error) {
+	wrap := func(err error, hint string) error {
+		return &contextError{Context: "resolve latest patchset for MR " + localID, Hint: hint, Err: err}
+	}
+	inspect := fmt.Sprintf("inspect with: yunxiao codeup mrs diffs --repo %s --local-id %s", shellArg(repoArg), shellArg(localID))
+	sets, path, err := fetchMRPatchSets(ctx, c, repoID, localID)
 	if err != nil {
-		return mrpatchset.PatchSet{}, err
+		return mrpatchset.PatchSet{}, "", wrap(err, "pass --patchset-biz-id explicitly to skip patchset resolution")
 	}
 	ps, err := mrpatchset.Latest(sets)
 	if err != nil {
-		return ps, fmt.Errorf("cannot default --patchset-biz-id for MR %s: %v (inspect with: yunxiao codeup mrs diffs --repo %s --local-id %s; or pass --patchset-biz-id explicitly)", localID, err, shellArg(repoArg), shellArg(localID))
+		return ps, "", wrap(err, inspect+"; or pass --patchset-biz-id explicitly")
 	}
-	return ps, nil
+	return ps, "GET " + path, nil
 }
 
 // requestPreviewWithResolved adds CLI-resolved values (e.g. defaulted patchset) to a dry-run preview.

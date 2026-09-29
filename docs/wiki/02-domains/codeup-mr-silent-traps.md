@@ -56,9 +56,9 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 
 ## comments create 缺省 patchset（0.16.31+ / #93）
 
-`GLOBAL_COMMENT` 省略 `--patchset-biz-id` 时，CLI 发一次只读 `GET .../changeRequests/{localId}/diffs/patches`（`--dry-run` 也会发，需凭证与网络；失败直接报错、不回退），按以下规则选版本：
+`GLOBAL_COMMENT` 省略 `--patchset-biz-id` 时，CLI 发一次只读 `GET .../changeRequests/{localId}/diffs/patches`（`--dry-run` 也会发，需凭证与网络；失败直接报错 `resolve latest patchset for MR <n>: …`、不回退；HTTP 错误仍是 `type:"api"` 并带状态码，hint 提示显式传 `--patchset-biz-id`），按以下规则选版本：
 
-1. 候选：`relatedMergeItemType=MERGE_SOURCE`；若没有任何 MERGE_SOURCE 条目，退而使用未带 `relatedMergeItemType` 的条目；`MERGE_TARGET`（目标分支快照）永不选中——它的 `createTime` 可能最新，单纯按时间排序会选错。
-2. 排序：`versionNo` 最大 → `createTime` 最新 → 返回顺序靠后。
+1. 候选：`relatedMergeItemType=MERGE_SOURCE`；**仅当**返回里既没有 MERGE_SOURCE 也没有 MERGE_TARGET（整批都未带类型，如旧接口）时，才退而使用未带 `relatedMergeItemType` 的条目；有 MERGE_TARGET 却没有 MERGE_SOURCE 时直接报错（未带类型的条目不当作源版本）。`MERGE_TARGET`（目标分支快照）永不选中——它的 `createTime` 可能最新，单纯按时间排序会选错。
+2. 排序（全序，结果与返回顺序无关，除非完全并列）：`versionNo` 最大（`"10"` > `"9"`，`"3.0"` 视为 3，小数/非数字视为无版本）→ 有可解析 `createTime` 的优先于无法解析的 → `createTime` 最新（RFC3339；无时区按 UTC；纯数字按 epoch 秒/毫秒）→ 仍完全并列时取返回顺序靠后。
 
-dry-run 结果在 `request.resolved` 展示所选 `patchset_biz_id` / `version_no`；显式 `--patchset-biz-id` 优先且跳过该 GET。回复（`--parent-comment-biz-id`）未显式传 patchset 时也挂到最新版本，而不是父评论所在版本；需要同版本请从 `comments list` 取父评论的 `related_patchset.patchSetBizId` 显式传入。`INLINE_COMMENT` 不做缺省：`--patchset-biz-id` / `--from-patchset-biz-id` / `--to-patchset-biz-id` / `--file-path` / `--line-number` 全部必填。
+`--comment-type` 大小写不敏感，只接受 `GLOBAL_COMMENT` / `INLINE_COMMENT`（其他值直接报错）；只有 GLOBAL 才会自动解析。dry-run 结果在 `request.resolved` 展示所选 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET <diffs/patches 路径>`）/ `version_no`（缺失时省略，不显示 0）；显式 `--patchset-biz-id` 优先且跳过该 GET。回复（`--parent-comment-biz-id`）未显式传 patchset 时也挂到最新版本，而不是父评论所在版本；需要同版本请从 `comments list` 取父评论的 `related_patchset.patchSetBizId` 显式传入。`INLINE_COMMENT` 不做缺省：`--patchset-biz-id` / `--from-patchset-biz-id` / `--to-patchset-biz-id` / `--file-path` / `--line-number` 全部必填。

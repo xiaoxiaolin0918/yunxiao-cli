@@ -266,7 +266,7 @@ var Registry = []Method{
 			{Name: "repo", Type: "string", Required: true, Desc: "repository id or alias"},
 			{Name: "local-id", Type: "string", Required: true, Desc: "MR local id"},
 			{Name: "content", Type: "string", Required: true, Desc: "comment content"},
-			{Name: "comment-type", Type: "string", Required: false, Desc: "GLOBAL_COMMENT (default) | INLINE_COMMENT"},
+			{Name: "comment-type", Type: "string", Required: false, Desc: "GLOBAL_COMMENT (default) | INLINE_COMMENT; case-insensitive, other values rejected"},
 			{Name: "patchset-biz-id", Type: "string", Required: false, Desc: "GLOBAL_COMMENT: optional, default latest MERGE_SOURCE patchset from diffs/patches; INLINE_COMMENT: required"},
 		},
 		Example: "yunxiao codeup mrs comments create --repo <id> --local-id 1 --content note --dry-run"},
