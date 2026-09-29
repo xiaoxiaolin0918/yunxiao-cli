@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
@@ -23,6 +24,19 @@ already set by flags / --custom-fields. Pass --no-defaults to skip.
 
 If the API returns 未启用此字段【迭代】, omit --sprint for this workitem type
 (Topic/Risk and some custom types do not enable 迭代).
+
+Required-field precheck (0.16.33+, #95): before POST (also under --dry-run) the CLI
+sends one read-only GET .../workitemTypes/{typeId}/fields (same as workitem fields) and
+compares required fields with the final body (flags, --description-file /
+--custom-fields-file, profile workitem_defaults). All missing fields are reported at
+once (exit 1, error.subtype missing_required_fields, error.details.missing[] with
+field_id / name / pass_via / options) and nothing is POSTed. Skipped: optional fields,
+showWhenCreate=false, server-managed (status, creator, …) and fields with a server
+defaultValue. If the field config cannot be read (HTTP error, network, unexpected
+payload) the precheck degrades: warning on stderr, meta.precheck.status=skipped, and
+the create proceeds as before. Success / dry-run carry meta.precheck (or
+request.precheck) {status: ok, required_checked}. --no-precheck skips the GET. Values
+you pass are never changed; other server validation errors pass through unchanged.
 
 Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
@@ -132,7 +146,23 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 			return
 		}
 		full, _ := cmd.Flags().GetBool("full")
-		handleErr(runJSONMutating(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
+		// #95: one-shot required-field precheck against the type's field config.
+		var precheck map[string]any
+		if noPrecheck, _ := cmd.Flags().GetBool("no-precheck"); !noPrecheck {
+			precheck, err = precheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+		}
+		var preview any = c.Preview("POST", path, nil, body)
+		if precheck != nil {
+			preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck}
+		}
+		handleErr(runJSONMutatingPreview(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, preview, func(out any, meta map[string]any) (any, map[string]any) {
+			if precheck != nil {
+				meta["precheck"] = precheck
+			}
 			item := asStringMap(out)
 			item = zhiyi.EnsureWorkItemCreateFields(item, func(id string) (map[string]any, error) {
 				return fetchWorkItemMap(cmd.Context(), c, id)

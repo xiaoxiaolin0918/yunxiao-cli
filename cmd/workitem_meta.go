@@ -22,7 +22,7 @@ var workitemFieldsCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		path, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes/"+typeID+"/fields")
+		path, err := workitemFieldsPath(cmd.Context(), c, spaceID, typeID)
 		if err != nil {
 			handleErr(err)
 			return

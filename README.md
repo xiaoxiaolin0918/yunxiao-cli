@@ -317,6 +317,8 @@ yunxiao pipeline job refuse --pipeline-id <id> --run-id <r> --job-id <j> --dry-r
 yunxiao packages artifacts delete --repo-id <id> --repo-type GENERIC --id <aid> --dry-run
 yunxiao workitem types list --space-id <sid> --category Req
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
+# create prechecks required fields first (one read GET, also under --dry-run): all missing fields in one error
+# (error.details.missing[]: field_id / name / pass_via / options); --no-precheck skips it (#95)
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem delete --id <id> --dry-run
@@ -501,6 +503,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.33** — workitem create: one-shot required-field precheck before POST (also dry-run); lists every missing field with field_id / options; degrades to a warning when fields can't be read; `--no-precheck` (#95)
 - **0.16.32** — mrs diffs: marks the latest patchset (per-item `latest: true|false`, `meta.latest_patchset_biz_id` / `meta.latest_version_no`; same rule as #93; fields and order unchanged) (#94)
 - **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required); `--comment-type` is now validated (case-insensitive; invalid values error) (#93)
 - **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)

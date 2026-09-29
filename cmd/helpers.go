@@ -152,12 +152,34 @@ func handleErr(err error) {
 		_ = output.Fail(apiErrorBody(ae), 1)
 		processExit(1)
 	}
+	if de, ok := err.(*detailedError); ok {
+		_ = output.Fail(output.ErrorBody{
+			Type:    "cli",
+			Subtype: de.Subtype,
+			Message: de.Message,
+			Hint:    de.Hint,
+			Details: de.Details,
+		}, 1)
+		processExit(1)
+		return
+	}
 	_ = output.Fail(output.ErrorBody{
 		Type:    "cli",
 		Message: err.Error(),
 	}, 1)
 	processExit(1)
 }
+
+// detailedError is a client-side failure with a machine-readable subtype, hint and
+// details (e.g. workitem create precheck, #95); handleErr reports it as type "cli".
+type detailedError struct {
+	Subtype string
+	Message string
+	Hint    string
+	Details map[string]any
+}
+
+func (e *detailedError) Error() string { return e.Message }
 
 func flagOrg(explicit string) {
 	if explicit != "" {
