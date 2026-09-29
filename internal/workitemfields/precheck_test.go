@@ -164,6 +164,7 @@ func TestMissingRequiredCapsOptions(t *testing.T) {
 		t.Fatalf("missing=%+v", missing)
 	}
 }
+
 // Root-level fields count only when set on the body root (as the CLI flag sends them),
 // not when smuggled into customFieldValues.
 func TestMissingRequiredRootFieldOnlyAtRoot(t *testing.T) {

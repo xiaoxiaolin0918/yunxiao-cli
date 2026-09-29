@@ -37,9 +37,11 @@ labels, …) count only when passed via their flag, custom fields only via
 --custom-fields(-file). Success / dry-run carry meta.precheck (or request.precheck)
 {status: ok, source: fields, required_checked}.
 401 on the fields GET fails the command. Otherwise, if the config cannot be read (HTTP
-error, network, unexpected payload; at most 1 retry, backoff <= 1s) status=skipped,
-or if it is empty status=empty: the create proceeds and meta.precheck carries reason,
-hint and warning (JSON only; nothing is printed to stderr). If the profile has
+error, network, unexpected payload, no answer within 10s; at most 1 retry, backoff
+<= 1s) status=skipped, or if it is empty status=empty: the create proceeds,
+meta.precheck (dry-run: request.precheck) carries reason, hint and warning, and the
+warning is also printed as one "warning: ..." line on stderr. If the POST then fails,
+error.hint adds "precheck skipped: <reason>". If the profile has
 workitem_defaults[type].create_required, those ids are checked instead
 (source=profile_fallback, profile_missing[]), warn-only.
 --no-precheck skips the GET (old behavior; use offline). Values you pass are never
@@ -167,12 +169,13 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 				handleErr(err)
 				return
 			}
+			printPrecheckWarning(precheck)
 		}
 		var preview any = c.Preview("POST", path, nil, body)
 		if precheck != nil {
 			preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck}
 		}
-		handleErr(runJSONMutatingPreview(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, preview, func(out any, meta map[string]any) (any, map[string]any) {
+		err = runJSONMutatingPreview(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, preview, func(out any, meta map[string]any) (any, map[string]any) {
 			if precheck != nil {
 				meta["precheck"] = precheck
 			}
@@ -185,6 +188,7 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 				return item, meta
 			}
 			return zhiyi.BriefWorkItem(item), meta
-		}))
+		})
+		handleCreateErr(err, precheck)
 	},
 }

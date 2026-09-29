@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,9 +41,10 @@ type wiCreateServer struct {
 	fields       string
 	fieldsStatus int    // non-zero: fields GET answers with this status
 	retryAfter   string // Retry-After header on fields GET errors
-	postStatus   int // non-zero: POST answers with this status
+	postStatus   int    // non-zero: POST answers with this status
 	postBody     string
 	fieldsGETs   int
+	fieldsHang   atomic.Bool // fields GET waits until the client gives up
 	posts        []map[string]any
 	other        []string
 }
@@ -51,6 +53,13 @@ func newWiCreateServer(t *testing.T, fields string) *wiCreateServer {
 	t.Helper()
 	s := &wiCreateServer{fields: fields}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.fieldsHang.Load() && r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/fields") {
+			select {
+			case <-r.Context().Done():
+			case <-time.After(10 * time.Second):
+			}
+			return
+		}
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -144,10 +153,18 @@ func runWiCreate(t *testing.T, dryRun, useDefaults bool, extra ...string) wiCrea
 	return wiCreateRun{stdout: stdout.String(), stderr: stderr.String(), code: code}
 }
 
+// wiErrorBody decodes the stderr JSON error envelope, skipping "warning: ..." lines
+// (degraded precheck).
 func wiErrorBody(t *testing.T, stderr string) output.ErrorBody {
 	t.Helper()
+	var keep []string
+	for _, l := range strings.SplitAfter(stderr, "\n") {
+		if !strings.HasPrefix(l, "warning: ") {
+			keep = append(keep, l)
+		}
+	}
 	var env output.Envelope
-	if err := json.Unmarshal([]byte(stderr), &env); err != nil || env.Error == nil {
+	if err := json.Unmarshal([]byte(strings.Join(keep, "")), &env); err != nil || env.Error == nil {
 		t.Fatalf("stderr JSON: %v / %s", err, stderr)
 	}
 	return *env.Error
@@ -370,9 +387,9 @@ func TestWorkitemCreatePrecheckDegradesWhenFieldsUnavailable(t *testing.T) {
 			if pc["status"] != "skipped" || pc["source"] != "none" || !strings.Contains(reason, tc.reason) || !strings.Contains(hint, "yunxiao workitem fields --space-id space-1 --type-id type-req") {
 				t.Fatalf("meta.precheck=%#v", pc)
 			}
-			// The warning lives in meta.precheck (JSON); stderr stays empty on success.
+			// The warning is in meta.precheck and printed once as "warning: ..." on stderr.
 			warning, _ := pc["warning"].(string)
-			if !strings.Contains(warning, "precheck skipped") || r.stderr != "" {
+			if !strings.Contains(warning, "precheck skipped") || r.stderr != "warning: "+warning+"\n" {
 				t.Fatalf("warning=%q stderr=%q", warning, r.stderr)
 			}
 		})
@@ -390,6 +407,9 @@ func TestWorkitemCreatePrecheckDegradesDryRun(t *testing.T) {
 	pc, _ := wiDryRunRequest(t, r.stdout)["precheck"].(map[string]any)
 	if pc["status"] != "skipped" || len(s.posts) != 0 {
 		t.Fatalf("precheck=%#v posts=%d", pc, len(s.posts))
+	}
+	if w, _ := pc["warning"].(string); w == "" || r.stderr != "warning: "+w+"\n" {
+		t.Fatalf("dry-run warning: request.precheck.warning=%q stderr=%q", w, r.stderr)
 	}
 }
 
@@ -437,6 +457,7 @@ func TestWorkitemCreateHelpDocumentsPrecheck(t *testing.T) {
 		}
 	}
 }
+
 // A required root field (sprint) only counts when passed via its flag, not in customFieldValues.
 func TestWorkitemCreatePrecheckRootFieldNotInCustomFields(t *testing.T) {
 	fixture := strings.Replace(wiFieldsFixture, `{"id":"note",`, `{"id":"sprint","name":"迭代","type":"NativeField","format":"sprint","required":true,"showWhenCreate":true},
@@ -535,11 +556,11 @@ func TestWorkitemCreatePrecheckProfileFallback(t *testing.T) {
 			t.Cleanup(func() { globalProfile = prevProfile })
 			// --no-defaults: the fallback still reads create_required from the profile.
 			r := runWiCreate(t, false, false, "--custom-fields", `{"mod-1":"m-a"}`)
-			if r.code != 0 || len(s.posts) != 1 || r.stderr != "" {
-				t.Fatalf("code=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
-			}
 			pc, _ := wiEnvelope(t, r.stdout).Meta["precheck"].(map[string]any)
 			warning, _ := pc["warning"].(string)
+			if r.code != 0 || len(s.posts) != 1 || r.stderr != "warning: "+warning+"\n" {
+				t.Fatalf("code=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
+			}
 			mp, _ := pc["profile_missing"].([]any)
 			if pc["status"] != tc.status || pc["source"] != "profile_fallback" || len(mp) != 2 || mp[0] != "priority" || mp[1] != "sprint" {
 				t.Fatalf("meta.precheck=%#v", pc)
@@ -548,5 +569,66 @@ func TestWorkitemCreatePrecheckProfileFallback(t *testing.T) {
 				t.Fatalf("warning=%q", warning)
 			}
 		})
+	}
+}
+
+// A skipped / empty precheck is not lost when the POST then fails: error.hint carries
+// "precheck skipped: <reason>" next to the API hint; a passing precheck adds nothing.
+func TestWorkitemCreatePrecheckSkippedReasonInErrorHint(t *testing.T) {
+	t.Cleanup(client.SetRetrySleepForTest(func(ctx context.Context, d time.Duration) error { return nil }))
+	s := newWiCreateServer(t, wiFieldsFixture)
+	s.fieldsStatus = http.StatusInternalServerError
+	s.postStatus = http.StatusBadRequest
+	s.postBody = `{"errorCode":"InvalidParam","errorMessage":"【所属模块】必填"}`
+	r := runWiCreate(t, false, false)
+	if r.code != 1 || r.stdout != "" || len(s.posts) != 1 {
+		t.Fatalf("exit=%d posts=%d stdout=%s stderr=%s", r.code, len(s.posts), r.stdout, r.stderr)
+	}
+	eb := wiErrorBody(t, r.stderr)
+	if eb.Type != "api" || eb.Code != http.StatusBadRequest || !strings.Contains(eb.Message, "所属模块") {
+		t.Fatalf("error=%+v", eb)
+	}
+	if !strings.Contains(eb.Hint, "precheck skipped: GET fields -> HTTP 500") {
+		t.Fatalf("hint=%q", eb.Hint)
+	}
+
+	s = newWiCreateServer(t, `[]`)
+	s.postStatus = http.StatusBadRequest
+	s.postBody = `{"errorCode":"InvalidParam","errorMessage":"bad"}`
+	r = runWiCreate(t, false, false)
+	if eb := wiErrorBody(t, r.stderr); r.code != 1 || !strings.Contains(eb.Hint, "precheck empty: field config returned no fields") {
+		t.Fatalf("empty: exit=%d hint=%q", r.code, eb.Hint)
+	}
+
+	s = newWiCreateServer(t, wiFieldsFixture)
+	s.postStatus = http.StatusBadRequest
+	s.postBody = `{"errorCode":"InvalidParam","errorMessage":"bad"}`
+	r = runWiCreate(t, false, false, "--custom-fields", `{"priority":"prio-high","mod-1":"m-a"}`)
+	if eb := wiErrorBody(t, r.stderr); r.code != 1 || strings.Contains(eb.Hint, "precheck") {
+		t.Fatalf("ok precheck must not add a hint: exit=%d hint=%q", r.code, eb.Hint)
+	}
+}
+
+// A fields GET that never answers degrades after precheckTimeout (both attempts
+// included) instead of stalling for the HTTP client timeout; the create still POSTs.
+func TestWorkitemCreatePrecheckTimeout(t *testing.T) {
+	prev := precheckTimeout
+	precheckTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { precheckTimeout = prev })
+	s := newWiCreateServer(t, wiFieldsFixture)
+	s.fieldsHang.Store(true)
+	start := time.Now()
+	r := runWiCreate(t, false, false)
+	elapsed := time.Since(start)
+	if r.code != 0 || len(s.posts) != 1 {
+		t.Fatalf("exit=%d posts=%d stderr=%s", r.code, len(s.posts), r.stderr)
+	}
+	if elapsed > 3*time.Second {
+		t.Fatalf("precheck took %s, want about %s", elapsed, precheckTimeout)
+	}
+	pc, _ := wiEnvelope(t, r.stdout).Meta["precheck"].(map[string]any)
+	reason, _ := pc["reason"].(string)
+	if pc["status"] != "skipped" || !strings.Contains(reason, "timed out after 300ms") || !strings.HasPrefix(r.stderr, "warning: required-field precheck skipped") {
+		t.Fatalf("precheck=%#v stderr=%q", pc, r.stderr)
 	}
 }

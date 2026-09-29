@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/yunxiao-cli/yunxiao/internal/client"
+	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/workitemfields"
 )
 
@@ -19,6 +21,11 @@ const (
 	precheckMaxAttempts = 2
 	precheckMaxDelay    = time.Second
 )
+
+// precheckTimeout bounds the whole field-config read (both attempts and the backoff),
+// so a server that accepts the connection but never answers can't stall the create
+// for the HTTP client timeout per attempt (~2 min) before degrading. Var for tests.
+var precheckTimeout = 10 * time.Second
 
 // workitemFieldsPath is GET .../projects/{space}/workitemTypes/{typeId}/fields (same as `workitem fields`).
 func workitemFieldsPath(ctx context.Context, c *client.Client, spaceID, typeID string) (string, error) {
@@ -45,11 +52,15 @@ type requestPreviewWithPrecheck struct {
 //     (source "profile_fallback", profile_missing[]), warn-only; else source "none".
 //     Create proceeds either way and the server validates as before.
 //
-// Warnings are only reported in the returned map (JSON), never as plain stderr text.
+// A degraded result's warning goes to meta.precheck.warning (dry-run:
+// request.precheck.warning) and, as elsewhere in the CLI, one "warning: ..." line on
+// stderr (printed by the caller, see printPrecheckWarning).
 // Read-only; also runs under --dry-run. Never mutates body.
 func precheckWorkitemCreate(ctx context.Context, c *client.Client, spaceID, typeID string, body map[string]any, profileRequired []string) (map[string]any, error) {
 	inspect := fmt.Sprintf("yunxiao workitem fields --space-id %s --type-id %s", spaceID, typeID)
-	fields, err := fetchWorkitemFieldConfig(client.WithRetryPolicy(ctx, precheckMaxAttempts, precheckMaxDelay), c, spaceID, typeID)
+	pctx, cancel := context.WithTimeout(client.WithRetryPolicy(ctx, precheckMaxAttempts, precheckMaxDelay), precheckTimeout)
+	defer cancel()
+	fields, err := fetchWorkitemFieldConfig(pctx, c, spaceID, typeID)
 	var ae *client.APIError
 	if errors.As(err, &ae) && ae.Status == http.StatusUnauthorized {
 		return nil, err
@@ -144,9 +155,67 @@ func precheckSkipReason(err error) string {
 	if errors.As(err, &ae) {
 		return fmt.Sprintf("GET fields -> HTTP %d", ae.Status)
 	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Sprintf("GET fields timed out after %s", precheckTimeout)
+	}
 	msg := err.Error()
 	if len(msg) > 200 {
 		msg = msg[:200] + "…"
 	}
 	return msg
+}
+
+// handleCreateErr is handleErr for the create POST. meta.precheck only exists on
+// success, so when the precheck was skipped / empty and the POST then fails, the
+// reason is appended to error.hint as "precheck skipped: <reason>" (or "precheck
+// empty: <reason>"). The envelope is otherwise the same as handleErr's (type "api" +
+// status for API errors). Other errors, and runs with an ok precheck, go to handleErr.
+// Kept out of handleErr so helpers.go doesn't conflict with #101's contextError.
+func handleCreateErr(err error, precheck map[string]any) {
+	hint := precheckErrorHint(precheck)
+	if err == nil || hint == "" {
+		handleErr(err)
+		return
+	}
+	switch e := err.(type) {
+	case *client.APIError:
+		_ = output.Fail(output.ErrorBody{
+			Type:    "api",
+			Message: e.Error(),
+			Hint:    joinPrecheckHint(apiErrorHint(e), hint),
+			Code:    e.Status,
+		}, 1)
+	case risk.GateResult, output.ExitError, *detailedError:
+		handleErr(err)
+		return
+	default:
+		_ = output.Fail(output.ErrorBody{Type: "cli", Message: err.Error(), Hint: hint}, 1)
+	}
+	processExit(1)
+}
+
+// precheckErrorHint is "precheck <status>: <reason>" for a skipped / empty precheck.
+func precheckErrorHint(precheck map[string]any) string {
+	status, _ := precheck["status"].(string)
+	if status != "skipped" && status != "empty" {
+		return ""
+	}
+	reason, _ := precheck["reason"].(string)
+	return fmt.Sprintf("precheck %s: %s", status, reason)
+}
+
+func joinPrecheckHint(apiHint, hint string) string {
+	if apiHint == "" {
+		return hint
+	}
+	return apiHint + "; " + hint
+}
+
+// printPrecheckWarning writes the degraded-precheck warning as one "warning: ..." line
+// on stderr (repo convention, cf. browse / mrs +create link warnings); the same text
+// stays in meta.precheck.warning or request.precheck.warning.
+func printPrecheckWarning(precheck map[string]any) {
+	if w, _ := precheck["warning"].(string); w != "" {
+		fmt.Fprintf(output.Stderr, "warning: %s\n", w)
+	}
 }

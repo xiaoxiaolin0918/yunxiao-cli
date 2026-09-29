@@ -457,8 +457,8 @@ func runJSONMutating(ctx context.Context, c *client.Client, action string, level
 	return runJSONMutatingPreview(ctx, c, action, level, method, path, query, body, c.Preview(method, path, query, body), after)
 }
 
-// runJSONMutatingPreview is runJSONMutating with a caller-built dry-run preview
-// (e.g. c.Preview plus the create precheck outcome, see requestPreviewWithPrecheck).
+// runJSONMutatingPreview is runJSONMutating with a caller-built dry-run preview;
+// callers pass a request-preview builder (e.g. mrs comments create, workitem create).
 func runJSONMutatingPreview(ctx context.Context, c *client.Client, action string, level risk.Level, method, path string, query map[string]string, body, preview any, after func(out any, meta map[string]any) (any, map[string]any)) error {
 	return runMutating(action, level, globalDryRun, globalYes, preview, func() error {
 		var out any

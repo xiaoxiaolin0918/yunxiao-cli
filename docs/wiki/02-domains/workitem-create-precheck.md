@@ -34,7 +34,7 @@ Projex 创建接口一次只报**一个**缺失的必填字段（如先报「所
   "missing":[{"field_id":"<fid>","name":"所属模块","format":"list","type":"CustomField","pass_via":"customFieldValues","options":[{"id":"…","display_value":"…"}],"options_total":3}]}}}
 ```
 
-`type` 取自字段配置（所属模块是 CustomField → `pass_via="customFieldValues"`；NativeField 才会给出 flag）。`missing[]` 与 message 中的顺序即字段配置的返回顺序。
+`type` 取自字段配置（所属模块是 CustomField → `pass_via="customFieldValues"`；只有根级映射表中的字段才会给出 flag）。`missing[]` 与 message 中的顺序即字段配置的返回顺序。
 
 ## 降级与告警
 
@@ -45,7 +45,9 @@ Projex 创建接口一次只报**一个**缺失的必填字段（如先报「所
 | 返回空列表 | `status:"empty"`（不是 `ok` + `required_checked:0`），创建继续 |
 
 - 重试上限：该 GET 最多重试 1 次，每次退避 ≤1s（含 `Retry-After`），不会像默认 GET 策略那样卡约 90s。
-- 告警只写在 `meta.precheck`（dry-run：`request.precheck`）的 `warning` / `reason` / `hint` 字段里，**不向 stderr 打印纯文本**（stderr 只输出 JSON 错误信封）。
+- 整个字段配置读取（两次尝试 + 退避）有 10s 总超时（`context.WithTimeout`），服务端接了连接却不应答时 10s 内降级为 `skipped`（`reason`：`GET fields timed out after 10s`），而不是每次尝试等 HTTP 客户端超时（约 2 分钟）。
+- 告警两处都有（与 `browse`、`mrs +create` 关联告警的约定一致）：stderr 打印一行 `warning: <warning>`，同时写在 `meta.precheck`（dry-run：`request.precheck`）的 `warning` / `reason` / `hint` 字段里。stdout 仍只有 JSON 信封。
+- 预检为 `skipped` / `empty` 而随后 POST 失败时，`meta.precheck` 不会输出，因此把 `precheck skipped: <reason>`（或 `precheck empty: <reason>`）追加到错误信封的 `error.hint`，便于判断缺字段是否因为预检没跑。
 - profile 兜底：若 profile 有 `workitem_defaults[<type_id>].create_required`，降级 / 空配置时改为按这些 id 检查（同样的根级 / customFieldValues 规则），`source:"profile_fallback"`，未提供的 id 列在 `profile_missing[]` 并写进 `warning`——**只告警、不阻塞**。没有该配置时 `source:"none"`。
 
 预检不应比没有预检更差。
