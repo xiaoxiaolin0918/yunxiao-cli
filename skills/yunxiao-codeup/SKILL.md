@@ -106,7 +106,7 @@ yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,us
 
 **INLINE_COMMENT（所有版本）：** 必须同时给出 `--comment-type INLINE_COMMENT`、`--patchset-biz-id`、`--from-patchset-biz-id`、`--to-patchset-biz-id`、`--file-path`、`--line-number`（>0），缺任何一项都在请求前报错，不做自动解析。
 
-patchset biz id 可从 `mrs diffs` 取得（0.16.32+：`meta.latest_patchset_biz_id` 或 `data[]` 中 `latest:true` 的一项即最新，规则同上，无需自行按 createTime 排序；无候选时省略该 meta、全部 `latest:false`，#94）；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
+patchset biz id 可从 `mrs diffs` 取得（0.16.32+：`meta.latest_patchset_biz_id` 或 `data[]` 中 `latest:true` 的一项即最新，规则同上，无需自行按 createTime 排序；无候选时省略该 meta、全部 `latest:false`；`latest` 由 CLI 注入，会覆盖 API 同名字段；`--jq '.data[] | select(.latest)'` 假设 `data` 为数组，#94）；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
 
 `reviewers add`：逗号分隔 userId → OpenAPI `POST …/person/REVIEWER` body `userIds`（与 create 的 `reviewerUserIds` 字段名不同；CLI `--reviewer` 语义一致）。
 

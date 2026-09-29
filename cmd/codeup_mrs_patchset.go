@@ -15,7 +15,9 @@ func mrPatchSetsPath(ctx context.Context, c *client.Client, repoID, localID stri
 }
 
 // fetchMRPatchSets lists and parses an MR's patch sets (unordered, no "latest" marker)
-// and returns the GET path it used. Shared by comments create (#93) and mrs diffs (#94).
+// and returns the GET path it used. Used by comments create (#93) via
+// resolveLatestMRPatchSet; mrs diffs (#94) does not call it — it marks the raw GET
+// response in place via markLatestPatchSet (same mrpatchset.Latest rule).
 func fetchMRPatchSets(ctx context.Context, c *client.Client, repoID, localID string) ([]mrpatchset.PatchSet, string, error) {
 	path, err := mrPatchSetsPath(ctx, c, repoID, localID)
 	if err != nil {

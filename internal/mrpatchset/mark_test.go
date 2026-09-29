@@ -74,3 +74,14 @@ func TestMarkLatestUntypedOnlyPayload(t *testing.T) {
 		t.Fatalf("got %+v ok=%v", ps, ok)
 	}
 }
+
+func TestMarkLatestOverwritesExistingLatestField(t *testing.T) {
+	out := decode(t, `[{"patchSetBizId":"a","versionNo":1,"relatedMergeItemType":"MERGE_SOURCE","latest":true},{"patchSetBizId":"b","versionNo":2,"relatedMergeItemType":"MERGE_SOURCE","latest":"x"}]`)
+	if _, ok := MarkLatest(out); !ok {
+		t.Fatal("expected a latest patch set")
+	}
+	items := out.([]any)
+	if items[0].(map[string]any)["latest"] != false || items[1].(map[string]any)["latest"] != true {
+		t.Fatalf("items=%v", items)
+	}
+}
