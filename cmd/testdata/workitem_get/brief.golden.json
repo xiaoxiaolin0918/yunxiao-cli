@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "data": {
+    "assignedTo": {
+      "id": "u-1",
+      "name": "肖晓霖"
+    },
+    "categoryId": "Req",
+    "description_summary": "(description: 3200 chars, use --full or --fields description)",
+    "gmtModified": "2026-09-29T10:00:00Z",
+    "id": "wi-5916",
+    "priority": {
+      "displayValue": "高",
+      "id": "p-high"
+    },
+    "serialNumber": "ZYPT-5916",
+    "sprint": {
+      "id": "sp-1",
+      "name": "S39"
+    },
+    "status": {
+      "displayName": "处理中",
+      "id": "100005"
+    },
+    "subject": "产品类需求",
+    "workitemType": {
+      "id": "type-req",
+      "name": "产品类需求"
+    }
+  },
+  "meta": {
+    "has_more": false,
+    "page": 1,
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 1,
+      "total_pages": 1
+    },
+    "pagination_headers": {
+      "x-page": "1",
+      "x-per-page": "20",
+      "x-total": "1",
+      "x-total-pages": "1"
+    },
+    "perPage": 20,
+    "projection": "brief",
+    "resolved_id": "wi-5916",
+    "risk": "read",
+    "serial_number": "ZYPT-5916",
+    "total": 1,
+    "totalPages": 1,
+    "url": "https://devops.aliyun.com/projex/project/space-1/req#openWorkitemIdentifier=wi-5916"
+  }
+}

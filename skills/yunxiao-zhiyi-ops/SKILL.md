@@ -48,7 +48,7 @@ yunxiao workitem get --id ZYPT-<nnnn>
 yunxiao workitem get --id <internalId>   # 无需 profile
 ```
 
-成功时 `meta.resolved_id`（内部 id）、`meta.serial_number`（若有）与 `meta.url`（Projex 可点击链接）。0.16.34+ 默认 brief（状态 / 负责人 / 迭代 / 优先级等，description 只给字符数）；需要描述全文加 `--fields description`，需要 customFieldValues（如所属模块、测试负责人）加 `--full`（#98）。
+成功时 `meta.resolved_id`（内部 id）、`meta.serial_number`（若有）与 `meta.url`（Projex 可点击链接）。0.16.34+ 默认 brief（状态 / 负责人 / 迭代 / 优先级 / 工作项类型等，description 只给字符数）；需要描述全文加 `--fields description`，需要 customFieldValues（如所属模块、测试负责人）加 `--full`（#98）。
 
 ## 当前迭代建议（`sprint +current`）
 

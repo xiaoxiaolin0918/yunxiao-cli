@@ -125,7 +125,7 @@ ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yun
 ## meta.url / relations 富化（CLI 0.15.x）
 
 - `workitem get/create/update` 与 `+transition` 成功时 `meta` 常含可点击 `url`（及 `serial_number` / `resolved_id`）。
-- `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / status / assignedTo / sprint / priority / gmtModified，description 以 `description_summary`（字符数）占位；要描述全文用 `--fields description`，要 customFieldValues 等用 `--full`。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感，不存在时报 `unknown_fields` 并列出 `details.available`。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
+- `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / status / assignedTo / sprint / priority / workitemType / categoryId / gmtModified，description 以 `description_summary`（字符数）占位；要描述全文用 `--fields description`，要 customFieldValues 等用 `--full`。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感：GetWorkitem 字段在该工作项上缺失时为 `null`（列入 `meta.absent_fields`），完全未知的名字报 `unknown_fields` 并列出 `details.available`。需同时兼容旧 CLI 的脚本设 `YUNXIAO_WORKITEM_GET_VIEW=full`（旧 CLI 忽略；flag > env > 默认）。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
 - `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。依赖完整 create JSON 的脚本请加 --full。
 - `workitem relations list` 会尽力为每条关联补齐 `serial_number` / `subject` / `url`（及 category）。
 - 取消态更新可用 `--cancel-reason <text>`（自动查找「取消原因」字段）；dry-run 可能带 soft-warn 提示。

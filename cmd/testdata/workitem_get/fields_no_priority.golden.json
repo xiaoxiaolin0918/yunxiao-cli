@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "data": {
+    "priority": null,
+    "subject": "无优先级"
+  },
+  "meta": {
+    "has_more": false,
+    "hint": "priority: no non-empty top-level priority and no customFieldValues entry with fieldId \"priority\" or fieldName 优先级/Priority; check with --full --jq '.data.customFieldValues' or `yunxiao workitem fields --space-id {space.id} --type-id {workitemType.id}`",
+    "page": 1,
+    "pagination": {
+      "page": 1,
+      "per_page": 20,
+      "total": 1,
+      "total_pages": 1
+    },
+    "pagination_headers": {
+      "x-page": "1",
+      "x-per-page": "20",
+      "x-total": "1",
+      "x-total-pages": "1"
+    },
+    "perPage": 20,
+    "projection": "fields",
+    "resolved_id": "wi-7",
+    "risk": "read",
+    "serial_number": "ZYPT-7",
+    "total": 1,
+    "totalPages": 1
+  }
+}
