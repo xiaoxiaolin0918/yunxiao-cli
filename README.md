@@ -306,7 +306,7 @@ yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 yunxiao codeup mrs get --repo <id> --local-id 1
 yunxiao codeup mrs diffs --repo <id> --local-id 1
 yunxiao codeup mrs comments list --repo <id> --local-id 1
-yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --patchset-biz-id <biz> --dry-run
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL: latest patchset by default (#93)
 yunxiao codeup mrs labels list --repo <id> --local-id 1
 yunxiao codeup mrs labels attach --repo <id> --local-id 1 --label-ids 1,2 --dry-run
 yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
@@ -501,6 +501,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required) (#93)
 - **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)
 - **0.16.29** — workitem +bug-create `--title-file` / `--description-file` (UTF-8, BOM strip; Windows-safe Chinese; align #85) (#89)
 - **0.16.28** — workitem create `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM strip; Windows-safe Chinese) (#85)

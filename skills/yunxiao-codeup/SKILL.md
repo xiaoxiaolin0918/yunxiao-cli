@@ -76,7 +76,8 @@ yunxiao codeup mrs create \
 
 ```bash
 yunxiao codeup mrs comments list --repo <id> --local-id 1   # newest first; --sort asc
-yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --patchset-biz-id <biz> --dry-run
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL：缺省最新 patchset
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --patchset-biz-id <biz> --dry-run   # 显式指定优先
 yunxiao codeup mrs comments resolve --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run
 yunxiao codeup mrs comments reopen --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run
 # --comment-biz-id 取自 comments list 每条的 comment_biz_id（JSON 里也可能是 commentBizId）
@@ -85,7 +86,7 @@ yunxiao codeup mrs labels attach --repo <id> --local-id 1 --label-ids 1,2 --dry-
 yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,userId2> --dry-run
 ```
 
-`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。`patchset-biz-id` 可从 `mrs diffs` 取得；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
+`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。GLOBAL_COMMENT 可省略 `--patchset-biz-id`：CLI 读 `mrs diffs`（`diffs/patches`）取**最新 MERGE_SOURCE** patchset（versionNo 最大，其次 createTime 最新；忽略 MERGE_TARGET），dry-run 在 `request.resolved` 展示 `patchset_biz_id` / `version_no`，成功时 `meta.patchset_source=latest`；无 patchset 时报错并提示显式传入（#93）。显式传入始终优先；INLINE_COMMENT 仍必填 `--patchset-biz-id`（及 from/to）。patchset biz id 可从 `mrs diffs` 取得；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
 
 `reviewers add`：逗号分隔 userId → OpenAPI `POST …/person/REVIEWER` body `userIds`（与 create 的 `reviewerUserIds` 字段名不同；CLI `--reviewer` 语义一致）。
 
