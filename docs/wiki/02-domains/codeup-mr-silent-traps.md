@@ -62,3 +62,12 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 2. 排序（全序，结果与返回顺序无关，除非完全并列）：`versionNo` 最大（`"10"` > `"9"`，`"3.0"` 视为 3，小数/非数字视为无版本）→ 有可解析 `createTime` 的优先于无法解析的 → `createTime` 最新（RFC3339；无时区按 UTC；≥10 位纯数字按 epoch 秒/毫秒；`"20260929"` 等不足 10 位的数字视为无法解析）→ 仍完全并列时取返回顺序靠后。
 
 `--comment-type` 大小写不敏感，只接受 `GLOBAL_COMMENT` / `INLINE_COMMENT`（其他值直接报错）；只有 GLOBAL 才会自动解析。dry-run 结果在 `request.resolved` 展示所选 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET <diffs/patches 路径>`）/ `version_no`（缺失时省略，不显示 0）；显式 `--patchset-biz-id` 优先且跳过该 GET。回复（`--parent-comment-biz-id`）未显式传 patchset 时也挂到最新版本，而不是父评论所在版本（官方文档未说明回复是否须与父评论同一 patchset）；需要同版本请显式传入父评论所在的 patchset（`related_patchset.patchSetBizId` 仅在 CreateChangeRequestComment 响应的评论对象中有文档记载，`comments list` 是否返回未经验证）。`INLINE_COMMENT` 不做缺省：`--patchset-biz-id` / `--from-patchset-biz-id` / `--to-patchset-biz-id` / `--file-path` / `--line-number` 全部必填。
+
+## mrs diffs 标记最新 patchset（0.16.32+ / #94）
+
+`GET .../diffs/patches` 返回乱序、无「最新」标记。`yunxiao codeup mrs diffs` 保留 API 原字段与顺序，并追加：
+
+- 每项 `latest: true|false`（至多一条为 true；该字段由 CLI 注入到 API 原始对象中，若 API 返回同名字段会被**覆盖**）；
+- `meta.latest_patchset_biz_id`（无候选时省略）与 `meta.latest_version_no`（缺失时省略）。
+
+「最新」与上文 comments create 缺省规则完全相同（共用 `internal/mrpatchset.Latest`）。无候选（空列表 / 仅 MERGE_TARGET / 有 MERGE_TARGET（或其他带类型条目）但无 MERGE_SOURCE——即使同时存在未带类型的条目）时全部 `latest:false`，命令仍 `ok:true`。不要再按 `createTime` 自行排序——`MERGE_TARGET` 的时间可能最新。

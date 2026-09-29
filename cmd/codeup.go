@@ -1038,8 +1038,23 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 
 var codeupMrsDiffsCmd = &cobra.Command{
 	Use:   "diffs",
-	Short: "List MR patch sets (diff versions)",
-	Long:  "Risk: read\nHTTP: GET .../changeRequests/{localId}/diffs/patches",
+	Short: "List MR patch sets (diff versions); marks the latest",
+	Long: `Risk: read
+HTTP: GET .../changeRequests/{localId}/diffs/patches
+
+The API returns patch sets unordered with no "latest" marker. The CLI keeps every
+field and the API order, and adds (0.16.32+, #94):
+  - per item: "latest": true|false (true for exactly one item, or none)
+  - meta.latest_patchset_biz_id (omitted when there is no candidate) and
+    meta.latest_version_no (omitted when unknown)
+Latest = same rule as comments create's default patchset (internal/mrpatchset):
+MERGE_SOURCE items; items without relatedMergeItemType only when the response has no
+MERGE_SOURCE and no MERGE_TARGET; MERGE_TARGET never. Order: highest versionNo, then
+items with a parseable createTime (RFC3339; zoneless = UTC; epoch s/ms) newest first,
+then later in the response. No candidate = every item latest:false, still ok:true.
+
+  yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.meta.latest_patchset_biz_id'
+  yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.data[] | select(.latest)'`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -1064,7 +1079,7 @@ var codeupMrsDiffsCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, markLatestPatchSet))
 	},
 }
 

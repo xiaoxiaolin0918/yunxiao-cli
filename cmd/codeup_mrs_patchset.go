@@ -62,3 +62,19 @@ func shellArg(v string) string {
 	}
 	return v
 }
+
+// markLatestPatchSet is the mrs diffs after-hook (#94): per-item "latest" plus
+// meta.latest_patchset_biz_id (+ latest_version_no when known) when a latest patch set exists.
+func markLatestPatchSet(out any, meta map[string]any) (any, map[string]any) {
+	ps, ok := mrpatchset.MarkLatest(out)
+	if ok {
+		if meta == nil {
+			meta = map[string]any{}
+		}
+		meta["latest_patchset_biz_id"] = ps.BizID
+		if ps.VersionNo != 0 {
+			meta["latest_version_no"] = ps.VersionNo
+		}
+	}
+	return out, meta
+}

@@ -224,7 +224,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.unlink", Domain: "codeup", Description: "Unlink work items from an existing MR via extRelationRecords",
 		HTTPMethod: "DELETE", Path: ".../workitems/{id}/extRelationRecords/{relationRecordId}", Risk: risk.Write,
 		Example: "yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-1 --dry-run"},
-	{ID: "codeup.mrs.diffs", Domain: "codeup", Description: "List MR patch sets",
+	{ID: "codeup.mrs.diffs", Domain: "codeup", Description: "List MR patch sets (per-item latest + meta.latest_patchset_biz_id for the latest MERGE_SOURCE patchset)",
 		HTTPMethod: "GET", Path: ".../changeRequests/{localId}/diffs/patches", Risk: risk.Read,
 		Example: "yunxiao codeup mrs diffs --repo <id> --local-id 1"},
 	{ID: "codeup.mrs.reopen", Domain: "codeup", Description: "Reopen MR",

@@ -42,21 +42,12 @@ type PatchSet struct {
 // Parse extracts patch sets from a decoded JSON response: a top-level array, or an
 // object wrapping it under result / data / items / patchSets.
 func Parse(out any) ([]PatchSet, error) {
-	list, ok := out.([]any)
+	list, ok := itemsOf(out)
 	if !ok {
-		m, isMap := out.(map[string]any)
-		if !isMap {
-			return nil, fmt.Errorf("unexpected patchsets payload %T (want array)", out)
-		}
-		for _, k := range []string{"result", "data", "items", "patchSets"} {
-			if l, ok := m[k].([]any); ok {
-				list = l
-				break
-			}
-		}
-		if list == nil {
+		if _, isMap := out.(map[string]any); isMap {
 			return nil, fmt.Errorf("unexpected patchsets payload: object without result/data/items/patchSets array")
 		}
+		return nil, fmt.Errorf("unexpected patchsets payload %T (want array)", out)
 	}
 	sets := make([]PatchSet, 0, len(list))
 	for i, it := range list {
@@ -80,6 +71,23 @@ func Parse(out any) ([]PatchSet, error) {
 		sets = append(sets, ps)
 	}
 	return sets, nil
+}
+
+// itemsOf returns the patch set list: out itself, or out[result|data|items|patchSets].
+func itemsOf(out any) ([]any, bool) {
+	if list, ok := out.([]any); ok {
+		return list, true
+	}
+	m, ok := out.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	for _, k := range []string{"result", "data", "items", "patchSets"} {
+		if l, ok := m[k].([]any); ok {
+			return l, true
+		}
+	}
+	return nil, false
 }
 
 // Latest returns the newest MERGE_SOURCE patch set by the total order

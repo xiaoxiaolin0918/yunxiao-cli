@@ -121,6 +121,7 @@ Global `--dry-run` previews without executing (API or local write previews).
 - Workitem get/create/update (and transition shortcuts) include **`meta.url`** (Projex web link) plus `serial_number` / `resolved_id` when known. Shortcut composed results (e.g. `+bug-create`) also expose top-level `url`.
 - Codeup MR get/create/`+create` set **`meta.url`**; list / `+open-mrs` inject per-item `url` (prefers API `detailUrl`, else constructs `…/change/{localId}`).
 - `codeup mrs comments create` GLOBAL_COMMENT without `--patchset-biz-id` resolves the latest MERGE_SOURCE patchset via `diffs/patches` (`internal/mrpatchset` + `cmd/codeup_mrs_patchset.go`, reusable for #94); dry-run adds `request.resolved` (incl. `resolved_via`), success adds `meta.patchset_biz_id` / `meta.patchset_source=latest`. `--comment-type` is case-normalized and validated; only GLOBAL auto-resolves, INLINE_COMMENT still requires it. Resolution errors use `contextError` (a wrapped `*client.APIError` renders like an unwrapped one via `apiErrorBody`: `type:"api"`, code, subtype/details) (#93).
+- `codeup mrs diffs` adds per-item `latest: true|false` and `meta.latest_patchset_biz_id` / `meta.latest_version_no` via `mrpatchset.MarkLatest` (same rule as #93; API fields/order untouched; `latest` is injected by the CLI and overwrites any same-named API field) (#94).
 
 Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans.
 
