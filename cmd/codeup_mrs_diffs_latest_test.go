@@ -14,6 +14,22 @@ import (
 // the raw stderr and the exit code.
 func runMrsDiffs(t *testing.T) (output.Envelope, string, int) {
 	t.Helper()
+	stdout, stderr, code := runMrsDiffsIO(t)
+	raw := stdout
+	if code != 0 {
+		raw = stderr
+	}
+	var env output.Envelope
+	if err := json.Unmarshal([]byte(raw), &env); err != nil {
+		t.Fatalf("output JSON (exit %d): %v / stdout=%s stderr=%s", code, err, stdout, stderr)
+	}
+	return env, raw, code
+}
+
+// runMrsDiffsIO runs `codeup mrs diffs` and returns raw stdout, stderr and the
+// processExit code (0 when the command did not exit).
+func runMrsDiffsIO(t *testing.T) (string, string, int) {
+	t.Helper()
 	stdout := withCmdJSONCapture(t)
 	prevDry := globalDryRun
 	globalDryRun = false
@@ -44,15 +60,7 @@ func runMrsDiffs(t *testing.T) (output.Envelope, string, int) {
 			t.Fatalf("execute: %v", err)
 		}
 	}()
-	raw := stdout.Bytes()
-	if code != 0 {
-		raw = stderr.Bytes()
-	}
-	var env output.Envelope
-	if err := json.Unmarshal(raw, &env); err != nil {
-		t.Fatalf("output JSON (exit %d): %v / stdout=%s stderr=%s", code, err, stdout.String(), stderr.String())
-	}
-	return env, string(raw), code
+	return stdout.String(), stderr.String(), code
 }
 
 // #94: one call locates the latest patchset: per-item latest + meta.latest_patchset_biz_id.
@@ -210,12 +218,30 @@ func TestMrsDiffsLatestMatchesCommentsCreateDefault(t *testing.T) {
 	}
 }
 
-// A failing GET exits 1 with the API error on stderr (no partial stdout).
+// A failing GET exits 1 with the API error on stderr and nothing on stdout.
 func TestMrsDiffsHTTPErrorExits(t *testing.T) {
 	s := newMrsCommentServer(t, mrsPatchesFixture)
 	s.patchStatus = 403
-	env, raw, code := runMrsDiffs(t)
+	stdout, stderr, code := runMrsDiffsIO(t)
+	if stdout != "" {
+		t.Fatalf("stdout must be empty on error, got %q", stdout)
+	}
+	var env output.Envelope
+	if err := json.Unmarshal([]byte(stderr), &env); err != nil {
+		t.Fatalf("stderr JSON: %v / %s", err, stderr)
+	}
 	if code != 1 || env.OK || env.Error == nil || env.Error.Type != "api" || env.Error.Code != 403 {
-		t.Fatalf("exit=%d envelope: %s", code, raw)
+		t.Fatalf("exit=%d stderr: %s", code, stderr)
+	}
+}
+
+// The array caveat belongs to the .data[] example, not the .meta one.
+func TestMrsDiffsHelpArrayNoteFollowsDataExample(t *testing.T) {
+	h := codeupMrsDiffsCmd.Long
+	metaEx := strings.Index(h, "--jq '.meta.latest_patchset_biz_id'")
+	dataEx := strings.Index(h, "--jq '.data[] | select(.latest)'")
+	note := strings.Index(h, "assumes data is an array")
+	if metaEx < 0 || dataEx < 0 || note < 0 || !(metaEx < dataEx && dataEx < note) {
+		t.Fatalf("want .meta example, then .data[] example, then the array note; got %d %d %d:\n%s", metaEx, dataEx, note, h)
 	}
 }

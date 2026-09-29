@@ -1058,8 +1058,8 @@ MERGE_TARGET, or MERGE_TARGET present without MERGE_SOURCE) = every item latest:
 still ok:true.
 
   yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.meta.latest_patchset_biz_id'
-  # assumes data is an array (the usual response); use .meta.latest_patchset_biz_id otherwise
-  yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.data[] | select(.latest)'`,
+  yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.data[] | select(.latest)'
+  # ^ assumes data is an array (the usual response); otherwise use .meta.latest_patchset_biz_id`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
