@@ -440,7 +440,7 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`.
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary (and shipped under the npm package `profiles/`), so `install-example` works from npm / GitHub Release installs; an on-disk `profiles/<name>.example.json` takes precedence (#92).
 
 ## Risk / dry-run / --yes
 
@@ -495,6 +495,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.30** — npm package ships `profiles/*.example.json` and the binary embeds zhiyi/play examples, so `profile install-example` works from npm / GitHub Release installs (#92)
 - **0.16.29** — workitem +bug-create `--title-file` / `--description-file` (UTF-8, BOM strip; Windows-safe Chinese; align #85) (#89)
 - **0.16.28** — workitem create `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM strip; Windows-safe Chinese) (#85)
 - **0.16.27** — dry-run classifies against hinted_edges when verified edges empty (#82); #81 confirms no CLI clear CSI, Configure gate enough

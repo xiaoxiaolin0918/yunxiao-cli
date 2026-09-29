@@ -431,7 +431,7 @@ yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprin
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。
 
 ## 风险门禁
 
@@ -459,6 +459,7 @@ Packages **上传**、Codeup **blame/cherry-pick**、MR label detach。部分类
 
 ## 变更摘要
 
+- **0.16.30** — npm 包携带 `profiles/*.example.json`，二进制内嵌 zhiyi/play 示例，npm / GitHub Release 安装后 `profile install-example` 可用 (#92)
 - **0.16.29** — workitem +bug-create 增加 `--title-file` / `--description-file`（UTF-8 去 BOM；Windows 中文安全；对齐 #85）(#89)
 - **0.16.28** — workitem create 增加 `--subject-file` / `--description-file` / `--custom-fields-file`（UTF-8 去 BOM；Windows 中文安全）(#85)
 - **0.16.27** — dry-run 在仅有 `hinted_edges` 时仍分类（#82）；#81 确认无 CLI 清屏 CSI，Configure 门控足够

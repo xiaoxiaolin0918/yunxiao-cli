@@ -1,15 +1,17 @@
 {
   "name": "sanzhi-yunxiao-cli",
-  "version": "0.16.29",
+  "version": "0.16.30",
   "description": "Yunxiao (云效) CLI — Feishu-style install (GitHub Releases)",
   "bin": {
     "yunxiao": "scripts/run.js"
   },
   "scripts": {
-    "postinstall": "node scripts/install.js"
+    "postinstall": "node scripts/install.js",
+    "prepack": "node scripts/sync-profiles.js"
   },
   "files": [
     "scripts/*",
+    "profiles/*.example.json",
     "checksums.txt",
     "README.md"
   ],

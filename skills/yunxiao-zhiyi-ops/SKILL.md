@@ -22,7 +22,7 @@ export YUNXIAO_PROFILE=zhiyi          # 或每次 --profile zhiyi
 yunxiao profile show
 ```
 
-也可手动：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`。
+示例已内嵌进二进制（npm / GitHub Release 安装无需源码仓库；0.16.30 起，#92），`--dry-run` 预览里 `from` 为 `embedded:profiles/zhiyi.example.json`；磁盘上存在 `profiles/zhiyi.example.json` 时优先。也可手动：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`。
 
 有 `organization_id` 时，若未设 `YUNXIAO_ORGANIZATION_ID` / `--organization-id`，会用 profile 的 org。
 
