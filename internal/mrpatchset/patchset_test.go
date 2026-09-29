@@ -283,3 +283,24 @@ func TestLatestUntypedIgnoredWhenAnyTypePresent(t *testing.T) {
 		t.Fatalf("got %+v err=%v", got, err)
 	}
 }
+
+// A typed entry without patchSetBizId still marks the payload as typed (no untyped fallback).
+func TestLatestTypedEntryWithoutBizIDDisablesFallback(t *testing.T) {
+	sets, _ := Parse(decode(t, `[{"patchSetBizId":"","versionNo":2,"relatedMergeItemType":"MERGE_TARGET"},{"patchSetBizId":"u","versionNo":1}]`))
+	if got, err := Latest(sets); !errors.Is(err, ErrNoSourcePatchSet) {
+		t.Fatalf("got %+v err=%v", got, err)
+	}
+}
+
+// A signed value is not an all-digit epoch.
+func TestParseSignedNumericIsNotEpoch(t *testing.T) {
+	sets, err := Parse(decode(t, `[{"patchSetBizId":"a","createTime":"+1727600000"},{"patchSetBizId":"b","createTime":"-1727600000"}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ps := range sets {
+		if !ps.Created.IsZero() {
+			t.Fatalf("%s (%s) must not parse as epoch: %v", ps.BizID, ps.CreateTime, ps.Created)
+		}
+	}
+}

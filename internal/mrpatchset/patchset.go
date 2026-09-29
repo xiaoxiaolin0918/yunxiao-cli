@@ -87,12 +87,16 @@ func Parse(out any) ([]PatchSet, error) {
 // wins; among equal versions an item with a parseable createTime beats one without, then
 // the later createTime, then the later position. MERGE_TARGET items are never returned.
 // Items without a relatedMergeItemType are candidates only when the payload has no typed
-// entries at all (any relatedMergeItemType value disables the fallback); a typed payload
-// without MERGE_SOURCE yields ErrNoSourcePatchSet.
+// entries at all (any relatedMergeItemType value disables the fallback, even on an entry
+// without patchSetBizId); a typed payload without MERGE_SOURCE yields
+// ErrNoSourcePatchSet. Entries without patchSetBizId are never returned.
 func Latest(sets []PatchSet) (PatchSet, error) {
 	var source, untyped []PatchSet
 	sawTyped := false // any relatedMergeItemType other than MERGE_SOURCE (MERGE_TARGET or unknown)
 	for _, ps := range sets {
+		if ps.Type != "" && ps.Type != MergeSource {
+			sawTyped = true // checked before the BizID filter: the payload is typed either way
+		}
 		if ps.BizID == "" {
 			continue
 		}
@@ -101,8 +105,6 @@ func Latest(sets []PatchSet) (PatchSet, error) {
 			source = append(source, ps)
 		case "":
 			untyped = append(untyped, ps)
-		default:
-			sawTyped = true
 		}
 	}
 	cands := source
@@ -213,6 +215,19 @@ func firstNonEmpty(vals ...string) string {
 // Zoned layouts first; zoneless layouts are interpreted as UTC (not the host's zone).
 var timeLayouts = []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999999", "2006-01-02 15:04:05.999999999"}
 
+// allDigits reports whether s is non-empty and only ASCII digits (no sign, no spaces).
+func allDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // parseTime accepts RFC3339, zoneless "YYYY-MM-DD[T ]hh:mm:ss[.frac]" (UTC) and
 // all-digit epoch values of at least 10 digits (>= 1e11 → milliseconds, otherwise
 // seconds). Shorter numerics (e.g. date-like "20260929") are not treated as epoch.
@@ -220,8 +235,9 @@ func parseTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
-	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-		if n < 1e9 { // fewer than 10 digits (or <= 0): not an epoch
+	if allDigits(s) {
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil || n < 1e9 { // overflow, or fewer than 10 significant digits: not an epoch
 			return time.Time{}
 		}
 		if n >= 1e11 {

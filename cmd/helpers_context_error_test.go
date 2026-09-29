@@ -82,3 +82,13 @@ func TestHandleErrContextErrorNonAPI(t *testing.T) {
 		t.Fatalf("body=%+v", eb)
 	}
 }
+
+// An empty context hint must not leave a dangling "; " after the API hint.
+func TestHandleErrContextErrorEmptyHint(t *testing.T) {
+	ae := &client.APIError{Status: 400, Method: "GET", URL: "https://x/y", Body: `{"errorMessage":"未启用此字段【模块】"}`}
+	apiHint := apiErrorHint(ae)
+	eb, _ := handleErrBody(t, &contextError{Context: "ctx", Err: ae})
+	if eb.Hint != apiHint || strings.HasSuffix(eb.Hint, "; ") {
+		t.Fatalf("hint=%q want %q", eb.Hint, apiHint)
+	}
+}

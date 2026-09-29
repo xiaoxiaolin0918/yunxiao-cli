@@ -102,7 +102,7 @@ yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,us
 - 这次 GET 在 `--dry-run` 下**也会发出**：需要有效凭证与网络；GET 失败或没有候选时直接报错 `resolve latest patchset for MR <n>: …`（不回退、不发评论；HTTP 错误仍为 `type:"api"` + 状态码），hint 里带实际的 `mrs diffs --repo <你传的值> --local-id <n>` 或提示显式传 `--patchset-biz-id`。
 - dry-run 在 `request.resolved` 展示 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET …/diffs/patches`）/ `version_no`（缺失时省略）；成功时 `meta.patchset_biz_id` + `meta.patchset_source=latest`。
 - 显式传 `--patchset-biz-id` 始终优先，且**跳过**这次 GET。
-- 回复（`--parent-comment-biz-id`）未显式传 patchset 时同样挂到**最新** patchset，而不是父评论所在版本（官方文档未说明回复是否须与父评论同一 patchset）；需要同版本时请显式传入父评论所在的 patchset。`related_patchset.patchSetBizId` 只在 CreateChangeRequestComment **响应**的评论对象中有文档记载，`comments list` 是否返回该字段未经验证——拿不到时用 `mrs diffs` 按创建时间对照。
+- 回复（`--parent-comment-biz-id`）未显式传 patchset 时同样挂到**最新** patchset，而不是父评论所在版本（官方文档未说明回复是否须与父评论同一 patchset）；需要同版本时请显式传入父评论所在的 patchset。`related_patchset.patchSetBizId` 只在 CreateChangeRequestComment **响应**的评论对象中有文档记载，`comments list` 是否返回该字段未经验证——拿不到时，对照父评论的时间来确定它所在的 patchset（不要自行按 `createTime` 给 patchset 排序来找「最新」）。
 
 **INLINE_COMMENT（所有版本）：** 必须同时给出 `--comment-type INLINE_COMMENT`、`--patchset-biz-id`、`--from-patchset-biz-id`、`--to-patchset-biz-id`、`--file-path`、`--line-number`（>0），缺任何一项都在请求前报错，不做自动解析。
 

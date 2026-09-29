@@ -136,10 +136,12 @@ func handleErr(err error) {
 			// with the context-prefixed message and the context hint appended.
 			body = apiErrorBody(ae)
 			body.Message = ce.Error()
-			if body.Hint != "" {
-				body.Hint += "; " + ce.Hint
-			} else {
+			switch {
+			case ce.Hint == "":
+			case body.Hint == "":
 				body.Hint = ce.Hint
+			default:
+				body.Hint += "; " + ce.Hint
 			}
 		}
 		_ = output.Fail(body, 1)
