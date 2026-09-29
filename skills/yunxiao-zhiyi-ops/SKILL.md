@@ -24,7 +24,9 @@ yunxiao profile show
 
 示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`。查找顺序是**磁盘副本优先**：源码仓库或 npm 安装（`$(npm root -g)/sanzhi-yunxiao-cli/profiles/`）下存在 `profiles/zhiyi.example.json` 时，`--dry-run` 预览的 `from` 是该磁盘路径；没有磁盘副本时（如 GitHub Release 归档、`go install`），`from` 为 `embedded:profiles/zhiyi.example.json`。
 
-装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --write-profile` 回填状态图，`yunxiao profile doctor` 校验。
+装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --profile zhiyi --write-profile` 回填状态图，`yunxiao profile doctor` 校验。
+
+> ⚠️ `+explore-workflow` **会写数据**：创建探测工作项、流转状态，`--cleanup` 会删除它。`--dry-run` 只打印计划；真正写回需去掉 `--dry-run` 并加 `--yes`（且必须有 `--profile` / `YUNXIAO_PROFILE`，否则报 `--write-profile requires active --profile`）。先在沙箱（play）验证，**切勿对生产 ZYPT 自动执行**，需用户明确确认。
 
 手动复制仅在**源码仓库**内可用：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`；其他环境可下载 https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/profiles/zhiyi.example.json。
 

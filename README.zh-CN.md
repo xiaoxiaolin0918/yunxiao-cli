@@ -426,15 +426,18 @@ yunxiao schema
 yunxiao profile install-example zhiyi   # 或 play
 # 示例只有占位符：编辑安装后的文件填 org/space/type id，再回填状态图
 yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
-yunxiao workitem +explore-workflow --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-export YUNXIAO_PROFILE=zhiyi
-yunxiao profile doctor
+export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --profile zhiyi）
+yunxiao profile show
+# 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
+# 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
+yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
+yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --write-profile` 回填状态图，再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 
