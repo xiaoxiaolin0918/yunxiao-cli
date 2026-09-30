@@ -163,17 +163,6 @@ func handleErr(err error) {
 		processExit(1)
 		return
 	}
-	if de, ok := err.(*detailedError); ok {
-		_ = output.Fail(output.ErrorBody{
-			Type:    "cli",
-			Subtype: de.Subtype,
-			Message: de.Message,
-			Hint:    de.Hint,
-			Details: de.Details,
-		}, 1)
-		processExit(1)
-		return
-	}
 	_ = output.Fail(output.ErrorBody{
 		Type:    "cli",
 		Message: err.Error(),

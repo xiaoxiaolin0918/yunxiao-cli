@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,24 +96,25 @@ func TestDeriveBugEdgesMatchesExample(t *testing.T) {
 	}
 }
 
-func TestInstallExample(t *testing.T) {
+func TestInstallExampleData(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	src := filepath.Join(dir, "zhiyi.example.json")
-	if err := os.WriteFile(src, []byte(`{"name":"zhiyi","serial_prefix":"ZYPT"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dst, err := InstallExample("zhiyi", src, false)
+	data := []byte(`{"name":"zhiyi","serial_prefix":"ZYPT"}`)
+	dst, err := InstallExampleData("zhiyi", data, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(dst); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := InstallExample("zhiyi", src, false); err == nil {
+	got, err := os.ReadFile(dst)
+	if err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("got %q err=%v", got, err)
+	}
+	if _, err := InstallExampleData("zhiyi", data, false); err == nil {
 		t.Fatal("expected exists error")
 	}
-	if _, err := InstallExample("zhiyi", src, true); err != nil {
+	if _, err := InstallExampleData("zhiyi", data, true); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -180,23 +180,6 @@ func ListNames() ([]string, string, error) {
 	return names, d, nil
 }
 
-// InstallExample copies srcExamplePath to profiles/<name>.json.
-func InstallExample(name, srcExamplePath string, force bool) (string, error) {
-	dst, err := Path(name)
-	if err != nil {
-		return "", err
-	}
-	if !force {
-		if _, err := os.Stat(dst); err == nil {
-			return "", fmt.Errorf("profile already exists at %s (use --force to overwrite)", dst)
-		}
-	}
-	b, err := os.ReadFile(srcExamplePath)
-	if err != nil {
-		return "", fmt.Errorf("read example %s: %w", srcExamplePath, err)
-	}
-	return writeExample(dst, b)
-}
 
 // InstallExampleData writes example content (e.g. embedded in the binary, #92)
 // to profiles/<name>.json. Refuses to overwrite unless force.

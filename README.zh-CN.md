@@ -483,6 +483,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.35** — `profile install-example`：校验磁盘示例（拒绝空/截断/name 不匹配并回退内嵌）；去掉 cwd/`runtime.Caller` 候选；raw 提示 URL 固定 `v<version>`；仓库 `profiles/` 缺失时 sync-profiles 失败；npm/profiles 漂移检测（#104）
 - **0.16.34** — **不兼容（输出）：** `workitem get` 默认 brief（id/serialNumber/subject/status 仅 `{id,displayName}`/assignedTo/sprint/priority/workitemType/categoryId/gmtModified，description 以 `description_summary` 占位；`meta.url` 保留）。`.data.status.name` / `nameEn` / `.data.description` / `.data.customFieldValues` 需 `--full`（或 `YUNXIAO_WORKITEM_GET_VIEW=full`）；CLI ≥0.16.34。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。拉代码后请 `yunxiao skills install --force` 刷新伴生技能（#98）
 - **0.16.33** — workitem create 创建前一次性预检必填字段（dry-run 同样执行）：列出全部缺失字段及 field_id / 可选值；`--no-precheck` 跳过（#95）。**兼容性变化：** (1) `--dry-run` 现在需要凭证与网络（一次 GET），缺必填时 exit 1；(2) 缺字段的报错由服务端 `type:"api"` 400 变为 `type:"cli"` + `subtype:"missing_required_fields"`；(3) 每次 create 多一次 GET；(4) 字段配置读不到时最多重试 1 次（退避 ≤1s，而不是默认 GET 重试策略的约 90s）后降级（整个读取最多 10s），告警写在 `meta.precheck` 并在 stderr 打印一行 `warning:`，401 直接失败；(5) `--no-precheck` 恢复旧行为（离线时使用）；(6) 根级字段（subject、assignedTo、sprint、labels 等）只认对应 flag，写在 `--custom-fields` 里不算已填；(7) 预检被跳过且随后 POST 失败时，`error.hint` 会带上 `precheck skipped: <原因>`
 - **0.16.32** — mrs diffs 标记最新 patchset（每项 `latest: true|false`，`meta.latest_patchset_biz_id` / `meta.latest_version_no`；规则同 #93；原字段与顺序不变）(#94)
