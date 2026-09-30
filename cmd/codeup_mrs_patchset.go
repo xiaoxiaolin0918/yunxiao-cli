@@ -15,7 +15,9 @@ func mrPatchSetsPath(ctx context.Context, c *client.Client, repoID, localID stri
 }
 
 // fetchMRPatchSets lists and parses an MR's patch sets (unordered, no "latest" marker)
-// and returns the GET path it used. Shared by comments create (#93) and mrs diffs (#94).
+// and returns the GET path it used. Used by comments create (#93) via
+// resolveLatestMRPatchSet; mrs diffs (#94) does not call it — it marks the raw GET
+// response in place via markLatestPatchSet (same mrpatchset.Latest rule).
 func fetchMRPatchSets(ctx context.Context, c *client.Client, repoID, localID string) ([]mrpatchset.PatchSet, string, error) {
 	path, err := mrPatchSetsPath(ctx, c, repoID, localID)
 	if err != nil {
@@ -61,4 +63,20 @@ func shellArg(v string) string {
 		return fmt.Sprintf("%q", v)
 	}
 	return v
+}
+
+// markLatestPatchSet is the mrs diffs after-hook (#94): per-item "latest" plus
+// meta.latest_patchset_biz_id (+ latest_version_no when known) when a latest patch set exists.
+func markLatestPatchSet(out any, meta map[string]any) (any, map[string]any) {
+	ps, ok := mrpatchset.MarkLatest(out)
+	if ok {
+		if meta == nil {
+			meta = map[string]any{}
+		}
+		meta["latest_patchset_biz_id"] = ps.BizID
+		if ps.VersionNo != 0 {
+			meta["latest_version_no"] = ps.VersionNo
+		}
+	}
+	return out, meta
 }

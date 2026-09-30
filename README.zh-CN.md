@@ -313,7 +313,7 @@ yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
-yunxiao codeup mrs diffs --repo <id> --local-id 1
+yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest + meta.latest_patchset_biz_id（#94）
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # 全局评论缺省取最新 patchset（#93）
 yunxiao codeup mrs labels list --repo <id> --local-id 1
@@ -476,6 +476,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.32** — mrs diffs 标记最新 patchset（每项 `latest: true|false`，`meta.latest_patchset_biz_id` / `meta.latest_version_no`；规则同 #93；原字段与顺序不变）(#94)
 - **0.16.31** — mrs comments create：GLOBAL_COMMENT 的 `--patchset-biz-id` 改为可选（缺省取最新 MERGE_SOURCE patchset；dry-run 见 `request.resolved`；INLINE 仍必填）；`--comment-type` 改为校验（大小写不敏感，非法值直接报错）(#93)
 - **0.16.30** — npm 包携带 `profiles/*.example.json`，二进制内嵌 zhiyi/play 示例，npm / GitHub Release 安装后 `profile install-example` 可用 (#92)
 - **0.16.29** — workitem +bug-create 增加 `--title-file` / `--description-file`（UTF-8 去 BOM；Windows 中文安全；对齐 #85）(#89)
