@@ -152,12 +152,34 @@ func handleErr(err error) {
 		_ = output.Fail(apiErrorBody(ae), 1)
 		processExit(1)
 	}
+	if de, ok := err.(*detailedError); ok {
+		_ = output.Fail(output.ErrorBody{
+			Type:    "cli",
+			Subtype: de.Subtype,
+			Message: de.Message,
+			Hint:    de.Hint,
+			Details: de.Details,
+		}, 1)
+		processExit(1)
+		return
+	}
 	_ = output.Fail(output.ErrorBody{
 		Type:    "cli",
 		Message: err.Error(),
 	}, 1)
 	processExit(1)
 }
+
+// detailedError is a client-side failure with a machine-readable subtype, hint and
+// details (e.g. workitem create precheck, #95); handleErr reports it as type "cli".
+type detailedError struct {
+	Subtype string
+	Message string
+	Hint    string
+	Details map[string]any
+}
+
+func (e *detailedError) Error() string { return e.Message }
 
 func flagOrg(explicit string) {
 	if explicit != "" {
@@ -435,8 +457,8 @@ func runJSONMutating(ctx context.Context, c *client.Client, action string, level
 	return runJSONMutatingPreview(ctx, c, action, level, method, path, query, body, c.Preview(method, path, query, body), after)
 }
 
-// runJSONMutatingPreview is runJSONMutating with a caller-built dry-run preview
-// (e.g. c.Preview plus CLI-resolved values, see requestPreviewWithResolved).
+// runJSONMutatingPreview is runJSONMutating with a caller-built dry-run preview;
+// callers pass a request-preview builder (e.g. mrs comments create, workitem create).
 func runJSONMutatingPreview(ctx context.Context, c *client.Client, action string, level risk.Level, method, path string, query map[string]string, body, preview any, after func(out any, meta map[string]any) (any, map[string]any)) error {
 	return runMutating(action, level, globalDryRun, globalYes, preview, func() error {
 		var out any

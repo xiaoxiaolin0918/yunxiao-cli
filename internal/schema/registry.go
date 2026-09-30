@@ -155,7 +155,7 @@ var Registry = []Method{
 	{ID: "appstack.apps.get", Domain: "appstack", Description: "Get AppStack app",
 		HTTPMethod: "GET", Path: "/oapi/v1/appstack/organizations/{org}/apps/{name}", Risk: risk.Read,
 		Example: "yunxiao appstack apps get --name my-app"},
-	{ID: "workitem.create", Domain: "project", Description: "Create a work item (--subject/--description/--custom-fields or *-file UTF-8; preferred on Windows for Chinese)",
+	{ID: "workitem.create", Domain: "project", Description: "Create a work item (--subject/--description/--custom-fields or *-file UTF-8; preferred on Windows for Chinese); prechecks required fields before POST (one read GET; all missing fields reported at once; --no-precheck skips)",
 		HTTPMethod: "POST", Path: "/oapi/v1/projex/organizations/{org}/workitems", Risk: risk.Write,
 		Params: []Param{
 			{Name: "space-id", Type: "string", Required: true},
@@ -167,6 +167,7 @@ var Registry = []Method{
 			{Name: "description-file", Type: "string", Required: false, Desc: "UTF-8 file (BOM stripped); preferred on Windows for Chinese"},
 			{Name: "custom-fields", Type: "string", Required: false, Desc: "JSON object; mutually exclusive with custom-fields-file"},
 			{Name: "custom-fields-file", Type: "string", Required: false, Desc: "UTF-8 JSON object file (BOM stripped); preferred on Windows for Chinese"},
+			{Name: "no-precheck", Type: "bool", Required: false, Desc: "skip the required-field precheck (GET workitem type fields) before POST"},
 		},
 		Example: "yunxiao workitem create --space-id <id> --type-id <tid> --subject-file ./title.txt --custom-fields-file ./cf.json --assigned-to self --dry-run"},
 	{ID: "workitem.bug_create", Domain: "project", Description: "Shortcut: create a bug with profile field maps (--title/--description or *-file UTF-8; preferred on Windows for Chinese)",

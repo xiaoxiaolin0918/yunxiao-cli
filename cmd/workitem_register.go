@@ -56,6 +56,7 @@ func init() {
 	workitemCreateCmd.Flags().String("custom-fields", "", "JSON object of customFieldValues (fieldId to value); mutually exclusive with --custom-fields-file")
 	workitemCreateCmd.Flags().String("custom-fields-file", "", "UTF-8 JSON object file for customFieldValues (BOM stripped; preferred on Windows for Chinese)")
 	workitemCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for this type")
+	workitemCreateCmd.Flags().Bool("no-precheck", false, "skip the required-field precheck (no GET .../fields before create)")
 	workitemCreateCmd.Flags().Bool("full", false, "print full create JSON (default: brief id/serialNumber/status/subject)")
 	workitemUpdateCmd.Flags().String("id", "", "work item id (required)")
 	workitemUpdateCmd.Flags().String("subject", "", "new subject")
