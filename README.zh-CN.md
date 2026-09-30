@@ -290,10 +290,12 @@ yunxiao project +created-by-me --status-stage 1,2
 yunxiao workitem search --assigned-to self --category Req --priority <id>
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
 yunxiao workitem search --category Bug --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59"
-yunxiao workitem get --id <id>                 # 0.16.34+ 默认 brief：关键字段 + description_summary
-yunxiao workitem get --id <id> --full          # 原始完整对象（0.16.34 之前的输出）
+yunxiao workitem get --id <id>                 # brief（CLI ≥0.16.34）：关键字段；status 仅 {id,displayName}
+yunxiao workitem get --id <id> --full          # 原始完整对象（含 status.name / nameEn / description / customFieldValues）
 yunxiao workitem get --id <id> --fields subject,description,customFieldValues
-YUNXIAO_WORKITEM_GET_VIEW=full yunxiao workitem get --id <id>   # 兼容开关：新旧 CLI 都输出原始对象
+YUNXIAO_WORKITEM_GET_VIEW=full yunxiao workitem get --id <id>   # 兼容开关：新旧 CLI 都输出原始对象（旧版忽略 env）
+# 混用新旧 CLI：先试 --full，不识别该 flag 时回退
+yunxiao workitem get <id> --full 2>/dev/null || yunxiao workitem get <id>
 yunxiao workitem comments list --id <id>
 yunxiao workitem comment --id <id> --content "note" --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "title" --assigned-to self --dry-run
@@ -481,7 +483,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
-- **0.16.34** — **不兼容（输出）：** `workitem get` 默认输出 brief（id/serialNumber/subject/status/assignedTo/sprint/priority/workitemType/categoryId/gmtModified，description 以 `description_summary` 占位；`meta.url` 保留）。`--full` 恢复原全量输出；`--fields a,b,c` 按顶层字段投影；读取 `.data.description` / `.data.customFieldValues` 的脚本请加 `--full`，需同时兼容旧 CLI 的脚本改设 `YUNXIAO_WORKITEM_GET_VIEW=full`（旧 CLI 忽略该变量）（#98）
+- **0.16.34** — **不兼容（输出）：** `workitem get` 默认 brief（id/serialNumber/subject/status 仅 `{id,displayName}`/assignedTo/sprint/priority/workitemType/categoryId/gmtModified，description 以 `description_summary` 占位；`meta.url` 保留）。`.data.status.name` / `nameEn` / `.data.description` / `.data.customFieldValues` 需 `--full`（或 `YUNXIAO_WORKITEM_GET_VIEW=full`）；CLI ≥0.16.34。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。拉代码后请 `yunxiao skills install --force` 刷新伴生技能（#98）
 - **0.16.33** — workitem create 创建前一次性预检必填字段（dry-run 同样执行）：列出全部缺失字段及 field_id / 可选值；`--no-precheck` 跳过（#95）。**兼容性变化：** (1) `--dry-run` 现在需要凭证与网络（一次 GET），缺必填时 exit 1；(2) 缺字段的报错由服务端 `type:"api"` 400 变为 `type:"cli"` + `subtype:"missing_required_fields"`；(3) 每次 create 多一次 GET；(4) 字段配置读不到时最多重试 1 次（退避 ≤1s，而不是默认 GET 重试策略的约 90s）后降级（整个读取最多 10s），告警写在 `meta.precheck` 并在 stderr 打印一行 `warning:`，401 直接失败；(5) `--no-precheck` 恢复旧行为（离线时使用）；(6) 根级字段（subject、assignedTo、sprint、labels 等）只认对应 flag，写在 `--custom-fields` 里不算已填；(7) 预检被跳过且随后 POST 失败时，`error.hint` 会带上 `precheck skipped: <原因>`
 - **0.16.32** — mrs diffs 标记最新 patchset（每项 `latest: true|false`，`meta.latest_patchset_biz_id` / `meta.latest_version_no`；规则同 #93；原字段与顺序不变）(#94)
 - **0.16.31** — mrs comments create：GLOBAL_COMMENT 的 `--patchset-biz-id` 改为可选（缺省取最新 MERGE_SOURCE patchset；dry-run 见 `request.resolved`；INLINE 仍必填）；`--comment-type` 改为校验（大小写不敏感，非法值直接报错）(#93)

@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.1
+version: 1.3.2
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:

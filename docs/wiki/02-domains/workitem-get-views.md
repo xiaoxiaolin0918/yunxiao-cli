@@ -13,6 +13,7 @@ GetWorkitem 的 `description` 常有数千字（2026-09-29 查 ZYPT-5916 时一�
 | `--fields a,b,c` | 仅这些顶层字段的原始值 | `fields` |
 
 - brief 中值为 `null` 或空字符串 `""` 的字段省略（顶层 `priority: ""` 同样省略 / 回退派生）。
+- **brief 的 `status` 仅 `{id, displayName}`**（CLI ≥0.16.34）。`.data.status.name` / `.data.status.nameEn` 以及完整 status 对象其它字段需要 `--full`（或 `YUNXIAO_WORKITEM_GET_VIEW=full` / `--fields status` 再配合 `--jq`）。混用新旧 CLI：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。
 - `priority`：顶层 `priority` 非 null 且非 `""` 时原样使用；否则在 `customFieldValues` 中找 `fieldId == "priority"` **或** `fieldName` 为 `优先级` / `Priority`（大小写不敏感；自定义字段 id 常是哈希）的条目，依次跳过空条目（无 values、值为空），取第一个非空值 → `{id, displayValue}`。`id` 取值对象的 `identifier`，没有时取 `id`；两者都没有就不输出 `id`（不会出现 `{"id": null}`）。brief 与 `--fields priority` 用同一规则。
   - 派生失败：brief 省略 `priority`；`--fields priority` 输出 `null`，`meta.hint` 提示用 `--full --jq '.data.customFieldValues'` 或 `yunxiao workitem fields` 核对字段（exit 0，不报 `unknown_fields`）。
 - `description_summary`：`(description: <n> chars, use --full or --fields description)`，n 为字符数（rune）。非 MARKDOWN（RICHTEXT 即 HTML）且含标签时，先去掉 HTML 标签、解码实体再计数，文案为 `<n> chars of text excluding HTML tags`；MARKDOWN 按原文计数。description 不是字符串时给出 `(description: non-string <object|array|number|boolean> value, …)`；为空、null 或缺失时省略。
@@ -44,7 +45,7 @@ GetWorkitem 的 `description` 常有数千字（2026-09-29 查 ZYPT-5916 时一�
 
 ## 与 --jq / 脚本
 
-`--jq` 作用于投影后的信封。旧脚本若读取 `.data.description`、`.data.customFieldValues` 等，需加 `--full`（或 `--fields description,customFieldValues`），或设 `YUNXIAO_WORKITEM_GET_VIEW=full`。`--dry-run` 在 `request.projection` 显示将使用的视图。
+`--jq` 作用于投影后的信封。旧脚本若读取 `.data.status.name` / `.data.status.nameEn`、`.data.description`、`.data.customFieldValues` 等，需加 `--full`（或 `--fields`），或设 `YUNXIAO_WORKITEM_GET_VIEW=full`（CLI ≥0.16.34）。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。`--dry-run` 在 `request.projection` 显示将使用的视图。拉代码后请 `yunxiao skills install --force`。
 
 ## 测试
 
