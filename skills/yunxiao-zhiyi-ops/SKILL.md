@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.1
+version: 1.3.2
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -48,7 +48,7 @@ yunxiao workitem get --id ZYPT-<nnnn>
 yunxiao workitem get --id <internalId>   # 无需 profile
 ```
 
-成功时 `meta.resolved_id`（内部 id）、`meta.serial_number`（若有）与 `meta.url`（Projex 可点击链接）。
+成功时 `meta.resolved_id`（内部 id）、`meta.serial_number`（若有）与 `meta.url`（Projex 可点击链接）。0.16.34+ 默认 brief（状态 / 负责人 / 迭代 / 优先级 / 工作项类型等，description 只给字符数）；需要描述全文加 `--fields description`，需要 customFieldValues（如所属模块、测试负责人）加 `--full`（#98）。
 
 ## 当前迭代建议（`sprint +current`）
 

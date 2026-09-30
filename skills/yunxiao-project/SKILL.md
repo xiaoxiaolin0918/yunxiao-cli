@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.2"
+version: "1.4.3"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -35,7 +35,9 @@ yunxiao workitem search --subject "登录" --status-stage 1,2
 # 周报日期窗口 + 跟页（meta.total / --all；oapi 响应可能无 finishTime）
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59" --all
 yunxiao workitem search --category Bug --status 100005,100010 --status-stage 1,2
-yunxiao workitem get --id <workItemId>
+yunxiao workitem get --id <workItemId>                      # 默认 brief（0.16.34+）
+yunxiao workitem get --id <workItemId> --fields description  # 只要描述全文
+yunxiao workitem get --id <workItemId> --full               # 原始完整对象（customFieldValues 等）
 yunxiao workitem comments list --id <id>   # newest first; --sort asc for oldest
 # OAPI 仅 list+create；delete/update 走 AccessKey RPC（需 ALIBABA_CLOUD_ACCESS_KEY_*）
 yunxiao workitem comments delete --id <id|serial> --comment-id <cid> --dry-run
@@ -123,6 +125,8 @@ ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yun
 ## meta.url / relations 富化（CLI 0.15.x）
 
 - `workitem get/create/update` 与 `+transition` 成功时 `meta` 常含可点击 `url`（及 `serial_number` / `resolved_id`）。
+- `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / **status 仅 `{id,displayName}`** / assignedTo / sprint / priority / workitemType / categoryId / gmtModified，description 以 `description_summary`（字符数）占位；`.data.status.name` / `nameEn`、描述全文、customFieldValues 等用 `--full`（或 `--fields` / `YUNXIAO_WORKITEM_GET_VIEW=full`）。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感：GetWorkitem 字段在该工作项上缺失时为 `null`（列入 `meta.absent_fields`），完全未知的名字报 `unknown_fields` 并列出 `details.available`。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。详见 [workitem-get-views.md](../../docs/wiki/02-domains/workitem-get-views.md)。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
+- `workitem create` 创建前必填预检（0.16.33+，#95 / #103）：缺字段一次列全；详见 [workitem-create-precheck.md](../../docs/wiki/02-domains/workitem-create-precheck.md)。
 - `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。依赖完整 create JSON 的脚本请加 --full。
 - `workitem relations list` 会尽力为每条关联补齐 `serial_number` / `subject` / `url`（及 category）。
 - 取消态更新可用 `--cancel-reason <text>`（自动查找「取消原因」字段）；dry-run 可能带 soft-warn 提示。

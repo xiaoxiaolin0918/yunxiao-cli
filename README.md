@@ -281,7 +281,12 @@ yunxiao project +created-by-me --status-stage 1,2
 yunxiao workitem search --assigned-to self --category Req --priority <id>
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
 yunxiao workitem search --category Bug --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59"
-yunxiao workitem get --id <id>
+yunxiao workitem get --id <id>                 # brief (CLI >=0.16.34): key fields; status is only {id,displayName}
+yunxiao workitem get --id <id> --full          # raw work item (status.name / nameEn / description / customFieldValues)
+yunxiao workitem get --id <id> --fields subject,description,customFieldValues
+YUNXIAO_WORKITEM_GET_VIEW=full yunxiao workitem get --id <id>   # compat switch: raw on old+new CLIs (old ignores env)
+# compat (mixed CLI versions): try --full, fall back when flag unknown
+yunxiao workitem get <id> --full 2>/dev/null || yunxiao workitem get <id>
 yunxiao workitem comments list --id <id>
 yunxiao workitem comment --id <id> --content "note" --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "title" --assigned-to self --dry-run
@@ -503,6 +508,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.34** — **BREAKING (output):** `workitem get` prints a brief view by default (id/serialNumber/subject/status/`{id,displayName}` only/assignedTo/sprint/priority/workitemType/categoryId/gmtModified + `description_summary`; `meta.url` kept). `.data.status.name` / `nameEn` / `.data.description` / `.data.customFieldValues` need `--full` (or `YUNXIAO_WORKITEM_GET_VIEW=full`); CLI ≥0.16.34. Compat: `yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`. After pull, refresh companion skills with `yunxiao skills install --force` (#98)
 - **0.16.33** — workitem create: one-shot required-field precheck before POST (also dry-run); lists every missing field with field_id / options; `--no-precheck` (#95). **Compatibility:** (1) `--dry-run` now needs credentials + network (one GET) and exits 1 when required fields are missing; (2) a missing-field failure changes from the server's `type:"api"` 400 to `type:"cli"` + `subtype:"missing_required_fields"`; (3) one extra GET per create; (4) if the field config can't be read it degrades after at most 1 retry (backoff ≤1s, not the default ~90s GET retry policy) with a warning in `meta.precheck` plus one `warning:` line on stderr (the whole read is capped at 10s), and 401 fails; (5) `--no-precheck` restores the old behavior (use it offline); (6) root-level fields (subject, assignedTo, sprint, labels, …) count as filled only via their flags, so passing them inside `--custom-fields` does not count; (7) if the precheck was skipped and the POST then fails, `error.hint` includes `precheck skipped: <reason>`
 - **0.16.32** — mrs diffs: marks the latest patchset (per-item `latest: true|false`, `meta.latest_patchset_biz_id` / `meta.latest_version_no`; same rule as #93; fields and order unchanged) (#94)
 - **0.16.31** — mrs comments create: `--patchset-biz-id` optional for GLOBAL_COMMENT (defaults to latest MERGE_SOURCE patchset; dry-run `request.resolved`; INLINE still required); `--comment-type` is now validated (case-insensitive; invalid values error) (#93)
