@@ -5,7 +5,8 @@
  * prepack: copy repo-root profiles/*.example.json into npm/profiles/ so the npm
  * tarball ships the example tenant profiles next to bin/ (#92). The Go binary
  * also embeds them; this keeps `<pkg>/profiles/` discoverable on disk.
- * Fails when no example is available, so a publish never silently drops them.
+ * Fails when the repo profiles/ tree is missing or empty (#104) so a publish
+ * never silently ships a stale npm/profiles/ copy.
  */
 
 const fs = require("fs");
@@ -27,12 +28,9 @@ function listExamples(dir) {
 function main() {
   const names = listExamples(repoProfiles);
   if (names.length === 0) {
-    const existing = listExamples(dest);
-    if (existing.length > 0) {
-      process.stderr.write(`[yunxiao-cli] ${repoProfiles} not found; keeping npm/profiles/ (${existing.join(", ")})\n`);
-      return;
-    }
-    throw new Error(`no ${SUFFIX} found under ${repoProfiles} or ${dest}`);
+    throw new Error(
+      `no ${SUFFIX} found under ${repoProfiles}; refusing to pack (will not keep a stale npm/profiles/)`
+    );
   }
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });

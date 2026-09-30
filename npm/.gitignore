@@ -1,6 +1,7 @@
 releases/
 bin/
 skills/
-profiles/
+# profiles/*.example.json are committed so CI can detect drift vs repo-root profiles/ (#104).
+# sync-profiles.js still refreshes them on prepack.
 node_modules/
 *.tgz

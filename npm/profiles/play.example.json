@@ -1,0 +1,416 @@
+{
+  "_notes": "EXAMPLE ONLY — placeholders, no real tenant IDs. Install with `yunxiao profile install-example <name>` (or copy to ~/.config/yunxiao/profiles/<name>.json, mode 0600), then edit org/space/type IDs in the file (`yunxiao profile path <name>`), refresh graphs with `workitem +explore-workflow --profile <name> --write-profile --yes` (WRITES: creates a probe workitem, moves its states, --cleanup deletes it; --dry-run only prints the plan; verify in a sandbox first, never auto-run on production ZYPT), and verify with `yunxiao profile doctor`. Sandbox/YXCLI play profile: minimal bug_create_fields (priority+seriousLevel only). Use zhiyi for full Zhiyi/ZYPT field set. workitem_defaults: per-type_id field defaults + create_required from OpenAPI fields. Optional: access_token on this profile (PAT); precedence YUNXIAO_ACCESS_TOKEN > ~/.config/yunxiao/credentials.json (last auth login) > profile access_token > ~/.config/yunxiao/config.json (legacy). Do not commit real tokens or private org/space/repo IDs.",
+  "name": "play",
+  "organization_id": "<your-org-id>",
+  "space_id": "<your-play-space-id>",
+  "bug_type_id": "<bug-type-id>",
+  "bug_statuses": {
+    "confirm": "<status-confirm>",
+    "reopen": "<status-reopen>",
+    "processing": "<status-processing>",
+    "fixed": "<status-fixed>",
+    "wont-fix": "<status-wont-fix>",
+    "closed-fixed": "<status-closed-fixed>"
+  },
+  "bug_edges": {
+    "<status-processing>": [
+      "<status-fixed>",
+      "<status-wont-fix>"
+    ],
+    "<status-closed-fixed>": [
+      "<status-reopen>"
+    ],
+    "<status-confirm>": [
+      "<status-processing>",
+      "<status-closed-fixed>",
+      "<status-fixed>",
+      "<status-wont-fix>"
+    ],
+    "<status-fixed>": [
+      "<status-closed-fixed>",
+      "<status-reopen>"
+    ],
+    "<status-reopen>": [
+      "<status-processing>",
+      "<status-fixed>",
+      "<status-wont-fix>"
+    ],
+    "<status-wont-fix>": [
+      "<status-closed-fixed>",
+      "<status-reopen>"
+    ]
+  },
+  "bug_fields": {
+    "plan_due_date": "<field-plan-due-date>"
+  },
+  "bug_create_fields": {
+    "priority": {
+      "high": "<priority-high>",
+      "low": "<priority-low>",
+      "medium": "<priority-medium>"
+    },
+    "serious_level": {
+      "fatal": "<serious-fatal>",
+      "minor": "<serious-minor>",
+      "normal": "<serious-normal>",
+      "severe": "<serious-severe>"
+    }
+  },
+  "bug_transition_required": {
+    "<status-processing>": [
+      "<field-plan-due-date>"
+    ]
+  },
+  "workflows": {
+    "<type-req-product>": {
+      "type_id": "<type-req-product>",
+      "name": "产品类需求",
+      "category": "Req",
+      "workflow_id": "<workflow-req-default>",
+      "workflow_name": "默认需求工作流",
+      "default_status_id": "<status-pending>",
+      "statuses": {
+        "待处理": "<status-pending>",
+        "设计中": "<status-designing>",
+        "开发中": "<status-developing>",
+        "测试中": "<status-testing>",
+        "已完成": "<status-done>",
+        "已取消": "<status-cancelled>"
+      },
+      "edges": {
+        "<status-pending>": [
+          "<status-testing>",
+          "<status-done>",
+          "<status-cancelled>",
+          "<status-developing>",
+          "<status-designing>"
+        ],
+        "<status-testing>": [
+          "<status-pending>",
+          "<status-done>",
+          "<status-cancelled>",
+          "<status-developing>",
+          "<status-designing>"
+        ],
+        "<status-done>": [
+          "<status-testing>",
+          "<status-developing>",
+          "<status-designing>"
+        ],
+        "<status-cancelled>": [
+          "<status-pending>"
+        ],
+        "<status-developing>": [
+          "<status-pending>",
+          "<status-testing>",
+          "<status-done>",
+          "<status-cancelled>",
+          "<status-designing>"
+        ],
+        "<status-designing>": [
+          "<status-pending>",
+          "<status-testing>",
+          "<status-done>",
+          "<status-cancelled>",
+          "<status-developing>"
+        ]
+      }
+    },
+    "<type-req-tech>": {
+      "type_id": "<type-req-tech>",
+      "name": "技术类需求",
+      "category": "Req",
+      "workflow_id": "<workflow-req-simple>",
+      "workflow_name": "默认需求工作流",
+      "default_status_id": "<status-pending>",
+      "statuses": {
+        "待处理": "<status-pending>",
+        "处理中": "<status-processing>",
+        "已完成": "<status-done>",
+        "已取消": "<status-cancelled>"
+      },
+      "edges": {
+        "<status-pending>": [
+          "<status-processing>",
+          "<status-done>",
+          "<status-cancelled>"
+        ],
+        "<status-processing>": [
+          "<status-pending>",
+          "<status-done>",
+          "<status-cancelled>"
+        ],
+        "<status-done>": [
+          "<status-pending>",
+          "<status-processing>",
+          "<status-cancelled>"
+        ],
+        "<status-cancelled>": [
+          "<status-pending>",
+          "<status-processing>",
+          "<status-done>"
+        ]
+      }
+    },
+    "<type-task>": {
+      "type_id": "<type-task>",
+      "name": "任务",
+      "category": "Task",
+      "workflow_id": "<workflow-task-simple>",
+      "workflow_name": "默认简单工作流",
+      "default_status_id": "<status-pending>",
+      "statuses": {
+        "待处理": "<status-pending>",
+        "处理中": "<status-processing>",
+        "已完成": "<status-done>",
+        "已取消": "<status-cancelled>"
+      },
+      "edges": {
+        "<status-pending>": [
+          "<status-processing>",
+          "<status-done>",
+          "<status-cancelled>"
+        ],
+        "<status-processing>": [
+          "<status-pending>",
+          "<status-done>",
+          "<status-cancelled>"
+        ],
+        "<status-done>": [
+          "<status-pending>",
+          "<status-processing>",
+          "<status-cancelled>"
+        ],
+        "<status-cancelled>": [
+          "<status-pending>",
+          "<status-processing>",
+          "<status-done>"
+        ]
+      }
+    },
+    "<type-online-fault>": {
+      "type_id": "<type-online-fault>",
+      "name": "线上故障",
+      "category": "Bug",
+      "workflow_id": "<workflow-bug-default>",
+      "workflow_name": "缺陷的默认工作流",
+      "default_status_id": "<status-confirm>",
+      "statuses": {
+        "再次打开": "<status-reopen>",
+        "待确认": "<status-confirm>",
+        "处理中": "<status-processing>",
+        "已修复": "<status-fixed>",
+        "暂不修复": "<status-wont-fix>",
+        "已关闭": "<status-closed-fixed>",
+        "closed-fixed": "<status-closed-fixed>",
+        "confirm": "<status-confirm>",
+        "fixed": "<status-fixed>",
+        "processing": "<status-processing>",
+        "reopen": "<status-reopen>",
+        "wont-fix": "<status-wont-fix>"
+      },
+      "edges": {
+        "<status-processing>": [
+          "<status-fixed>"
+        ],
+        "<status-closed-fixed>": [
+          "<status-reopen>"
+        ],
+        "<status-confirm>": [
+          "<status-processing>",
+          "<status-fixed>"
+        ],
+        "<status-fixed>": [
+          "<status-closed-fixed>",
+          "<status-reopen>"
+        ],
+        "<status-reopen>": [
+          "<status-processing>",
+          "<status-fixed>",
+          "<status-wont-fix>"
+        ],
+        "<status-wont-fix>": [
+          "<status-closed-fixed>",
+          "<status-reopen>"
+        ]
+      }
+    },
+    "<bug-type-id>": {
+      "type_id": "<bug-type-id>",
+      "name": "缺陷",
+      "category": "Bug",
+      "workflow_id": "<workflow-bug-default>",
+      "workflow_name": "缺陷的默认工作流",
+      "default_status_id": "<status-confirm>",
+      "statuses": {
+        "再次打开": "<status-reopen>",
+        "待确认": "<status-confirm>",
+        "处理中": "<status-processing>",
+        "已修复": "<status-fixed>",
+        "暂不修复": "<status-wont-fix>",
+        "已关闭": "<status-closed-fixed>",
+        "closed-fixed": "<status-closed-fixed>",
+        "confirm": "<status-confirm>",
+        "fixed": "<status-fixed>",
+        "processing": "<status-processing>",
+        "reopen": "<status-reopen>",
+        "wont-fix": "<status-wont-fix>"
+      },
+      "edges": {
+        "<status-processing>": [
+          "<status-fixed>",
+          "<status-wont-fix>"
+        ],
+        "<status-closed-fixed>": [
+          "<status-reopen>"
+        ],
+        "<status-confirm>": [
+          "<status-processing>",
+          "<status-closed-fixed>",
+          "<status-fixed>",
+          "<status-wont-fix>"
+        ],
+        "<status-fixed>": [
+          "<status-closed-fixed>",
+          "<status-reopen>"
+        ],
+        "<status-reopen>": [
+          "<status-processing>",
+          "<status-fixed>",
+          "<status-wont-fix>"
+        ],
+        "<status-wont-fix>": [
+          "<status-closed-fixed>",
+          "<status-reopen>"
+        ]
+      }
+    }
+  },
+  "workitem_defaults": {
+    "<type-online-fault>": {
+      "name": "线上故障",
+      "category": "Bug",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        },
+        "seriousLevel": {
+          "value": "<serious-normal>",
+          "display": "3-一般",
+          "field_name": "严重程度"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority",
+        "seriousLevel"
+      ]
+    },
+    "<bug-type-id>": {
+      "name": "缺陷",
+      "category": "Bug",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        },
+        "seriousLevel": {
+          "value": "<serious-normal>",
+          "display": "3-一般",
+          "field_name": "严重程度"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority",
+        "seriousLevel"
+      ]
+    },
+    "<type-req-product>": {
+      "name": "产品类需求",
+      "category": "Req",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority"
+      ]
+    },
+    "<type-req-tech>": {
+      "name": "技术类需求",
+      "category": "Req",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority"
+      ]
+    },
+    "<type-risk>": {
+      "name": "风险",
+      "category": "Risk",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority"
+      ]
+    },
+    "<type-task>": {
+      "name": "任务",
+      "category": "Task",
+      "fields": {
+        "priority": {
+          "value": "<priority-medium>",
+          "display": "中",
+          "field_name": "优先级"
+        }
+      },
+      "create_required": [
+        "assignedTo",
+        "priority"
+      ]
+    },
+    "<type-topic>": {
+      "name": "产品主题",
+      "category": "Topic",
+      "fields": {},
+      "create_required": [
+        "assignedTo"
+      ]
+    }
+  },
+  "repositories": {
+    "sandbox": 0
+  },
+  "allowed_environments": [
+    "生产环境",
+    "测试环境"
+  ],
+  "allowed_modules": [
+    "MES",
+    "OMS",
+    "PDM",
+    "系统服务"
+  ],
+  "default_assigned_to": "<user-id>",
+  "serial_prefix": "YXCLI"
+}

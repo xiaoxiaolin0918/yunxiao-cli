@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,6 +12,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
+	"github.com/yunxiao-cli/yunxiao/internal/version"
 	examples "github.com/yunxiao-cli/yunxiao/profiles"
 )
 
@@ -29,7 +30,7 @@ var profileCmd = &cobra.Command{
 Select with --profile <name> or YUNXIAO_PROFILE=<name>.
 Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).
 Examples are embedded in the binary, so install-example also works from npm / GitHub Release installs;
-an on-disk profiles/<name>.example.json (source checkout / npm package) takes precedence.`,
+an on-disk profiles/<name>.example.json (npm package / next to the binary) takes precedence when it is valid JSON with matching "name".`,
 }
 
 var profileListCmd = &cobra.Command{
@@ -107,7 +108,7 @@ var profilePathCmd = &cobra.Command{
 var profileInstallExampleCmd = &cobra.Command{
 	Use:   "install-example <name>",
 	Short: "Copy profiles/<name>.example.json into ~/.config/yunxiao/profiles/",
-	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play); an on-disk profiles/<name>.example.json wins when present.\nExample: yunxiao profile install-example zhiyi",
+	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play); a valid on-disk profiles/<name>.example.json (npm package / next to the binary) wins when present. Empty, truncated, or name-mismatched disk copies are skipped (#104).\nExample: yunxiao profile install-example zhiyi",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -137,7 +138,9 @@ var profileInstallExampleCmd = &cobra.Command{
 }
 
 // profileExampleSearchDirs lists on-disk directories that may hold <name>.example.json
-// (next to the binary, npm package root, source checkout, cwd). Tests override it.
+// (next to the binary, npm package root). Tests override it. Cwd and runtime.Caller
+// paths are intentionally omitted (#104): they are unreliable under -trimpath and can
+// pick up empty/truncated junk from the working directory.
 var profileExampleSearchDirs = defaultProfileExampleSearchDirs
 
 func defaultProfileExampleSearchDirs() []string {
@@ -148,20 +151,33 @@ func defaultProfileExampleSearchDirs() []string {
 			filepath.Join(filepath.Dir(exe), "..", "profiles"),
 		)
 	}
-	_, file, _, _ := runtime.Caller(0)
-	dirs = append(dirs, filepath.Join(filepath.Dir(file), "..", "profiles"))
-	if wd, err := os.Getwd(); err == nil {
-		dirs = append(dirs, filepath.Join(wd, "profiles"))
-	}
 	return dirs
 }
 
-// profileExampleRawBase is where users can fetch examples manually (hint only).
-const profileExampleRawBase = "https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/profiles/"
+// profileExampleRawBase returns the GitHub raw URL prefix for the release tag matching
+// this binary's version (v<Version>), so manual downloads stay aligned with the install (#104).
+func profileExampleRawBase() string {
+	return fmt.Sprintf("https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/v%s/profiles/", version.Version)
+}
 
-// findProfileExample resolves <name>.example.json: an on-disk copy (source checkout,
-// npm package profiles/, next to the binary) wins; otherwise the copy embedded in
-// the binary is used, so npm / release installs without profiles/ still work (#92).
+// validProfileExample reports whether data is usable as profiles/<name>.example.json:
+// well-formed JSON with a top-level "name" equal to the requested example name (#104).
+func validProfileExample(name string, data []byte) bool {
+	if len(data) == 0 || !json.Valid(data) {
+		return false
+	}
+	var doc struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return false
+	}
+	return doc.Name == name
+}
+
+// findProfileExample resolves <name>.example.json: a *valid* on-disk copy (npm package
+// profiles/, next to the binary) wins; empty/truncated/name-mismatched disk files are
+// skipped; otherwise the copy embedded in the binary is used (#92, #104).
 // Returns a display source (absolute path or "embedded:profiles/<file>") and content.
 func findProfileExample(name string) (string, []byte, error) {
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\:`) || strings.Contains(name, "..") {
@@ -175,6 +191,9 @@ func findProfileExample(name string) (string, []byte, error) {
 			if err != nil {
 				return "", nil, fmt.Errorf("read example %s: %w", c, err)
 			}
+			if !validProfileExample(name, b) {
+				continue
+			}
 			abs, _ := filepath.Abs(c)
 			return abs, b, nil
 		}
@@ -182,8 +201,8 @@ func findProfileExample(name string) (string, []byte, error) {
 	if b, err := examples.Example(name); err == nil {
 		return "embedded:profiles/" + filename, b, nil
 	}
-	return "", nil, fmt.Errorf("example not found: profiles/%s (searched under repo/binary and embedded examples: %s); or download %s%s to ~/.config/yunxiao/profiles/%s.json",
-		filename, strings.Join(examples.Names(), ", "), profileExampleRawBase, filename, name)
+	return "", nil, fmt.Errorf("example not found: profiles/%s (searched under binary/npm and embedded examples: %s); or download %s%s to ~/.config/yunxiao/profiles/%s.json",
+		filename, strings.Join(examples.Names(), ", "), profileExampleRawBase(), filename, name)
 }
 
 func init() {
