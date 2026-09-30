@@ -1059,7 +1059,7 @@ var codeupMrsDiffsCmd = &cobra.Command{
 			return
 		}
 		repoID := client.EncodeRepoID(repositoryID)
-		path, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID+"/changeRequests/"+localID+"/diffs/patches")
+		path, err := mrPatchSetsPath(cmd.Context(), c, repoID, localID)
 		if err != nil {
 			handleErr(err)
 			return
@@ -1209,8 +1209,28 @@ var codeupMrsCommentsCreateCmd = &cobra.Command{
 	Long: `Risk: write
 
 HTTP: POST .../changeRequests/{localId}/comments
-GLOBAL_COMMENT needs --content and --patchset-biz-id (from mrs diffs).
-INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-patchset-biz-id.`,
+--comment-type is case-insensitive; only GLOBAL_COMMENT (default) and INLINE_COMMENT
+are accepted.
+GLOBAL_COMMENT needs --content; --patchset-biz-id is optional (0.16.31+): when omitted
+the CLI sends one read-only GET .../diffs/patches (also under --dry-run, so credentials
+and network are required; a failed GET is an error "resolve latest patchset for MR <n>:
+...", no fallback) and uses the latest patchset. Candidates: MERGE_SOURCE items; items
+without relatedMergeItemType only when the response has no typed entries at all (any
+relatedMergeItemType value, e.g. MERGE_TARGET, disables this fallback; typed response
+without MERGE_SOURCE = error); MERGE_TARGET never.
+Order: highest versionNo, then items with a parseable createTime (RFC3339; zoneless =
+UTC; all-digit values of 10+ digits = epoch s/ms) before those without, newest first,
+then later in the response.
+Dry-run shows it under request.resolved (patchset_biz_id, patchset_source=latest,
+resolved_via, version_no when known); success meta carries patchset_biz_id +
+patchset_source=latest. An explicit --patchset-biz-id always wins and skips the GET.
+Replies (--parent-comment-biz-id) without --patchset-biz-id also attach to the latest
+patchset, not the parent's (the official docs do not say whether a reply must share
+the parent's patchset); pass the parent's patchset explicitly if you need the same one.
+INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
+--from-patchset-biz-id --to-patchset-biz-id --file-path --line-number (no defaulting).
+
+  yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -1225,8 +1245,25 @@ INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-
 		fromPS, _ := cmd.Flags().GetString("from-patchset-biz-id")
 		toPS, _ := cmd.Flags().GetString("to-patchset-biz-id")
 		parent, _ := cmd.Flags().GetString("parent-comment-biz-id")
-		if err := requireFlags("repo", repo, "local-id", localID, "content", content, "patchset-biz-id", patchset); err != nil {
+		// Case-insensitive, validated: an unknown / lowercase type must not fall into the
+		// GLOBAL defaulting path and silently drop inline fields.
+		rawType := commentType
+		commentType = strings.ToUpper(strings.TrimSpace(commentType))
+		if commentType != "GLOBAL_COMMENT" && commentType != "INLINE_COMMENT" {
+			handleErr(fmt.Errorf("invalid --comment-type %q: want GLOBAL_COMMENT or INLINE_COMMENT", rawType))
+			return
+		}
+		isInline := commentType == "INLINE_COMMENT"
+		required := []string{"repo", repo, "local-id", localID, "content", content}
+		if isInline {
+			required = append(required, "patchset-biz-id", patchset)
+		}
+		if err := requireFlags(required...); err != nil {
 			handleErr(err)
+			return
+		}
+		if isInline && (filePath == "" || lineNumber <= 0 || fromPS == "" || toPS == "") {
+			handleErr(fmt.Errorf("INLINE_COMMENT requires --file-path --line-number --from-patchset-biz-id --to-patchset-biz-id"))
 			return
 		}
 		repositoryID, err := resolveCodeupRepo(repo)
@@ -1245,6 +1282,23 @@ INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-
 			handleErr(err)
 			return
 		}
+		// #93: GLOBAL_COMMENT without --patchset-biz-id → latest MERGE_SOURCE patchset (read GET, also in dry-run).
+		var defaulted map[string]any
+		if patchset == "" && commentType == "GLOBAL_COMMENT" {
+			ps, via, err := resolveLatestMRPatchSet(cmd.Context(), c, repo, repoID, localID)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			patchset = ps.BizID
+			defaulted = map[string]any{"patchset_biz_id": ps.BizID, "patchset_source": "latest", "resolved_via": via}
+			if ps.VersionNo != 0 {
+				defaulted["version_no"] = ps.VersionNo
+			}
+			if ps.Name != "" {
+				defaulted["patchset_name"] = ps.Name
+			}
+		}
 		body := map[string]any{
 			"comment_type":    commentType,
 			"content":         content,
@@ -1252,11 +1306,7 @@ INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-
 			"resolved":        resolved,
 			"patchset_biz_id": patchset,
 		}
-		if commentType == "INLINE_COMMENT" {
-			if filePath == "" || lineNumber <= 0 || fromPS == "" || toPS == "" {
-				handleErr(fmt.Errorf("INLINE_COMMENT requires --file-path --line-number --from-patchset-biz-id --to-patchset-biz-id"))
-				return
-			}
+		if isInline {
 			body["file_path"] = filePath
 			body["line_number"] = lineNumber
 			body["from_patchset_biz_id"] = fromPS
@@ -1265,7 +1315,17 @@ INLINE_COMMENT also needs --file-path --line-number --from-patchset-biz-id --to-
 		if parent != "" {
 			body["parent_comment_biz_id"] = parent
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs comments create", risk.Write, "POST", path, nil, body, nil))
+		var preview any = c.Preview("POST", path, nil, body)
+		var after func(out any, meta map[string]any) (any, map[string]any)
+		if defaulted != nil {
+			preview = requestPreviewWithResolved{RequestPreview: c.Preview("POST", path, nil, body), Resolved: defaulted}
+			after = func(out any, meta map[string]any) (any, map[string]any) {
+				meta["patchset_biz_id"] = patchset
+				meta["patchset_source"] = "latest"
+				return out, meta
+			}
+		}
+		handleErr(runJSONMutatingPreview(cmd.Context(), c, "codeup mrs comments create", risk.Write, "POST", path, nil, body, preview, after))
 	},
 }
 
@@ -1579,7 +1639,7 @@ func init() {
 	codeupMrsCommentsCreateCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsCommentsCreateCmd.Flags().String("content", "", "comment content (required)")
 	codeupMrsCommentsCreateCmd.Flags().String("comment-type", "GLOBAL_COMMENT", "GLOBAL_COMMENT|INLINE_COMMENT")
-	codeupMrsCommentsCreateCmd.Flags().String("patchset-biz-id", "", "patchset biz id (required)")
+	codeupMrsCommentsCreateCmd.Flags().String("patchset-biz-id", "", "patchset biz id (GLOBAL_COMMENT: default latest MERGE_SOURCE patchset; INLINE_COMMENT: required)")
 	codeupMrsCommentsCreateCmd.Flags().Bool("draft", false, "create as draft")
 	codeupMrsCommentsCreateCmd.Flags().Bool("resolved", false, "mark resolved")
 	codeupMrsCommentsCreateCmd.Flags().String("file-path", "", "inline: file path")

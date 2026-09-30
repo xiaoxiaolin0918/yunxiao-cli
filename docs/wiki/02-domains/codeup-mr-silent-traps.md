@@ -53,3 +53,12 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 - 当前组织下 `GET .../repositories/{id}` 可达
 
 不匹配 → **直接报错**（不提供 `--yes` 绕过）。别名路径仍走 #49（未注册即失败）。
+
+## comments create 缺省 patchset（0.16.31+ / #93）
+
+`GLOBAL_COMMENT` 省略 `--patchset-biz-id` 时，CLI 发一次只读 `GET .../changeRequests/{localId}/diffs/patches`（`--dry-run` 也会发，需凭证与网络；失败直接报错 `resolve latest patchset for MR <n>: …`、不回退；HTTP 错误仍是 `type:"api"` 并带状态码，hint 提示显式传 `--patchset-biz-id`），按以下规则选版本：
+
+1. 候选：`relatedMergeItemType=MERGE_SOURCE`；**仅当**返回里完全没有带类型的条目（整批都未带 `relatedMergeItemType`，如旧接口）时，才退而使用未带类型的条目；任何带类型条目（MERGE_TARGET 或其他未知值）都会关闭该回退，此时没有 MERGE_SOURCE 就直接报错（未带类型的条目不当作源版本）。`MERGE_TARGET`（目标分支快照）永不选中——它的 `createTime` 可能最新，单纯按时间排序会选错。
+2. 排序（全序，结果与返回顺序无关，除非完全并列）：`versionNo` 最大（`"10"` > `"9"`，`"3.0"` 视为 3，小数/非数字视为无版本）→ 有可解析 `createTime` 的优先于无法解析的 → `createTime` 最新（RFC3339；无时区按 UTC；≥10 位纯数字按 epoch 秒/毫秒；`"20260929"` 等不足 10 位的数字视为无法解析）→ 仍完全并列时取返回顺序靠后。
+
+`--comment-type` 大小写不敏感，只接受 `GLOBAL_COMMENT` / `INLINE_COMMENT`（其他值直接报错）；只有 GLOBAL 才会自动解析。dry-run 结果在 `request.resolved` 展示所选 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET <diffs/patches 路径>`）/ `version_no`（缺失时省略，不显示 0）；显式 `--patchset-biz-id` 优先且跳过该 GET。回复（`--parent-comment-biz-id`）未显式传 patchset 时也挂到最新版本，而不是父评论所在版本（官方文档未说明回复是否须与父评论同一 patchset）；需要同版本请显式传入父评论所在的 patchset（`related_patchset.patchSetBizId` 仅在 CreateChangeRequestComment 响应的评论对象中有文档记载，`comments list` 是否返回未经验证）。`INLINE_COMMENT` 不做缺省：`--patchset-biz-id` / `--from-patchset-biz-id` / `--to-patchset-biz-id` / `--file-path` / `--line-number` 全部必填。

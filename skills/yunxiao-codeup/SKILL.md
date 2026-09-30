@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.1.5
+version: 1.1.6
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -76,7 +76,13 @@ yunxiao codeup mrs create \
 
 ```bash
 yunxiao codeup mrs comments list --repo <id> --local-id 1   # newest first; --sort asc
-yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --patchset-biz-id <biz> --dry-run
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL：缺省最新 patchset（0.16.31+；更早版本仍必填 --patchset-biz-id）
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --patchset-biz-id <biz> --dry-run   # 显式指定优先，且不发解析 GET
+# INLINE（行内）：以下参数全部必填，不做自动解析；patchset_biz_id 取 from/to 之一；官方文档：from=比较的起始版本，to=比较的目标版本（与 MERGE_TARGET / MERGE_SOURCE 的对应关系未经验证）
+yunxiao codeup mrs comments create --repo <id> --local-id 1 --comment-type INLINE_COMMENT \
+  --content "这里需要判空" --patchset-biz-id <to-biz> \
+  --from-patchset-biz-id <from-biz> --to-patchset-biz-id <to-biz> \
+  --file-path src/main/App.java --line-number 42 --dry-run
 yunxiao codeup mrs comments resolve --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run
 yunxiao codeup mrs comments reopen --repo <id> --local-id 1 --comment-biz-id <biz> --dry-run
 # --comment-biz-id 取自 comments list 每条的 comment_biz_id（JSON 里也可能是 commentBizId）
@@ -85,7 +91,22 @@ yunxiao codeup mrs labels attach --repo <id> --local-id 1 --label-ids 1,2 --dry-
 yunxiao codeup mrs reviewers add --repo <id> --local-id 1 --reviewer <userId1,userId2> --dry-run
 ```
 
-`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。`patchset-biz-id` 可从 `mrs diffs` 取得；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
+`comments create` / `comments resolve` / `comments reopen` / `labels attach` / `reviewers add` 为 **write**（`--dry-run` 可预览）。
+
+**GLOBAL_COMMENT 缺省 patchset（0.16.31+；更早版本仍必填 `--patchset-biz-id`，#93）：** 省略 `--patchset-biz-id` 时，CLI 直接 `GET …/changeRequests/{localId}/diffs/patches`（与 `mrs diffs` 同一端点，只读）选最新 patchset：
+
+1. 候选：`relatedMergeItemType=MERGE_SOURCE` 的条目；**仅当**返回里**完全没有带类型的条目**（任何 `relatedMergeItemType` 值——MERGE_TARGET 或其他未知值——都会关闭回退）时，才退而使用**未带** `relatedMergeItemType` 的条目；有带类型条目但没有 MERGE_SOURCE → 报错；`MERGE_TARGET` 永不选中。
+2. 排序（全序，与返回顺序无关）：`versionNo` 最大（字符串按数值比，`"10"` > `"9"`；`"3.0"` 视为 3）→ 有可解析 `createTime` 的优先 → `createTime` 最新（RFC3339 带时区比较；无时区按 UTC；≥10 位纯数字按 epoch 秒/毫秒，`"20260929"` 这类短数字视为无法解析）→ 仍完全并列时取返回顺序中**靠后**的一条。
+
+- `--comment-type` 大小写不敏感，只接受 `GLOBAL_COMMENT` / `INLINE_COMMENT`；只有 GLOBAL 自动解析（`inline_comment` 缺 `--patchset-biz-id` 照样报必填）。
+- 这次 GET 在 `--dry-run` 下**也会发出**：需要有效凭证与网络；GET 失败或没有候选时直接报错 `resolve latest patchset for MR <n>: …`（不回退、不发评论；HTTP 错误仍为 `type:"api"` + 状态码），hint 里带实际的 `mrs diffs --repo <你传的值> --local-id <n>` 或提示显式传 `--patchset-biz-id`。
+- dry-run 在 `request.resolved` 展示 `patchset_biz_id` / `patchset_source=latest` / `resolved_via`（`GET …/diffs/patches`）/ `version_no`（缺失时省略）；成功时 `meta.patchset_biz_id` + `meta.patchset_source=latest`。
+- 显式传 `--patchset-biz-id` 始终优先，且**跳过**这次 GET。
+- 回复（`--parent-comment-biz-id`）未显式传 patchset 时同样挂到**最新** patchset，而不是父评论所在版本（官方文档未说明回复是否须与父评论同一 patchset）；需要同版本时请显式传入父评论所在的 patchset。`related_patchset.patchSetBizId` 只在 CreateChangeRequestComment **响应**的评论对象中有文档记载，`comments list` 是否返回该字段未经验证——拿不到时，对照父评论的时间来确定它所在的 patchset（不要自行按 `createTime` 给 patchset 排序来找「最新」）。
+
+**INLINE_COMMENT（所有版本）：** 必须同时给出 `--comment-type INLINE_COMMENT`、`--patchset-biz-id`、`--from-patchset-biz-id`、`--to-patchset-biz-id`、`--file-path`、`--line-number`（>0），缺任何一项都在请求前报错，不做自动解析。
+
+patchset biz id 可从 `mrs diffs` 取得；`--comment-biz-id` 取自 `comments list` 的 `comment_biz_id`。
 
 `reviewers add`：逗号分隔 userId → OpenAPI `POST …/person/REVIEWER` body `userIds`（与 create 的 `reviewerUserIds` 字段名不同；CLI `--reviewer` 语义一致）。
 

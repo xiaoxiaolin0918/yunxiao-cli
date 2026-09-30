@@ -250,3 +250,29 @@ func TestWorkitemCommentContentFileParam(t *testing.T) {
 		t.Fatalf("update path: %s", upd.Path)
 	}
 }
+
+// #93: GLOBAL_COMMENT defaults to the latest patchset, so the flag is optional in schema.
+func TestCodeupMrsCommentsCreatePatchsetOptional(t *testing.T) {
+	m := Find("codeup.mrs.comments.create")
+	if m == nil {
+		t.Fatal("missing codeup.mrs.comments.create")
+	}
+	found := false
+	for _, p := range m.Params {
+		if p.Name == "patchset-biz-id" {
+			found = true
+			if p.Required {
+				t.Fatal("patchset-biz-id should not be required")
+			}
+			if !strings.Contains(p.Desc, "latest") || !strings.Contains(p.Desc, "INLINE_COMMENT") {
+				t.Fatalf("desc should document latest default + INLINE requirement: %q", p.Desc)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing param patchset-biz-id")
+	}
+	if strings.Contains(m.Example, "--patchset-biz-id") {
+		t.Fatalf("example should omit --patchset-biz-id: %s", m.Example)
+	}
+}

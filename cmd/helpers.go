@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -77,6 +78,38 @@ func mustClient() (*client.Client, config.Resolved, error) {
 	return c, r, nil
 }
 
+// apiErrorBody is the error envelope body for an API error: type "api", status code,
+// apiErrorHint, and yaml_validation subtype + details for Flow YAML errors.
+func apiErrorBody(ae *client.APIError) output.ErrorBody {
+	body := output.ErrorBody{
+		Type:    "api",
+		Message: ae.Error(),
+		Hint:    apiErrorHint(ae),
+		Code:    ae.Status,
+	}
+	if code, issues, ok := pipelineyaml.ParseYAMLValidationError(ae.Body); ok {
+		body.Subtype = "yaml_validation"
+		if body.Hint == "" {
+			body.Hint = "Flow YAML validation failed; see error.details.issues (path + errorMessage)"
+		}
+		body.Details = map[string]any{"errorCode": code, "issues": issues}
+	}
+	return body
+}
+
+// contextError prefixes err with what the CLI was doing ("<Context>: <err>") and adds
+// Hint. handleErr still reports a wrapped *client.APIError exactly like an unwrapped one
+// (type "api", status code, subtype/details) with the API hint and Hint joined by "; ";
+// other causes are type "cli".
+type contextError struct {
+	Context string
+	Hint    string
+	Err     error
+}
+
+func (e *contextError) Error() string { return e.Context + ": " + e.Err.Error() }
+func (e *contextError) Unwrap() error { return e.Err }
+
 func handleErr(err error) {
 	if err == nil {
 		return
@@ -95,21 +128,28 @@ func handleErr(err error) {
 	if ee, ok := err.(output.ExitError); ok {
 		processExit(ee.Code)
 	}
-	if ae, ok := err.(*client.APIError); ok {
-		body := output.ErrorBody{
-			Type:    "api",
-			Message: ae.Error(),
-			Hint:    apiErrorHint(ae),
-			Code:    ae.Status,
-		}
-		if code, issues, ok := pipelineyaml.ParseYAMLValidationError(ae.Body); ok {
-			body.Subtype = "yaml_validation"
-			if body.Hint == "" {
-				body.Hint = "Flow YAML validation failed; see error.details.issues (path + errorMessage)"
+	if ce, ok := err.(*contextError); ok {
+		body := output.ErrorBody{Type: "cli", Message: ce.Error(), Hint: ce.Hint}
+		var ae *client.APIError
+		if errors.As(ce.Err, &ae) {
+			// Same body as an unwrapped APIError (type/code/hint/subtype/details),
+			// with the context-prefixed message and the context hint appended.
+			body = apiErrorBody(ae)
+			body.Message = ce.Error()
+			switch {
+			case ce.Hint == "":
+			case body.Hint == "":
+				body.Hint = ce.Hint
+			default:
+				body.Hint += "; " + ce.Hint
 			}
-			body.Details = map[string]any{"errorCode": code, "issues": issues}
 		}
 		_ = output.Fail(body, 1)
+		processExit(1)
+		return
+	}
+	if ae, ok := err.(*client.APIError); ok {
+		_ = output.Fail(apiErrorBody(ae), 1)
 		processExit(1)
 	}
 	_ = output.Fail(output.ErrorBody{
@@ -392,7 +432,13 @@ func runReadAll(ctx context.Context, c *client.Client, method, path string, quer
 // runJSONMutating is the common write path for JSON body methods via runMutating + Do.
 // Keeps HighRiskWrite/--yes and dry-run identical to runMutating. after may enrich meta.
 func runJSONMutating(ctx context.Context, c *client.Client, action string, level risk.Level, method, path string, query map[string]string, body any, after func(out any, meta map[string]any) (any, map[string]any)) error {
-	return runMutating(action, level, globalDryRun, globalYes, c.Preview(method, path, query, body), func() error {
+	return runJSONMutatingPreview(ctx, c, action, level, method, path, query, body, c.Preview(method, path, query, body), after)
+}
+
+// runJSONMutatingPreview is runJSONMutating with a caller-built dry-run preview
+// (e.g. c.Preview plus CLI-resolved values, see requestPreviewWithResolved).
+func runJSONMutatingPreview(ctx context.Context, c *client.Client, action string, level risk.Level, method, path string, query map[string]string, body, preview any, after func(out any, meta map[string]any) (any, map[string]any)) error {
+	return runMutating(action, level, globalDryRun, globalYes, preview, func() error {
 		var out any
 		_, err := c.Do(ctx, method, path, query, body, &out)
 		if err != nil {
