@@ -3,8 +3,13 @@ name: ci
 on:
   push:
     branches: [main]
+  # No branches filter: stacked PRs (base != main) get the same CI (#109).
   pull_request:
-    branches: [main]
+
+# Cancel superseded runs of the same branch/PR (#109).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
