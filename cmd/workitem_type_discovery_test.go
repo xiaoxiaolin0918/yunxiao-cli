@@ -14,6 +14,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/config"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
+	"github.com/yunxiao-cli/yunxiao/internal/schema"
 )
 
 // wiTypeServer serves the #99/#118 discovery surface: GET .../workitemTypes
@@ -518,16 +519,154 @@ func TestWorkitemCreateTypeNotEnabledLookupFails(t *testing.T) {
 
 // --- #118: workitem statuses ---------------------------------------------------
 
-// Help and flag docs stay in sync with the merged-default behavior (#99).
-func TestWorkitemTypesListHelpDocs(t *testing.T) {
-	if !strings.Contains(workitemTypesListCmd.Long, "#99") || !strings.Contains(workitemTypesListCmd.Long, "workitem fields") {
-		t.Fatalf("types list help: %s", workitemTypesListCmd.Long)
+// Table: statuses projects the workflows payload; API errors pass through; an
+// unparseable payload falls back to the raw response with an explicit warning.
+func TestWorkitemStatusesCommand(t *testing.T) {
+	cases := []struct {
+		name           string
+		workflowsBody  string
+		wantCode       int
+		wantDataLen    int
+		wantDefault    string
+		wantRaw        bool
+		wantAPIStatus  int
+		wantWarningSub string
+		apiStatus      int // non-zero: workflows GET fails with this status
+	}{
+		{
+			name:          "happy-path",
+			workflowsBody: `{"id":"wf-1","name":"缺陷流程","defaultStatusId":"s-open","statuses":[
+				{"id":"s-open","name":"待处理","displayName":"待处理","nameEn":"Open"},
+				{"id":"s-done","displayName":"已完成"}]}`,
+			wantCode: 0, wantDataLen: 2, wantDefault: "s-open",
+		},
+		{
+			name:          "wrapped-list-payload",
+			workflowsBody: `[{"id":"wf-2","name":"需求流程","defaultStatusId":"x-1","statuses":[{"id":"x-1","name":"待处理","displayName":"待处理","nameEn":"Open"}]}]`,
+			wantCode: 0, wantDataLen: 1, wantDefault: "x-1",
+		},
+		{
+			name:          "unparseable-payload-falls-back-to-raw",
+			workflowsBody: `[1,2,3]`,
+			wantCode:      0, wantRaw: true, wantWarningSub: "could not parse statuses",
+		},
+		{
+			name:           "api-error-passes-through",
+			workflowsBody:  `{"errorCode":"NotFound","errorMessage":"工作项类型未启用！"}`,
+			wantCode:       1,
+			wantAPIStatus:  http.StatusNotFound,
+			apiStatus:      http.StatusNotFound,
+		},
 	}
-	if f := workitemTypesListCmd.Flags().Lookup("category"); f == nil || f.DefValue != "" {
-		t.Fatalf("category flag default must be empty (all categories): %+v", f)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newWiTypeServer(t)
+			s.workflowsBody = tc.workflowsBody
+			s.workflowsStatus = tc.apiStatus
+			resetStringFlags(t, workitemStatusesCmd, "space-id", "type-id")
+			r := runYxCmd(t, false, "workitem", "statuses", "--space-id", "space-1", "--type-id", "bug-enabled")
+			if r.code != tc.wantCode {
+				t.Fatalf("exit=%d stderr=%s", r.code, r.stderr)
+			}
+			if s.workflowsGETs != 1 || s.countTypesGETs() != 0 {
+				t.Fatalf("workflowsGETs=%d typesGETs=%d", s.workflowsGETs, s.countTypesGETs())
+			}
+			if tc.wantCode != 0 {
+				eb := yxErrorBody(t, r.stderr)
+				if eb.Type != "api" || eb.Code != tc.wantAPIStatus {
+					t.Fatalf("error=%+v", eb)
+				}
+				return
+			}
+			env := yxEnvelope(t, r.stdout)
+			if !env.OK || env.Meta["risk"] != "read" {
+				t.Fatalf("envelope: %s", r.stdout)
+			}
+			if tc.wantRaw {
+				raw, _ := json.Marshal(env.Data)
+				if strings.TrimSpace(string(raw)) != "[1,2,3]" {
+					t.Fatalf("raw data=%s", raw)
+				}
+				if !strings.Contains(r.stderr, tc.wantWarningSub) {
+					t.Fatalf("stderr=%q", r.stderr)
+				}
+				return
+			}
+			if env.Meta["default_status_id"] != tc.wantDefault || env.Meta["workflow_id"] == "" {
+				t.Fatalf("meta=%#v", env.Meta)
+			}
+			data, _ := env.Data.([]any)
+			if len(data) != tc.wantDataLen {
+				t.Fatalf("data=%#v", env.Data)
+			}
+			first, _ := data[0].(map[string]any)
+			if first["id"] != tc.wantDefault || first["default"] != true {
+				t.Fatalf("first status=%#v", first)
+			}
+			if _, ok := first["nameEn"]; !ok {
+				t.Fatalf("nameEn expected on first status: %#v", first)
+			}
+			if tc.wantDataLen > 1 {
+				second, _ := data[1].(map[string]any)
+				if second["default"] != false {
+					t.Fatalf("second status=%#v", second)
+				}
+				if _, ok := second["name"]; ok {
+					t.Fatalf("empty name must be omitted: %#v", second)
+				}
+			}
+		})
+	}
+}
+
+// statuses honors --dry-run: preview only, no API call.
+func TestWorkitemStatusesDryRun(t *testing.T) {
+	s := newWiTypeServer(t)
+	resetStringFlags(t, workitemStatusesCmd, "space-id", "type-id")
+	r := runYxCmd(t, true, "workitem", "statuses", "--space-id", "space-1", "--type-id", "bug-enabled")
+	if r.code != 0 || s.workflowsGETs != 0 {
+		t.Fatalf("exit=%d GETs=%d stderr=%s", r.code, s.workflowsGETs, r.stderr)
+	}
+	env := yxEnvelope(t, r.stdout)
+	if !env.OK || !env.DryRun {
+		t.Fatalf("envelope: %s", r.stdout)
+	}
+	req, _ := env.Request.(map[string]any)
+	if req["method"] != "GET" || !strings.Contains(anyString(req["url"]), "/workitemTypes/bug-enabled/workflows") {
+		t.Fatalf("request=%#v", req)
+	}
+}
+
+// The schema registry carries the new command and the updated types.list behavior.
+func TestSchemaWorkitemStatusesAndTypesList(t *testing.T) {
+	if m := schema.Find("workitem.statuses"); m == nil || m.HTTPMethod != "GET" || !strings.Contains(m.Path, "workitemTypes") {
+		t.Fatalf("workitem.statuses schema=%+v", m)
+	}
+	if m := schema.Find("workitem.types.list"); m == nil || !strings.Contains(m.Description, "#99") {
+		t.Fatalf("workitem.types.list schema=%+v", m)
+	}
+}
+
+// Help cross-references (#118) and risk docs stay in sync.
+func TestWorkitemDiscoveryHelpDocs(t *testing.T) {
+	for _, want := range []string{"statuses", "types list"} {
+		if !strings.Contains(workitemFieldsCmd.Long, want) {
+			t.Fatalf("fields help missing %q: %s", want, workitemFieldsCmd.Long)
+		}
+	}
+	for _, want := range []string{"workitem fields", "workitem statuses"} {
+		if !strings.Contains(workitemTypesListCmd.Long, want) {
+			t.Fatalf("types list help missing %q: %s", want, workitemTypesListCmd.Long)
+		}
+	}
+	if !strings.Contains(workitemStatusesCmd.Long, "Risk: read") || !strings.Contains(workitemStatusesCmd.Long, "workflows") {
+		t.Fatalf("statuses help: %s", workitemStatusesCmd.Long)
 	}
 	if !strings.Contains(workitemCreateCmd.Long, "available_types") || !strings.Contains(workitemBugCreateCmd.Long, "available_types") {
 		t.Fatal("create helps must document the type-not-enabled enrichment")
+	}
+	if f := workitemTypesListCmd.Flags().Lookup("category"); f == nil || f.DefValue != "" {
+		t.Fatalf("category flag default must be empty (all categories): %+v", f)
 	}
 }
 

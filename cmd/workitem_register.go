@@ -88,6 +88,8 @@ func init() {
 	workitemFieldsCmd.Flags().String("type-id", "", "work item type id (required)")
 	workitemWorkflowCmd.Flags().String("space-id", "", "project/space id (required)")
 	workitemWorkflowCmd.Flags().String("type-id", "", "work item type id (required)")
+	workitemStatusesCmd.Flags().String("space-id", "", "project/space id (required)")
+	workitemStatusesCmd.Flags().String("type-id", "", "work item type id (required)")
 	workitemActivitiesCmd.Flags().String("id", "", "work item id (required)")
 	addSortFlag(workitemActivitiesCmd)
 	workitemTypesListCmd.Flags().String("space-id", "", "project/space id (required)")
@@ -101,5 +103,5 @@ func init() {
 	workitemRelationsCmd.AddCommand(workitemRelationsListCmd, workitemRelationsCreateCmd, workitemRelationsDeleteCmd)
 	workitemAttachmentsCmd.AddCommand(workitemAttachmentsListCmd, workitemAttachmentsCreateCmd)
 	workitemTypesCmd.AddCommand(workitemTypesListCmd)
-	workitemCmd.AddCommand(workitemSearchCmd, workitemGetCmd, workitemCommentsCmd, workitemCommentCmd, workitemCreateCmd, workitemUpdateCmd, workitemDeleteCmd, workitemRelationsCmd, workitemAttachmentsCmd, workitemFieldsCmd, workitemWorkflowCmd, workitemActivitiesCmd, workitemTypesCmd)
+	workitemCmd.AddCommand(workitemSearchCmd, workitemGetCmd, workitemCommentsCmd, workitemCommentCmd, workitemCreateCmd, workitemUpdateCmd, workitemDeleteCmd, workitemRelationsCmd, workitemAttachmentsCmd, workitemFieldsCmd, workitemWorkflowCmd, workitemStatusesCmd, workitemActivitiesCmd, workitemTypesCmd)
 }

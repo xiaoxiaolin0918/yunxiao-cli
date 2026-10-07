@@ -320,10 +320,13 @@ yunxiao pipeline job retry --pipeline-id <id> --run-id <r> --job-id <j> --dry-ru
 yunxiao pipeline job pass --pipeline-id <id> --run-id <r> --job-id <j> --dry-run
 yunxiao pipeline job refuse --pipeline-id <id> --run-id <r> --job-id <j> --dry-run
 yunxiao packages artifacts delete --repo-id <id> --repo-type GENERIC --id <aid> --dry-run
-yunxiao workitem types list --space-id <sid> --category Req
+yunxiao workitem types list --space-id <sid>            # default: all categories merged, Bug included (#99)
+yunxiao workitem types list --space-id <sid> --category Bug
+yunxiao workitem statuses --space-id <sid> --type-id <tid>   # type status table + meta.default_status_id (#118)
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 # create prechecks required fields first (one read GET, also under --dry-run): all missing fields in one error
 # (error.details.missing[]: field_id / name / pass_via / options); --no-precheck skips it (#95)
+# a not-enabled type id errors with error.details.available_types (id/name/category) attached (#99)
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem delete --id <id> --dry-run
