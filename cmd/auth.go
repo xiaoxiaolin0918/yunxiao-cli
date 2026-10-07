@@ -34,6 +34,10 @@ PAT (required for CI / headless):
 
 WARNING: OAuth consent grants full account API capability (platform has no module scopes).
 
+Token lifetime: oat- tokens are short-lived (~1 day). Login success prints the
+human-readable expiry (expires_at_local) and the renew command; "auth status" /
+"doctor" warn when less than 24h remains and no refresh_token is stored.
+
 Token precedence: YUNXIAO_ACCESS_TOKEN env > ~/.config/yunxiao/credentials.json (last successful login) > profile > config.json.
 
 Risk: write`,
@@ -45,7 +49,11 @@ Risk: write`,
 var authStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show whether a token is configured (never prints the raw token)",
-	Long:  "Risk: read",
+	Long: `Risk: read
+
+For browser OAuth tokens also reports expiry: expires_at / expires_at_local /
+expires_in, plus a warning + renew hint when less than 24h remains (or the token
+already expired) and the credential cannot silently refresh (#122).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		r, pf, err := resolveEffectiveConfig()
@@ -66,11 +74,14 @@ var authStatusCmd = &cobra.Command{
 			"auth_header":       r.AuthHeader,
 		}
 		if r.TokenKind == config.TokenKindOAuth {
+			canRefresh := r.RefreshToken != "" && r.ClientID != ""
 			out["expires_at"] = r.ExpiresAt
 			out["has_refresh_token"] = r.RefreshToken != ""
-			out["can_refresh"] = r.RefreshToken != "" && r.ClientID != ""
-			if !r.ExpiresAt.IsZero() {
-				out["expired"] = time.Now().After(r.ExpiresAt)
+			out["can_refresh"] = canRefresh
+			// #122: near-expiry reminder (expires_at_local / expires_in /
+			// expiring / warning) when the token cannot silently refresh.
+			for k, v := range oauthExpiryFields(r.ExpiresAt, canRefresh) {
+				out[k] = v
 			}
 		}
 		if pf != nil {
@@ -238,6 +249,14 @@ func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) erro
 		"api_base":         apiBase,
 		"client_id":        res.ClientID,
 		"expires_at":       cred.ExpiresAt,
+	}
+	// #122: human-readable expiry + renew command on login success.
+	canRefresh := res.Tokens.RefreshToken != "" && res.ClientID != ""
+	for k, v := range oauthExpiryFields(cred.ExpiresAt, canRefresh) {
+		out[k] = v
+	}
+	if hint := oauthLoginHint(cred.ExpiresAt, time.Now(), canRefresh); hint != "" {
+		out["hint"] = hint
 	}
 	if org != "" {
 		f, _, _ := config.LoadFile()
