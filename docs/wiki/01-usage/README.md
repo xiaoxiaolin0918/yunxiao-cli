@@ -37,6 +37,7 @@ yunxiao completion powershell | Out-String | Invoke-Expression
 - 从 GitHub CLI / 公共 npm `yx` 迁移：[../00-process/gh-yx-migration.md](../00-process/gh-yx-migration.md)
 - yx 对照规划：[../00-process/yx-parity-ux-plan.md](../00-process/yx-parity-ux-plan.md)
 - Agent 入口：[../../../AGENTS.md](../../../AGENTS.md)
+- CSDN 引流大纲：[../03-outreach/README.md](../03-outreach/README.md)
 
 ## 文档一致性
 
