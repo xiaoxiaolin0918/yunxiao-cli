@@ -24,4 +24,4 @@
 ## 安装
 
 - 主路径：[GitHub Releases latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)
-- npm 名拟 `sanzhi-yunxiao-cli`（薄包装拉二进制）；**不要** `npm i -g yunxiao-cli`（那是别人的 `yx`）
+- 安装只走 GitHub Releases（npm 薄包装 `sanzhi-yunxiao-cli` 已停用，#115）；**不要** `npm i -g yunxiao-cli`（那是别人的 `yx`）

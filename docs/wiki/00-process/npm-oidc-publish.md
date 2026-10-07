@@ -1,3 +1,9 @@
+> **RETIRED (#115).** The npm channel (`sanzhi-yunxiao-cli`) is no longer used:
+private npm registries froze the package at old versions, leaving installs without the
+`update` command. GitHub Releases is the only install channel. This page is kept as the
+process record; `npm/`, the `npm-publish` workflow and `scripts/npm-publish-verify.sh`
+have been removed from the repo.
+
 # npm 薄包装与 OIDC 发版
 
 ## 现状

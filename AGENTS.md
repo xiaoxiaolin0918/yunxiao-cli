@@ -5,7 +5,7 @@ Practical rules for humans and AI agents working on **yunxiao-cli** (阿里云�
 ## Purpose
 - Bot handoff / migration revival packs live on the Windows machine at `D:\ai\grok-bot\yunxiao-cli\` (`HANDOFF.md` / `AGENT.md`; not in this git repo).
 - Migrating from GitHub CLI or public npm `yx`? See [docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md).
-- npm OIDC publish order (tag → Release → checksums → publish): [docs/wiki/00-process/npm-oidc-publish.md](docs/wiki/00-process/npm-oidc-publish.md).
+- npm channel is RETIRED (#115): GitHub Releases is the only install channel; see [docs/wiki/00-process/npm-oidc-publish.md](docs/wiki/00-process/npm-oidc-publish.md) for the retired process record.
 
 - CLI binary: `yunxiao` — DevOps API client for Yunxiao (organization, Projex, Codeup, Flow, Packages, Testhub, AppStack).
 - Designed for **humans + AI agents**: progressive discovery, risk gates, stable JSON envelopes.
@@ -17,10 +17,6 @@ After changing the command surface or install docs, run `python scripts/check_co
 
 
 ```bash
-# Preferred for end users / agents (Feishu-style):
-#   npx yunxiao-cli@latest install
-# From this checkout before npmjs publish:
-#   npm install -g ./npm   OR   npm pack -C npm && npm install -g ./yunxiao-cli-*.tgz
 
 # Go version: see go.mod (currently go 1.24.x; treat as minimum)
 make build          # -> ./yunxiao (ldflags Version)
@@ -29,11 +25,10 @@ make test           # go test ./...
 ./yunxiao --version # 0.15.3+
 ```
 
-Do **not** assume a published `go install` / npmjs path works in every environment yet; local `make build` or `npm install -g ./npm` is the source of truth for this checkout.
+Do **not** assume a published `go install` path works in every environment yet; local `make build` is the source of truth for this checkout. GitHub Releases is the only install channel (npm wrapper retired, #115).
 
 ## Recent (0.15.3)
 
-- Feishu-style npm one-click installer under `npm/` (`npx yunxiao-cli@latest install`): `npm/scripts/run.js` + `postinstall` → `npm/scripts/install.js` (bundled `releases/` or `YUNXIAO_CLI_DOWNLOAD_BASE`), wizard installs skills and prints auth next steps.
 - Default `version.Version` bumped to `0.15.3`; platform archives rebuilt with matching ldflags.
 
 ## Prior (0.15.2)
@@ -195,7 +190,7 @@ List/read paths that go through `runRead` / `Do` + `MetaWithPagination` automati
 
 **play vs zhiyi:** `zhiyi` keeps the full Zhiyi/ZYPT field set; `play` is sandbox-accurate (minimal `bug_create_fields`, `bug_transition_required` only `{"100010":["80"]}`, sandbox bug statuses). Profiles may include `workitem_defaults` (per-`type_id` OpenAPI field defaults + `create_required`). Creates (`workitem create`, `+bug-create`) pull priority/trackers/测试负责人/验收负责人 from `workitem_defaults` unless overridden or `--no-defaults`. Use `yunxiao profile doctor` (read) to diff profile field/status ids vs live `fields` + `workflow` (also lists `workitem_defaults` type_ids).
 
-For 智衣 tenant bug workflow: install profile (`yunxiao profile install-example zhiyi`; zhiyi/play examples are embedded in the binary via `profiles/embed.go` and shipped in the npm package `profiles/` by `npm/scripts/sync-profiles.js` prepack, valid on-disk copies win — #92/#104; empty/truncated/name-mismatch disk files fall back to embedded), set `YUNXIAO_PROFILE=zhiyi`, use `workitem get ZYPT-…`, `sprint +current`, `workitem +bug-create`, `workitem +bug-transition`, `workitem +transition` (any type via `workflows`), `codeup mrs +create`. For sandbox regression: `--profile play` / `YUNXIAO_PROFILE=play` and `+bug-create` without module/env (or `--minimal`). Profiles are project-scoped (`space_id`); `workflows` is keyed by `type_id`. Relation types that work in sims: `ASSOCIATED`, `DEPEND_ON` (`RELATED`/`PARENT_SUB` often fail; Task parent via `--parent-id`). Codeup `--content-file` accepts absolute or cwd-relative paths. `workitem create` likewise accepts `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM stripped; prefer on Windows for Chinese). `+bug-create` accepts `--title-file` / `--description-file` the same way (#89). `workitem create` prechecks required fields before POST (one read GET of the type's fields, also under `--dry-run`): all missing fields come back at once as `error.subtype=missing_required_fields` with `error.details.missing[]` (`field_id` / `pass_via` / `options`); 401 fails; an unreadable/empty field config only warns via `meta.precheck.warning` (`status=skipped|empty`, profile `create_required` fallback → `source=profile_fallback`); `--no-precheck` skips it (#95). To refresh graphs when OpenAPI workflows omit transitions: `workitem +explore-workflow --type-id <id> --category <Req|Bug|Task> --cleanup --write-profile --yes` (sandbox first; never auto-run on ZYPT). That writes `workflows[<type-id>]` with **verified** `edges` plus `hinted_edges` for needs_fields (#61); for the profile `bug_type_id` it also updates legacy `bug_edges` / `bug_statuses` used by `+bug-transition`. Prefer `verified_edges` / `edges` over `hinted_edges` when consuming graphs. See skill `yunxiao-zhiyi-ops`. Do not hardcode Zhiyi status/field IDs into shared defaults.
+For 智衣 tenant bug workflow: install profile (`yunxiao profile install-example zhiyi`; zhiyi/play examples are embedded in the binary via `profiles/embed.go` and ship in the GitHub Release archives, valid on-disk copies win — #92/#104; empty/truncated/name-mismatch disk files fall back to embedded), set `YUNXIAO_PROFILE=zhiyi`, use `workitem get ZYPT-…`, `sprint +current`, `workitem +bug-create`, `workitem +bug-transition`, `workitem +transition` (any type via `workflows`), `codeup mrs +create`. For sandbox regression: `--profile play` / `YUNXIAO_PROFILE=play` and `+bug-create` without module/env (or `--minimal`). Profiles are project-scoped (`space_id`); `workflows` is keyed by `type_id`. Relation types that work in sims: `ASSOCIATED`, `DEPEND_ON` (`RELATED`/`PARENT_SUB` often fail; Task parent via `--parent-id`). Codeup `--content-file` accepts absolute or cwd-relative paths. `workitem create` likewise accepts `--subject-file` / `--description-file` / `--custom-fields-file` (UTF-8, BOM stripped; prefer on Windows for Chinese). `+bug-create` accepts `--title-file` / `--description-file` the same way (#89). `workitem create` prechecks required fields before POST (one read GET of the type's fields, also under `--dry-run`): all missing fields come back at once as `error.subtype=missing_required_fields` with `error.details.missing[]` (`field_id` / `pass_via` / `options`); 401 fails; an unreadable/empty field config only warns via `meta.precheck.warning` (`status=skipped|empty`, profile `create_required` fallback → `source=profile_fallback`); `--no-precheck` skips it (#95). To refresh graphs when OpenAPI workflows omit transitions: `workitem +explore-workflow --type-id <id> --category <Req|Bug|Task> --cleanup --write-profile --yes` (sandbox first; never auto-run on ZYPT). That writes `workflows[<type-id>]` with **verified** `edges` plus `hinted_edges` for needs_fields (#61); for the profile `bug_type_id` it also updates legacy `bug_edges` / `bug_statuses` used by `+bug-transition`. Prefer `verified_edges` / `edges` over `hinted_edges` when consuming graphs. See skill `yunxiao-zhiyi-ops`. Do not hardcode Zhiyi status/field IDs into shared defaults.
 
 ## Source layout
 

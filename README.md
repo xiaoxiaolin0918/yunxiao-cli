@@ -8,12 +8,13 @@ CLI binary name: **`yunxiao`**.
 
 ## Human 30-second quickstart
 
-1. Install (primary): open [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest), download the archive for your OS, put `yunxiao` on PATH.
-2. Optional npm thin wrapper: `npm i -g sanzhi-yunxiao-cli` (fetches GitHub Release binaries; use `./npm` locally if not published yet).
-3. Login: `yunxiao auth login --browser` (CI: `--token`).
-4. Smoke: `yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`.
-5. Open console: `yunxiao browse pipeline --pipeline-id <id> --print-only`.
-6. Completion: `yunxiao completion bash|zsh|powershell` (see [usage index](docs/wiki/01-usage/README.md)).
+1. Install: open [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest), download the archive for your OS, put `yunxiao` on PATH.
+2. Login: `yunxiao auth login --browser` (CI: `--token`).
+3. Smoke: `yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`.
+4. Open console: `yunxiao browse pipeline --pipeline-id <id> --print-only`.
+5. Completion: `yunxiao completion bash|zsh|powershell` (see [usage index](docs/wiki/01-usage/README.md)).
+
+GitHub Releases is the only install channel. The npm wrapper (`sanzhi-yunxiao-cli`) is retired: private npm registries froze it at old versions and left machines without the `update` command (#115).
 
 Writes: `--dry-run` first; high-risk needs `--yes` after confirmation.
 
@@ -171,14 +172,7 @@ Disable opportunistic hints and doctor `--check-update`:
 export YUNXIAO_UPDATE_CHECK=0   # also: false | off | no
 ```
 
-**npm installer (`sanzhi-yunxiao-cli`):**
-
-```bash
-npm install -g sanzhi-yunxiao-cli@latest
-# or re-run the postinstall fetcher after bumping the package
-```
-
-Same env overrides as the installer: `YUNXIAO_CLI_GITHUB_REPO`, `YUNXIAO_CLI_DOWNLOAD_BASE`.
+Download source overrides: `YUNXIAO_CLI_GITHUB_REPO`, `YUNXIAO_CLI_DOWNLOAD_BASE`.
 
 ## Auth
 
@@ -477,7 +471,7 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary (and shipped under the npm package `profiles/`), so `install-example` works from npm / GitHub Release installs; an on-disk `profiles/<name>.example.json` takes precedence (#92). npm installs keep them at `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`. The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor`.
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor`.
 
 **Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 

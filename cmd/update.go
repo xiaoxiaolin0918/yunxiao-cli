@@ -35,11 +35,12 @@ var updateCmd = &cobra.Command{
 可选：yunxiao doctor --check-update。
 关闭机会性提示：YUNXIAO_UPDATE_CHECK=0。
 
-覆盖发布源（与 npm 安装器相同）：
+覆盖发布源：
   YUNXIAO_CLI_GITHUB_REPO=owner/repo
   YUNXIAO_CLI_DOWNLOAD_BASE=https://example.com/path
 
-npm 安装亦可：npm install -g sanzhi-yunxiao-cli@latest`,
+GitHub Releases 是唯一安装渠道（npm 薄包装已停用，#115）；从旧 npm 渠道迁移：卸载后从
+https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest 下载归档覆盖安装。`,
 	Run: func(cmd *cobra.Command, args []string) {
 		handleErr(runUpdate(cmd))
 	},
