@@ -444,6 +444,10 @@ yunxiao workitem +bug-create --profile play --title "title" --description "descr
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
 yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
+# bug_edges are unverified template guesses until +explore-workflow writes them back.
+# When BFS finds no route, +bug-transition falls back to ONE direct PUT of the target
+# (meta.transition_mode=bfs_no_path_direct; --direct forces it); errors distinguish
+# "no path in profile edges" vs "platform rejected transition" (#123).
 yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 # Codeup --content-file accepts cwd-relative or absolute paths

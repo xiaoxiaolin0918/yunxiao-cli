@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.3
+version: 1.3.4
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -95,7 +95,9 @@ yunxiao workitem +bug-create --profile zhiyi \
 | processing / testing | `--plan-due-date` `--developer` |
 | deploy-test | `--responsible-person` `--bug-reason` `--bug-impact-scope` |
 
-`confirm → testing` 必须五条都带。图内不可达（如已关闭→待确认）直接报错，不会单跳。
+`confirm → testing` 必须五条都带。
+
+`bug_edges` 是**未实证模板**（OpenAPI 只读得到 statuses，读不到流转边；`+explore-workflow --write-profile` 探测写回的才是实证边，#123）。BFS 无路时**回退单步直试**目标态：`meta.transition_mode=bfs_no_path_direct`，把「平台允许但 profile 无边」跑通；`--direct` 跳过 BFS 与状态机校验强制单步直试。失败报错区分两种原因：`no path in profile edges`（图内无边）与 `platform rejected transition`（平台拒绝）；两者同时出现=直试也被拒——要么平台确实不允许，要么需经未实证的中间状态。沙箱跑 `workitem +explore-workflow --type-id <bug_type_id> --category Bug --write-profile --yes` 固化实证边。
 
 ```bash
 # 预览（推荐）
