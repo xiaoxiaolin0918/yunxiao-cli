@@ -184,3 +184,34 @@ func TestAppendStatusFilterEmptyNoop(t *testing.T) {
 		t.Fatal("stage noop")
 	}
 }
+
+
+func TestAppendLabelsFilter(t *testing.T) {
+	filters := appendLabelsFilter(nil, "lab-a,lab-b")
+	if len(filters) != 1 {
+		t.Fatalf("len=%d", len(filters))
+	}
+	m := filters[0].(map[string]any)
+	if m["className"] != "tag" || m["fieldIdentifier"] != "tag" || m["format"] != "multiList" || m["operator"] != "CONTAINS" {
+		t.Fatalf("shape=%v", m)
+	}
+	vals := m["value"].([]string)
+	if len(vals) != 2 || vals[0] != "lab-a" || vals[1] != "lab-b" {
+		t.Fatalf("value=%v", vals)
+	}
+	base := []any{map[string]any{"x": 1}}
+	if len(appendLabelsFilter(base, "")) != 1 {
+		t.Fatal("empty noop")
+	}
+	built := buildWorkitemSearchFilters(workitemSearchFilterInput{Labels: "lab-1"})
+	found := false
+	for _, item := range built {
+		mm := item.(map[string]any)
+		if mm["fieldIdentifier"] == "tag" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("labels missing in build filters: %#v", built)
+	}
+}

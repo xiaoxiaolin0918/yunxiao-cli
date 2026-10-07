@@ -29,6 +29,7 @@ Status filters (official SearchWorkitems filterObject shapes):
 
   --status       → fieldIdentifier status, className status, CONTAINS, CSV of status ids
   --status-stage → fieldIdentifier statusStage, className statusStage, CONTAINS, CSV
+  --labels       → fieldIdentifier tag, className tag, multiList, CONTAINS, CSV of label ids (#141)
 
 Datetime format: "YYYY-MM-DD HH:MM:SS" (e.g. "2026-09-01 00:00:00").
 Bounds are treated as inclusive (OpenAPI BETWEEN value[0]..toValue) unless the
@@ -39,7 +40,7 @@ Server-side date conditions may still return out-of-window rows. Scripts should
 client-filter on gmtCreate / gmtModified / customFieldValues (and finishTime when
 present) as needed. Inspect meta.request.conditions to see what was sent.
 
-Combine freely with --assigned-to, --subject, --status / --status-stage, etc.
+Combine freely with --assigned-to, --subject, --status / --status-stage, --labels, etc.
 
 Pagination:
   Response meta includes page, perPage, total, totalPages, has_more from x-* headers
@@ -57,6 +58,7 @@ Schema: yunxiao schema workitem.search
 Examples:
   yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
   yunxiao workitem search --category Bug --status 100005,100010 --status-stage 1,2
+  yunxiao workitem search --category Req --labels <label-id> --all
   yunxiao workitem search --category Req --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59" --all --as-items
 
 finishTime notes (CLI vs MCP):
@@ -94,6 +96,7 @@ finishTime notes (CLI vs MCP):
 		updatedBefore, _ := cmd.Flags().GetString("updated-before")
 		finishAfter, _ := cmd.Flags().GetString("finish-after")
 		finishBefore, _ := cmd.Flags().GetString("finish-before")
+		labels, _ := cmd.Flags().GetString("labels")
 		c, _, err := mustClient()
 		if err != nil {
 			handleErr(err)
@@ -128,6 +131,7 @@ finishTime notes (CLI vs MCP):
 			UpdatedBefore: updatedBefore,
 			FinishAfter:   finishAfter,
 			FinishBefore:  finishBefore,
+			Labels:        labels,
 		})
 		body := map[string]any{
 			"category": category,
@@ -172,7 +176,7 @@ finishTime notes (CLI vs MCP):
 }
 
 type workitemSearchFilterInput struct {
-	AssignedTo, Creator, Subject, Status, StatusStage, WorkitemType, Priority string
+	AssignedTo, Creator, Subject, Status, StatusStage, WorkitemType, Priority, Labels string
 	CreatedAfter, CreatedBefore, UpdatedAfter, UpdatedBefore, FinishAfter, FinishBefore string
 }
 
@@ -203,7 +207,20 @@ func buildWorkitemSearchFilters(in workitemSearchFilterInput) []any {
 	filters = appendDateRangeFilter(filters, "gmtCreate", in.CreatedAfter, in.CreatedBefore)
 	filters = appendDateRangeFilter(filters, "gmtModified", in.UpdatedAfter, in.UpdatedBefore)
 	filters = appendDateRangeFilter(filters, "finishTime", in.FinishAfter, in.FinishBefore)
+	filters = appendLabelsFilter(filters, in.Labels)
 	return filters
+}
+
+// appendLabelsFilter mirrors official SearchWorkitems tag filter (#141):
+// fieldIdentifier tag / className tag / multiList / CONTAINS / CSV label ids.
+func appendLabelsFilter(filters []any, labelsCSV string) []any {
+	if labelsCSV == "" {
+		return filters
+	}
+	return append(filters, map[string]any{
+		"className": "tag", "fieldIdentifier": "tag", "format": "multiList",
+		"operator": "CONTAINS", "value": splitCSV(labelsCSV),
+	})
 }
 
 // appendStatusFilter mirrors official docs: status / status / list / CONTAINS / CSV ids.

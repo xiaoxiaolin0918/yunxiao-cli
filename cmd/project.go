@@ -20,6 +20,7 @@ var projectCmd = &cobra.Command{
 
 Typed (also under workitem):
   yunxiao project list
+  yunxiao project labels list|create
   yunxiao workitem search|get|comment
 
 Risk: read (writes under workitem; +bug-transition=write + --yes)`,
