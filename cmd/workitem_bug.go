@@ -23,8 +23,24 @@ Needs active profile with bug_statuses (e.g. --profile zhiyi / YUNXIAO_PROFILE=z
     --plan-due-date 2026-09-20 --developer <uid> \
     --responsible-person <uid> --bug-reason "代码缺陷：简述根因" --bug-impact-scope "影响模块/范围简述" --yes
 
+Success output (#114, same convention as create/get): default brief — data.item is a
+brief projection (id/serialNumber/status{id,displayName}/subject) plus from_status /
+to_status; no description. --full prints the raw refreshed work item object (pre-#114
+output). YUNXIAO_WORKITEM_GET_VIEW=full|brief picks the view when no flag is given
+(flag > env > default brief), like workitem get.
+
+Status-entry required fields beyond profile bug_transition_required are not exposed by
+any OpenAPI config (#113); when a step PUT fails HTTP 400 with a 必填 field list, the
+CLI maps the Chinese names back to field ids via the type's field config
+(error.subtype=transition_required_fields, details.fields[] + fields_draft).
+
 Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		view, err := transitionItemViewFromFlags(cmd)
+		if err != nil {
+			handleErr(err)
+			return
+		}
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
 		if err != nil {
@@ -179,7 +195,7 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 		}
 
 		if globalDryRun {
-			handleErr(output.DryRunResult(string(risk.Write), map[string]any{
+			req := map[string]any{
 				"work_item":       id,
 				"resolved_id":     resolvedID,
 				"serial_number":   serial,
@@ -189,7 +205,14 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 				"provided_fields": provided,
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
-			}))
+			}
+			if p := view.previewProjection(); p != nil {
+				req["projection"] = p
+			}
+			if len(steps) > 0 && len(requiredIDs) == 0 {
+				req["required_fields_note"] = transitionRequiredFieldsNote
+			}
+			handleErr(output.DryRunResult(string(risk.Write), req))
 			return
 		}
 
@@ -220,7 +243,12 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			}
 			var out any
 			if err := c.Put(cmd.Context(), putPath, body, &out); err != nil {
-				handleErr(fmt.Errorf("流转在第 %d/%d 步失败；已成功：%v；%w", i+1, len(steps), applied, err))
+				bugTypeID := workitemTypeID(item)
+				if bugTypeID == "" {
+					bugTypeID = pf.BugTypeID
+				}
+				handleErr(transitionPutError(cmd.Context(), c, "workitem +bug-transition", i+1, len(steps), applied, err, item,
+					zhiyi.ResolveSpaceID(item, pf.SpaceID, ""), bugTypeID, id, to))
 				return
 			}
 			applied = append(applied, st)
@@ -237,7 +265,10 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			"applied":          applied,
 			"refresh_ok":       refreshOK,
 			"refreshed_status": zhiyi.CurrentStatusID(refreshed),
-			"item":             refreshed,
+		}
+		result["item"] = view.itemValue(refreshed, item)
+		if view.mode != "full" {
+			addTransitionStatusBriefs(result, item, refreshed, refreshOK, target, pf.BugStatuses)
 		}
 		urlItem := refreshed
 		if urlItem == nil {
@@ -246,6 +277,9 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 		if u := zhiyi.WorkItemURL(urlItem, zhiyi.ResolveSpaceID(urlItem, pf.SpaceID, "")); u != "" {
 			result["url"] = u
 			metaBase["url"] = u
+		}
+		if view.mode != "full" {
+			metaBase["projection"] = "brief"
 		}
 		handleErr(output.Success(result, metaBase))
 	},
@@ -259,5 +293,7 @@ func init() {
 	workitemBugTransitionCmd.Flags().String("responsible-person", "", "responsible person userId (deploy-test)")
 	workitemBugTransitionCmd.Flags().String("bug-reason", "", "free-text bug reason (not an enum id; paste the business description)")
 	workitemBugTransitionCmd.Flags().String("bug-impact-scope", "", "free-text impact scope (not an enum id)")
+	workitemBugTransitionCmd.Flags().Bool("full", false, "print the raw refreshed work item object (default: brief view, #114)")
+	workitemBugTransitionCmd.Flags().Bool("brief", false, "print the brief result (default; explicit form of the default view)")
 	workitemCmd.AddCommand(workitemBugTransitionCmd)
 }

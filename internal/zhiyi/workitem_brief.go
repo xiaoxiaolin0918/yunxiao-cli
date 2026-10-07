@@ -85,6 +85,51 @@ func statusDisplayName(status map[string]any) string {
 	return ""
 }
 
+// StatusDisplayNameByID reverse-resolves a status id to its display name via an
+// alias→id map (profile statuses / workflow statuses, #114). Deterministic: a
+// self-keyed entry (id→id) wins, else the alphabetically first alias. Empty when the
+// id is unknown.
+func StatusDisplayNameByID(statuses map[string]string, id string) string {
+	if id == "" || len(statuses) == 0 {
+		return ""
+	}
+	best := ""
+	for alias, sid := range statuses {
+		if sid != id {
+			continue
+		}
+		if alias == id {
+			return alias
+		}
+		if best == "" || alias < best {
+			best = alias
+		}
+	}
+	return best
+}
+
+// TransitionStatusBrief is the to-status view of a transition result (#114): the
+// refreshed item's status object when the refresh worked and matches target, else
+// the target id with the display name reverse-resolved from the alias→id map.
+// Empty map when nothing is known about the target.
+func TransitionStatusBrief(refreshed map[string]any, refreshOK bool, target string, statuses map[string]string) map[string]any {
+	if target == "" {
+		return nil
+	}
+	if refreshOK {
+		if b := StatusBrief(refreshed); len(b) > 0 {
+			if id, _ := b["id"].(string); id == target {
+				return b
+			}
+		}
+	}
+	out := map[string]any{"id": target}
+	if dn := StatusDisplayNameByID(statuses, target); dn != "" {
+		out["displayName"] = dn
+	}
+	return out
+}
+
 // WorkItemCreateIncomplete reports create payloads missing serialNumber or status.
 func WorkItemCreateIncomplete(item map[string]any) bool {
 	if item == nil {

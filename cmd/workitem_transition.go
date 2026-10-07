@@ -33,6 +33,19 @@ When profile edges are missing, falls back to a single-step status PUT if --to m
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
 sets you can also use: workitem update --status <id> [--cancel-reason …].
 
+Success output (#114, same convention as create/get): default brief — data.item is a
+brief projection (id/serialNumber/status{id,displayName}/subject) plus from_status /
+to_status; no description. --full prints the raw refreshed work item object (pre-#114
+output). YUNXIAO_WORKITEM_GET_VIEW=full|brief picks the view when no flag is given
+(flag > env > default brief), like workitem get.
+
+Status-entry required fields are not exposed by any OpenAPI config (fields only marks
+type-level required), so dry-run cannot predict them (#113); when a step PUT fails
+HTTP 400 with a 必填 field list, the CLI maps the Chinese names back to field ids via
+the type's field config and reports error.subtype=transition_required_fields with
+details.fields[] (field id, name, current value, options) and a copy-paste
+details.fields_draft for the --fields retry. Unmatched names pass through verbatim.
+
 --dry-run: with profile.workflows[<type>] edges and/or hinted_edges, validates
 current→target locally (edge_validation=validated|hinted|illegal; illegal → ok:false).
 Hinted-only edges (hinted_edges / needs_fields) are not "validated"; when verified
@@ -40,6 +53,11 @@ edges are empty but hinted_edges is non-empty, dry-run still classifies (#82).
 Only when both maps are empty (or transition_mode=direct_status) does dry-run set
 edge_validation=skipped with a warning — do not treat that as "transition will succeed".`,
 	Run: func(cmd *cobra.Command, args []string) {
+		view, err := transitionItemViewFromFlags(cmd)
+		if err != nil {
+			handleErr(err)
+			return
+		}
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
 		if err != nil {
@@ -219,6 +237,12 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
 			}
+			if p := view.previewProjection(); p != nil {
+				req["projection"] = p
+			}
+			if len(steps) > 0 && len(requiredIDs) == 0 {
+				req["required_fields_note"] = transitionRequiredFieldsNote
+			}
 			ev, warn, illegal := transitionDryRunEdgeValidationFull(transitionMode, current, target, wf.Edges, wf.HintedEdges)
 			req["edge_validation"] = ev
 			if warn != "" {
@@ -259,7 +283,8 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 			}
 			var out any
 			if err := c.Put(cmd.Context(), putPath, body, &out); err != nil {
-				handleErr(fmt.Errorf("流转在第 %d/%d 步失败；已成功：%v；%w", i+1, len(steps), applied, err))
+				handleErr(transitionPutError(cmd.Context(), c, "workitem +transition", i+1, len(steps), applied, err, item,
+					zhiyi.ResolveSpaceID(item, pf.SpaceID, ""), typeID, id, to))
 				return
 			}
 			applied = append(applied, st)
@@ -280,7 +305,10 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 			"applied":          applied,
 			"refresh_ok":       refreshOK,
 			"refreshed_status": zhiyi.CurrentStatusID(refreshed),
-			"item":             refreshed,
+		}
+		result["item"] = view.itemValue(refreshed, item)
+		if view.mode != "full" {
+			addTransitionStatusBriefs(result, item, refreshed, refreshOK, target, wf.Statuses)
 		}
 		urlItem := refreshed
 		if urlItem == nil {
@@ -289,6 +317,9 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 		if u := zhiyi.WorkItemURL(urlItem, zhiyi.ResolveSpaceID(urlItem, pf.SpaceID, "")); u != "" {
 			result["url"] = u
 			metaBase["url"] = u
+		}
+		if view.mode != "full" {
+			metaBase["projection"] = "brief"
 		}
 		handleErr(output.Success(result, metaBase))
 	},
@@ -299,6 +330,8 @@ func init() {
 	workitemTransitionCmd.Flags().String("to", "", "target status alias/displayName or status id (required)")
 	workitemTransitionCmd.Flags().String("type-id", "", "override workitem type id (default: from item)")
 	workitemTransitionCmd.Flags().String("fields", "", `optional JSON object merged into each PUT body, e.g. '{"80":"2026-09-20T00:00:00+08:00"}'`)
+	workitemTransitionCmd.Flags().Bool("full", false, "print the raw refreshed work item object (default: brief view, #114)")
+	workitemTransitionCmd.Flags().Bool("brief", false, "print the brief result (default; explicit form of the default view)")
 	workitemCmd.AddCommand(workitemTransitionCmd)
 }
 

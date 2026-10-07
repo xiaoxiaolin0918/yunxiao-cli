@@ -303,6 +303,13 @@ yunxiao workitem comment --id <id> --content "note" --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "title" --assigned-to self --dry-run
 yunxiao workitem update --id <id> --assigned-to self --dry-run
 yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
+yunxiao workitem +transition --id <id> --to <alias> --fields '{"<fieldId>":"<value>"}' --yes
+# +transition 成功输出默认 brief（serialNumber、from_status→to_status 显示名、url、
+# refresh_ok；item 为简要投影——与 create/get 同惯例，#114）；--full（或
+# YUNXIAO_WORKITEM_GET_VIEW=full）输出刷新后的完整对象。
+# 状态入场必填字段无 OpenAPI 配置（fields 只标类型级 required）；PUT 400「xx必填」时
+# CLI 会把中文字段名映射回 fieldId 并给出可直接复制的 --fields 草稿
+# （error.subtype=transition_required_fields，#113）。
 
 # codeup
 yunxiao codeup repos list
