@@ -174,6 +174,8 @@ hint。取消 WIP 需网页（MR 页「…」→ 取消 WIP）——没有 OpenA
 UNDER_DEV 无效（标题前缀是另一套 WIP 信号，见 #135）。
 **merge 预检（#130）**：真正 POST 前（`--dry-run` 下也会做只读 GET）CLI 先取一次 MR 详情，校验状态一致性（MERGED/CLOSED 直接拒绝）、`conflictCheckStatus`（HAS_CONFLICT / CHECKING）、`mergeable=false`，并在详情携带合并方式配置时校验 `--merge-type`（`mergeTypes` / `supportedMergeTypes` / `mergeSetting`，或 `supportMergeFastForwardOnly=false` 拒 ff-only；网页端「创建合并节点」等写法会归一化）。不满足时 exit 1 + 结构化错误（`merge_type_not_supported` 等）+ 可行动 hint（列出可用方式，如 `available: ff-only, no-fast-forward`），**不发 POST**；通过时成功输出带 `meta.precheck`（dry-run 为 `request.precheck`）。详情 GET 失败则拒绝合并（fail closed）。无 `--yes` 时确认门仍先行（exit 10，不发任何请求）。
 
+`mrs merge` 若遇服务端拒绝（405「该状态下的评审不允许合并」等）时做可行动诊断（#127）：`error.subtype=merge_rejected`；`error.details` 含 `current_status`（失败后 best-effort GET 一次 MR 详情）、`state_gap`（状态机差距，如 `UNDER_DEV(开发中/WIP)` 需先清 WIP）、`suggested_actions`（下一步：`CLOSED`→`mrs reopen`，`UNDER_REVIEW`→`mrs review --opinion PASS`，`UNDER_DEV`→网页「更多」菜单→「取消 WIP」——尚无 OpenAPI，#124）、以及可复制的重试命令）、`mr`（localId/title/status/url）与 `diagnose.source`；`hint` 汇总差距+下一步。诊断 GET 失败时原样透传平台错误（不编造状态）。
+
 ### write（`--dry-run` 即可预览；非 high-risk，一般不需 `--yes`）
 
 ```bash
