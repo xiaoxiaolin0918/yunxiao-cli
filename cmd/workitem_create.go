@@ -47,6 +47,20 @@ workitem_defaults[type].create_required, those ids are checked instead
 --no-precheck skips the GET (old behavior; use offline). Values you pass are never
 changed; other server validation errors pass through unchanged.
 
+Option display values (#126): values of list/multiList custom fields passed via
+--custom-fields / --custom-fields-file may be the option's display value (e.g.
+{"priority":"高"}) instead of the opaque option id. With the same field-config GET
+as the precheck the CLI resolves them to option ids before POST (also under
+--dry-run; the preview shows the ids), and reports each mapping in
+meta.option_resolution.resolved (dry-run: request.option_resolution; exact option
+ids pass through unchanged and are not listed). A value matching no option id /
+display value, or an ambiguous display value, fails client-side (exit 1,
+error.subtype invalid_option_values, every bad value with its valid options in
+error.details.values[]) and nothing is POSTed. Fields without options, non-list
+formats, blank and non-string values are sent as-is. With --no-precheck, or when
+the config read degrades (precheck skipped/empty), no resolution happens: values
+are sent as-is (meta.option_resolution.status carries skipped/empty + reason).
+
 Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
 stripped) over inline flags. Use only one of each pair (--custom-fields vs
@@ -155,8 +169,9 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 			return
 		}
 		full, _ := cmd.Flags().GetBool("full")
-		// #95: one-shot required-field precheck against the type's field config.
-		var precheck map[string]any
+		// #95 required-field precheck + #126 option display-value resolution, both fed
+		// by one read-only GET .../workitemTypes/{typeId}/fields.
+		var precheck, optionResolution map[string]any
 		if noPrecheck, _ := cmd.Flags().GetBool("no-precheck"); !noPrecheck {
 			// Fallback ids when the field config is unusable (read even with --no-defaults;
 			// a broken profile was already reported above when defaults are on).
@@ -164,7 +179,7 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 			if pf, perr := applyActiveProfileOrg(); perr == nil && pf != nil {
 				profileRequired = pf.WorkitemDefaults[typeID].CreateRequired
 			}
-			precheck, err = precheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body, profileRequired)
+			precheck, optionResolution, err = prepareWorkitemCreate(cmd.Context(), c, spaceID, typeID, body, profileRequired)
 			if err != nil {
 				handleErr(err)
 				return
@@ -172,12 +187,15 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 			printPrecheckWarning(precheck)
 		}
 		var preview any = c.Preview("POST", path, nil, body)
-		if precheck != nil {
-			preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck}
+		if precheck != nil || optionResolution != nil {
+			preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck, OptionResolution: optionResolution}
 		}
 		err = runJSONMutatingPreview(cmd.Context(), c, "workitem create", risk.Write, "POST", path, nil, body, preview, func(out any, meta map[string]any) (any, map[string]any) {
 			if precheck != nil {
 				meta["precheck"] = precheck
+			}
+			if optionResolution != nil {
+				meta["option_resolution"] = optionResolution
 			}
 			item := asStringMap(out)
 			item = zhiyi.EnsureWorkItemCreateFields(item, func(id string) (map[string]any, error) {

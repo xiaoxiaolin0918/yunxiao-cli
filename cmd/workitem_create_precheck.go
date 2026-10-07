@@ -32,15 +32,32 @@ func workitemFieldsPath(ctx context.Context, c *client.Client, spaceID, typeID s
 	return c.ProjexPath(ctx, "/projects/"+spaceID+"/workitemTypes/"+typeID+"/fields")
 }
 
-// requestPreviewWithPrecheck adds the create precheck outcome to a dry-run preview.
+// requestPreviewWithPrecheck adds the create prepare outcomes (#95 precheck, #126
+// option display-value resolution) to a dry-run preview.
 type requestPreviewWithPrecheck struct {
 	client.RequestPreview
-	Precheck map[string]any `json:"precheck,omitempty"`
+	Precheck         map[string]any `json:"precheck,omitempty"`
+	OptionResolution map[string]any `json:"option_resolution,omitempty"`
 }
 
-// precheckWorkitemCreate (#95) reads the type's field config once and compares it with
-// the final create body (flags, *-file inputs and profile defaults already applied).
-// Returns meta.precheck (dry-run: request.precheck):
+// prepareWorkitemCreate reads the type's field config once (same GET as `workitem
+// fields`) and prepares the create with it:
+//
+//  1. #126 option display-value resolution: list/multiList customFieldValues entries
+//     given as a display value (e.g. {"priority":"高"}) are rewritten in body to
+//     their option id. Unresolvable values (no option id / display value match, or
+//     an ambiguous display value) → *detailedError (subtype invalid_option_values)
+//     listing every bad value with the field's valid options; the caller must not
+//     POST. Returns meta.option_resolution (dry-run: request.option_resolution):
+//     {status:"ok", resolved:[{field_id,field_name,from,to},…]} — resolved is
+//     omitted when nothing needed mapping.
+//  2. #95 required-field precheck against the (already resolved) body; returns
+//     meta.precheck as documented below.
+//
+// meta.option_resolution is nil (absent from output) when the body has no
+// customFieldValues, so creates without custom fields see no new meta.
+//
+// precheck meta:
 //   - status "ok", source "fields": every checked required field present;
 //     required_checked, plus skipped_default (ids skipped for a server defaultValue)
 //   - some missing → *detailedError (subtype missing_required_fields) listing every one
@@ -50,23 +67,39 @@ type requestPreviewWithPrecheck struct {
 //     or read but empty → status "empty"; with reason, hint and warning. If the profile
 //     has workitem_defaults[type].create_required, those ids are checked instead
 //     (source "profile_fallback", profile_missing[]), warn-only; else source "none".
-//     Create proceeds either way and the server validates as before.
+//     Create proceeds either way and the server validates as before. No resolution
+//     happened in this case: customFieldValues are sent as-is and
+//     meta.option_resolution is {status:"skipped"|"empty", reason, hint}.
 //
 // A degraded result's warning goes to meta.precheck.warning (dry-run:
 // request.precheck.warning) and, as elsewhere in the CLI, one "warning: ..." line on
 // stderr (printed by the caller, see printPrecheckWarning).
-// Read-only; also runs under --dry-run. Never mutates body.
-func precheckWorkitemCreate(ctx context.Context, c *client.Client, spaceID, typeID string, body map[string]any, profileRequired []string) (map[string]any, error) {
+// Also runs under --dry-run (the preview then shows the resolved ids). Apart from
+// the #126 resolution it never mutates body.
+func prepareWorkitemCreate(ctx context.Context, c *client.Client, spaceID, typeID string, body map[string]any, profileRequired []string) (precheck, optionResolution map[string]any, err error) {
 	inspect := fmt.Sprintf("yunxiao workitem fields --space-id %s --type-id %s", spaceID, typeID)
 	pctx, cancel := context.WithTimeout(client.WithRetryPolicy(ctx, precheckMaxAttempts, precheckMaxDelay), precheckTimeout)
 	defer cancel()
 	fields, err := fetchWorkitemFieldConfig(pctx, c, spaceID, typeID)
 	var ae *client.APIError
 	if errors.As(err, &ae) && ae.Status == http.StatusUnauthorized {
-		return nil, err
+		return nil, nil, err
 	}
+	cf, _ := body["customFieldValues"].(map[string]any)
 	if err == nil && len(fields) > 0 {
-		return precheckAgainstFields(fields, body, spaceID, typeID, inspect)
+		if len(cf) > 0 {
+			resolved, invalid := workitemfields.ResolveOptionValues(fields, cf)
+			if len(invalid) > 0 {
+				return nil, nil, optionResolveError(invalid, spaceID, typeID, inspect)
+			}
+			res := map[string]any{"status": "ok"}
+			if len(resolved) > 0 {
+				res["resolved"] = resolved
+			}
+			optionResolution = res
+		}
+		precheck, err = precheckAgainstFields(fields, body, spaceID, typeID, inspect)
+		return precheck, optionResolution, err
 	}
 	res := map[string]any{"hint": "check required fields with: " + inspect}
 	if err != nil {
@@ -102,7 +135,42 @@ func precheckWorkitemCreate(ctx context.Context, c *client.Client, spaceID, type
 		res["source"] = "none"
 	}
 	res["warning"] = warning
-	return res, nil
+	if len(cf) > 0 {
+		optionResolution = map[string]any{
+			"status": res["status"],
+			"reason": res["reason"],
+			"hint":   "custom field values are sent as-is; option display values were not resolved to option ids",
+		}
+	}
+	return res, optionResolution, nil
+}
+
+// optionResolveError builds the #126 structured failure for unresolvable option
+// display values: every bad value at once, each with the field's valid options.
+func optionResolveError(invalid []workitemfields.InvalidValue, spaceID, typeID, inspect string) error {
+	parts := make([]string, 0, len(invalid))
+	for _, inv := range invalid {
+		if inv.Reason == "ambiguous" {
+			ids := make([]string, 0, len(inv.Options))
+			for _, o := range inv.Options {
+				ids = append(ids, o.ID)
+			}
+			parts = append(parts, fmt.Sprintf("%s (%s): %q is an ambiguous display value (matches option ids %s)", inv.Name, inv.FieldID, inv.Value, strings.Join(ids, ", ")))
+		} else {
+			parts = append(parts, fmt.Sprintf("%s (%s): %q matches no option id or display value", inv.Name, inv.FieldID, inv.Value))
+		}
+	}
+	return &detailedError{
+		Subtype: "invalid_option_values",
+		Message: fmt.Sprintf("workitem create: %d invalid option value(s) for type %s: %s", len(invalid), typeID, strings.Join(parts, "; ")),
+		Hint: fmt.Sprintf(`pass an option id or display value from error.details.values[].options via --custom-fields / --custom-fields-file as {"<field_id>":"<value>"}; full config: %s; display values are only resolved when the field config is readable (--no-precheck sends values as-is)`,
+			inspect),
+		Details: map[string]any{
+			"space_id": spaceID,
+			"type_id":  typeID,
+			"values":   invalid,
+		},
+	}
 }
 
 func precheckAgainstFields(fields []workitemfields.Field, body map[string]any, spaceID, typeID, inspect string) (map[string]any, error) {

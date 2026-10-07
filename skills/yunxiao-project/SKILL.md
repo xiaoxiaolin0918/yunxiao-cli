@@ -79,6 +79,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
 - `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）
 - `workitem create` 必填预检（0.16.33+，#95）：POST 前（`--dry-run` 也会）读一次类型字段配置，缺失字段**一次性**报出：`error.subtype=missing_required_fields`，按 `error.details.missing[]` 的 `field_id` / `pass_via` / `options` 一次补齐（通常写进 `--custom-fields-file`），不要逐个试错。字段配置读不到 / 为空时只告警（`meta.precheck.status=skipped|empty`，看 `meta.precheck.warning`）照常创建，401 直接失败；带服务端 `defaultValue` 的字段不检查（列在 `skipped_default`）。实测验证只在 **play 沙箱**做（ZYPT 只允许 `--dry-run`）。**不要默认加 `--no-precheck`**；怀疑误报时，把 `error.details.missing` 报告给用户并询问，而不是绕过。
+- `workitem create` 选项字段接受显示值（#126）：`--custom-fields` / `--custom-fields-file` 里 list/multiList 字段的值可直接写显示值（如 `{"priority":"高"}`），CLI 用与预检同一次字段配置 GET 自动解析成 option id 再 POST（`--dry-run` 预览里已是 id；映射在 `meta.option_resolution.resolved`，dry-run 为 `request.option_resolution`；恰好是 id 的值原样透传）。解析失败（无匹配 / 显示值歧义）exit 1、`error.subtype=invalid_option_values`，每个字段的合法值在 `error.details.values[].options`，不会 POST——**不要**再手工查 id 表硬编码；`--no-precheck` 或配置降级时不解析、值原样发送。multiList 数组逐元素解析；非 list 字段 / 空白 / 非字符串值不解析。
 - `workitem +bug-create` 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
@@ -126,7 +127,7 @@ ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yun
 
 - `workitem get/create/update` 与 `+transition` 成功时 `meta` 常含可点击 `url`（及 `serial_number` / `resolved_id`）。
 - `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / **status 仅 `{id,displayName}`** / assignedTo / sprint / priority / workitemType / categoryId / gmtModified，description 以 `description_summary`（字符数）占位；`.data.status.name` / `nameEn`、描述全文、customFieldValues 等用 `--full`（或 `--fields` / `YUNXIAO_WORKITEM_GET_VIEW=full`）。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感：GetWorkitem 字段在该工作项上缺失时为 `null`（列入 `meta.absent_fields`），完全未知的名字报 `unknown_fields` 并列出 `details.available`。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。详见 [workitem-get-views.md](../../docs/wiki/02-domains/workitem-get-views.md)。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
-- `workitem create` 创建前必填预检（0.16.33+，#95 / #103）：缺字段一次列全；详见 [workitem-create-precheck.md](../../docs/wiki/02-domains/workitem-create-precheck.md)。
+- `workitem create` 创建前必填预检（0.16.33+，#95 / #103）：缺字段一次列全；同一次 GET 也把 list/multiList 自定义字段的显示值解析成 option id（#126）；详见 [workitem-create-precheck.md](../../docs/wiki/02-domains/workitem-create-precheck.md)。
 - `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。依赖完整 create JSON 的脚本请加 --full。
 - `workitem relations list` 会尽力为每条关联补齐 `serial_number` / `subject` / `url`（及 category）。
 - 取消态更新可用 `--cancel-reason <text>`（自动查找「取消原因」字段）；dry-run 可能带 soft-warn 提示。
@@ -150,7 +151,7 @@ yunxiao workitem attachments create --id <id> --file ./note.png --dry-run
 yunxiao project get --id <id>
 yunxiao sprint list --space-id <id>
 yunxiao versions list --space-id <id>
-yunxiao workitem fields --space-id <s> --type-id <t>
+yunxiao workitem fields --space-id <s> --type-id <t>   # 字段/选项 id 与显示值表；create 的显示值会自动解析（#126），建单通常无需先查
 yunxiao workitem workflow --space-id <s> --type-id <t>
 yunxiao workitem activities --id <id>
 ```

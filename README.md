@@ -331,6 +331,9 @@ yunxiao workitem types list --space-id <sid> --category Req
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 # create prechecks required fields first (one read GET, also under --dry-run): all missing fields in one error
 # (error.details.missing[]: field_id / name / pass_via / options); --no-precheck skips it (#95)
+# option fields (list/multiList) accept display values: --custom-fields '{"priority":"高"}' auto-resolves to the
+# option id (same GET; mappings in meta.option_resolution; unresolvable values exit 1 with the valid options in
+# error.details.values[], #126)
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem delete --id <id> --dry-run
