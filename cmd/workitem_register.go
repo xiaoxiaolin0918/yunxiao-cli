@@ -91,7 +91,7 @@ func init() {
 	workitemActivitiesCmd.Flags().String("id", "", "work item id (required)")
 	addSortFlag(workitemActivitiesCmd)
 	workitemTypesListCmd.Flags().String("space-id", "", "project/space id (required)")
-	workitemTypesListCmd.Flags().String("category", "Req", "Req|Task|Bug|Risk|…")
+	workitemTypesListCmd.Flags().String("category", "", "Req|Bug|Task|Risk|Topic|all (default: fetch every category and merge, #99)")
 	workitemCommentsCmd.AddCommand(workitemCommentsListCmd, workitemCommentsDeleteCmd, workitemCommentsUpdateCmd)
 	workitemAttachmentsListCmd.Flags().String("id", "", "work item id (required)")
 	workitemAttachmentsCreateCmd.Flags().String("id", "", "work item id (required)")

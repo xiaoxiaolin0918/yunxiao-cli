@@ -54,7 +54,11 @@ Help lists the profile map keys; serious↔severe and minor↔slight are accepte
 
 When profile.workitem_defaults has an entry for bug_type_id, create also pulls
 priority/trackers/verifier/测试负责人/验收负责人 (etc.) unless already set by BuildCreateBugArgs
-or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/exp.`,
+or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/exp.
+
+When the API rejects bug_type_id itself (工作项类型未启用), the error carries the
+space's enabled types as error.details.available_types (subtype
+workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := requireProfile()
@@ -229,7 +233,9 @@ or flags. Pass --no-defaults to skip. --minimal still skips optional module/env/
 
 		var created map[string]any
 		if err := c.Post(cmd.Context(), path, body, &created); err != nil {
-			handleErr(withWriteDedupeHint(err, workitemSearchHint(title)))
+			// #99: a not-enabled bug_type_id gets the enabled-types list attached.
+			err = enrichTypeNotEnabledError(cmd.Context(), c, pf.SpaceID, pf.BugTypeID, withWriteDedupeHint(err, workitemSearchHint(title)))
+			handleErr(err)
 			return
 		}
 		internal := zhiyi.InternalID(created)

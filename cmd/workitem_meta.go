@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 )
@@ -93,12 +95,23 @@ var workitemTypesCmd = &cobra.Command{Use: "types", Short: "Work item types"}
 var workitemTypesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List work item types for a project",
-	Long:  "Risk: read\nHTTP: GET .../projects/{space}/workitemTypes?category=...",
+	Long: `Risk: read
+HTTP: GET .../projects/{space}/workitemTypes?category=...
+
+Without --category (or with --category all) the CLI fetches every known Projex
+category (Req, Bug, Task, Risk, Topic) concurrently and merges the results,
+injecting each type's "category" into items that lack it (#99: Bug types used to
+be invisible behind the old silent default --category Req). An explicit
+--category <one> keeps the single-category query.
+
+meta.categories lists the categories merged; meta.categories_failed carries
+per-category errors (those categories are skipped with a stderr warning, the
+rest still print). See also: workitem fields (field config).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
 		category, _ := cmd.Flags().GetString("category")
-		if err := requireFlags("space-id", spaceID, "category", category); err != nil {
+		if err := requireFlags("space-id", spaceID); err != nil {
 			handleErr(err)
 			return
 		}
@@ -107,12 +120,16 @@ var workitemTypesListCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		path, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes")
-		if err != nil {
-			handleErr(err)
+		if cat := strings.TrimSpace(category); cat != "" && !strings.EqualFold(cat, typesCategoryAll) {
+			path, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes")
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			q := map[string]string{"category": cat}
+			handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, nil))
 			return
 		}
-		q := map[string]string{"category": category}
-		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(typesListAllCategories(cmd.Context(), c, spaceID))
 	},
 }
