@@ -276,3 +276,44 @@ func TestCodeupMrsCommentsCreatePatchsetOptional(t *testing.T) {
 		t.Fatalf("example should omit --patchset-biz-id: %s", m.Example)
 	}
 }
+
+// #132: push-review status shortcut is a read; mrs list documents the
+// client-side --status filter.
+func TestCodeupMrsPushReviewStatusSchema(t *testing.T) {
+	m := Find("codeup.mrs.push_review_status")
+	if m == nil {
+		t.Fatal("missing codeup.mrs.push_review_status")
+	}
+	if m.Risk != risk.Read || m.HTTPMethod != "GET" {
+		t.Fatalf("%+v", m)
+	}
+	hasLocalID := false
+	for _, p := range m.Params {
+		if p.Name == "local-id" {
+			hasLocalID = true
+		}
+	}
+	if !hasLocalID {
+		t.Fatal("missing local-id param")
+	}
+	if m.Example == "" || !strings.Contains(m.Example, "+push-review-status") {
+		t.Fatalf("example: %s", m.Example)
+	}
+
+	list := Find("codeup.mrs.list")
+	if list == nil {
+		t.Fatal("missing codeup.mrs.list")
+	}
+	hasStatus := false
+	for _, p := range list.Params {
+		if p.Name == "status" {
+			hasStatus = true
+			if !strings.Contains(p.Desc, "client-side") {
+				t.Fatalf("status desc should say client-side: %q", p.Desc)
+			}
+		}
+	}
+	if !hasStatus {
+		t.Fatal("codeup.mrs.list missing status param")
+	}
+}
