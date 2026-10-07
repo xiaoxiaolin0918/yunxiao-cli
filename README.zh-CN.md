@@ -318,6 +318,7 @@ yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
+yunxiao codeup mrs list --state opened --source feat/x --repo <id> --all   # 客户端分支过滤，meta.filtered_by=client（#96）
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest + meta.latest_patchset_biz_id（#94）
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # 全局评论缺省取最新 patchset（#93）

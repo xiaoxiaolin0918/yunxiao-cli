@@ -33,8 +33,11 @@ yunxiao codeup +open-mrs --repo <numericRepoId>
 ```bash
 yunxiao codeup mrs list --state opened
 yunxiao codeup mrs list --state opened --all
+yunxiao codeup mrs list --state opened --source feat/x --repo <repoId> --all   # 客户端按源分支过滤（#96）
 yunxiao codeup +open-mrs
 ```
+
+`mrs list --source/--target`（#96）按 `sourceBranch`/`targetBranch` **精确**过滤；OpenAPI 无对应 query 参数，过滤在客户端完成（`meta.filtered_by=client`，`meta.total`/`has_more` 仍是服务端过滤前的口径）。不带 `--all` 时只过滤当前页——要全量请配 `--all`。无匹配返回空列表（`ok:true`）。
 
 ## Typed commands
 

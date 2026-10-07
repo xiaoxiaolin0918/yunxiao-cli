@@ -119,6 +119,13 @@ WARNING (server-ignored params): Codeup list_change_requests may silently ignore
 repositoryId and status. This command sends projectIds (via --repo) and lowercase
 state (via --state). Do not rely on repositoryId/status filters on the raw API.
 
+--source/--target filter MRs by exact sourceBranch/targetBranch name (#96). The
+OpenAPI has no such query params, so filtering happens client-side after fetch:
+meta.filtered_by = "client". Without --all only the current page is filtered
+(matches on later pages stay hidden) — combine with --all for full coverage.
+meta.total/has_more/page still describe the server response before filtering.
+No matches → empty data list with ok:true.
+
 Use --all to follow pages via client.ListAll (cap 50).
 Default order: newest first by update/create time. Client-side --sort applies within
 the current page (or across collected pages with --all). Use --sort asc for oldest first.`,
@@ -131,6 +138,8 @@ the current page (or across collected pages with --all). Use --sort asc for olde
 		perPage, _ := cmd.Flags().GetInt("per-page")
 		allPages, _ := cmd.Flags().GetBool("all")
 		sortFlag, _ := cmd.Flags().GetString("sort")
+		sourceBranch, _ := cmd.Flags().GetString("source")
+		targetBranch, _ := cmd.Flags().GetString("target")
 		c, _, err := mustClient()
 		if err != nil {
 			handleErr(err)
@@ -157,6 +166,10 @@ the current page (or across collected pages with --all). Use --sort asc for olde
 			q["projectIds"] = resolved
 		}
 		after, err := afterSortByTime(sortFlag, func(out any, meta map[string]any) (any, map[string]any) {
+			if sourceBranch != "" || targetBranch != "" {
+				out = filterMrsByBranch(out, sourceBranch, targetBranch)
+				meta["filtered_by"] = "client"
+			}
 			return zhiyi.AttachMergeRequestURLs(out), meta
 		})
 		if err != nil {
@@ -1545,6 +1558,8 @@ func init() {
 	codeupMrsListCmd.Flags().String("state", "", "opened|merged|closed")
 	codeupMrsListCmd.Flags().String("search", "", "title search")
 	codeupMrsListCmd.Flags().String("repo", "", "filter by repository id or alias (projectIds)")
+	codeupMrsListCmd.Flags().String("source", "", "filter by exact source branch name (client-side; combine with --all)")
+	codeupMrsListCmd.Flags().String("target", "", "filter by exact target branch name (client-side; combine with --all)")
 	codeupMrsListCmd.Flags().Int("page", 1, "page")
 	codeupMrsListCmd.Flags().Int("per-page", 20, "per page")
 	codeupMrsListCmd.Flags().Bool("all", false, "follow all pages (ListAll, max 50)")

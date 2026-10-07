@@ -98,8 +98,16 @@ var Registry = []Method{
 		HTTPMethod: "GET", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/files/{path}", Risk: risk.Read, Example: "yunxiao codeup files get --repo <id> --path README.md --ref master"},
 	{ID: "codeup.commits.list", Domain: "codeup", Description: "List commits",
 		HTTPMethod: "GET", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/commits", Risk: risk.Read, Example: "yunxiao codeup commits list --repo <id> --ref master"},
-	{ID: "codeup.mrs.list", Domain: "codeup", Description: "List merge requests",
-		HTTPMethod: "GET", Path: "/oapi/v1/codeup/organizations/{org}/changeRequests", Risk: risk.Read, Example: "yunxiao codeup mrs list --state opened"},
+	{ID: "codeup.mrs.list", Domain: "codeup", Description: "List merge requests (--source/--target are client-side branch filters)",
+		HTTPMethod: "GET", Path: "/oapi/v1/codeup/organizations/{org}/changeRequests", Risk: risk.Read,
+		Params: []Param{
+			{Name: "repo", Type: "string", Required: false, Desc: "repository id or alias → query projectIds"},
+			{Name: "state", Type: "string", Required: false, Desc: "opened|merged|closed"},
+			{Name: "source", Type: "string", Required: false, Desc: "exact source branch filter (client-side, meta.filtered_by=client; combine with --all)"},
+			{Name: "target", Type: "string", Required: false, Desc: "exact target branch filter (client-side, meta.filtered_by=client; combine with --all)"},
+			{Name: "all", Type: "bool", Required: false, Desc: "follow all pages via ListAll (cap 50)"},
+		},
+		Example: "yunxiao codeup mrs list --state opened --source feat/x --all"},
 	{ID: "codeup.mrs.create", Domain: "codeup", Description: "Create a merge request",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests", Risk: risk.HighRiskWrite,
 		Params: []Param{
