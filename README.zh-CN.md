@@ -422,7 +422,7 @@ yunxiao schema
 运行 `yunxiao +onboard` 可从所选 `space_id` 在 `~/.config/yunxiao/profiles/` 下创建通用本地 profile。
 
 租户级 Projex 常量放在 **profile JSON**，不写进 CLI 全局默认。按项目（`space_id`）隔离；`workflows` 按 **`type_id`** 存放已探索状态图。
-`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` 会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。
+`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` / `+risk-create` / `+req-create`（#128）会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。
 
 | Profile | 用途 |
 |---------|------|
@@ -441,6 +441,11 @@ yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --categor
 yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
+# 风险 / 需求快捷创建（#128）：profile 映射 type id（risk_type_id / req_type_id 或唯一
+# category 条目）与优先级（别名 / 显示值 / option id），#95 预检，默认不挂迭代；
+# --assignee 可直接传组织成员显示名：
+yunxiao workitem +risk-create --title "风险" --description "影响" --priority high --dry-run
+yunxiao workitem +req-create --assignee "成员显示名" --title "需求" --description "…" --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
