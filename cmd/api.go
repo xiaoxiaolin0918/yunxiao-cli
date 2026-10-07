@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -32,12 +33,23 @@ workitems:search body: top-level MCP-like date aliases (createdAfter/Before,
 updatedAfter/Before, finishTimeAfter/Before) are normalized into official
 conditions (gmtCreate / gmtModified / finishTime). Prefer typed
 ` + "`yunxiao workitem search --created-after …`" + ` when possible. meta.request
-shows the conditions actually sent.`,
+shows the conditions actually sent.
+
+Windows git-bash / MSYS note (#117): MSYS rewrites arguments starting with "/"
+into Windows paths before the CLI sees them, so "/oapi/v1/..." can arrive as
+"C:/Program Files/Git/oapi/v1/...". The CLI detects this shape and restores
+/oapi/... automatically, printing a "note:" line on stderr (disable with
+YUNXIAO_API_NO_UNMANGLE=1). Shell-side workarounds: MSYS_NO_PATHCONV=1,
+MSYS2_ARG_CONV_EXCL='*', or a leading double slash (//oapi/v1/...).`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		method := strings.ToUpper(args[0])
 		path := args[1]
+		if restored, note := unmangleAPIPathArg(path); note != "" {
+			path = restored
+			fmt.Fprintln(msysNoteOut, note)
+		}
 		if !strings.HasPrefix(path, "/") {
 			path = "/" + path
 		}
