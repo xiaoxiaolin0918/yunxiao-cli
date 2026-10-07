@@ -41,6 +41,12 @@ diff -u /tmp/release-checksums.txt npm/checksums.txt
 
 **不要**在功能 PR 里预更新 checksums（二进制还不存在）。Windows / CRLF 打包与 Windows CI job 见 #108（从本 issue 拆出）。
 
+## 打包平台要求（#108）
+
+- **npm 打包 / 发布只在 Linux 或 GitHub Actions（CI）上进行**：`npm pack` 会原样打入工作区文件字节，Windows 检出在 `core.autocrlf=true` 时为 CRLF，会破坏 `npm/checksums.txt` 校验与 `npm/scripts/*.js` 的 `#!/usr/bin/env node` shebang。
+- 仓库已加 `.gitattributes`（`* text=auto eol=lf`，并对 `*.sh` / `*.py` / `npm/scripts/*.js` / `npm/checksums.txt` 强制 LF）：任何平台的新检出都是 LF；但 checksums 刷新与 `npm publish` 仍一律走 CI / Linux，不在 Windows 本地做。
+- Windows 本地 `go test ./...` 已全绿（不再需要 `-skip`）；`ci.yml` 含 `windows-latest` job（build + test + vet + check_command_docs）。
+
 ## OIDC Trusted Publisher（建议）
 
 目标：用 GitHub Actions OIDC 发布 `sanzhi-yunxiao-cli`，避免长期 npm token。
