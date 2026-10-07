@@ -415,7 +415,7 @@ yunxiao schema
 
 Tenant-specific Projex constants live in a **profile JSON**, not hardcoded CLI defaults.
 Profiles are **project-scoped** (`space_id`); discovered workitem graphs live under `workflows` keyed by **`type_id`**.
-`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields.
+`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields. `allowed_environments` / `allowed_modules` are **snapshots** of the live field options (they gate `+bug-create --environment` / `--module`); `profile doctor` diffs them against the live options and reports drift as `enum_stale_in_profile` / `enum_missing_in_profile` findings (#121) — keep them in sync or empty the list to disable the gate.
 
 | Profile | Purpose |
 |---------|---------|
@@ -432,7 +432,7 @@ yunxiao profile show
 # and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
 # --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-yunxiao profile doctor                 # diff profile vs live fields/workflow (read)
+yunxiao profile doctor                 # diff profile vs live fields/workflow + allowed_* enums (read)
 yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
 yunxiao sprint +current --dry-run
 # Zhiyi full create:
