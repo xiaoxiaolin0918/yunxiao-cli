@@ -460,7 +460,7 @@ yunxiao workitem +bug-create --title "title" --description "description" \
 yunxiao workitem +bug-create --profile play --title "title" --description "description" \
   --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
-yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
+yunxiao workitem +bug-transition（BFS 无路时 direct_fallback / --direct，#123） --id ZYPT-5768 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
 yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run

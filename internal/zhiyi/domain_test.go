@@ -91,7 +91,7 @@ func TestTransitionStepsUnreachableThrows(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "图内无实证边") {
+	if !IsNoPath(err) || !strings.Contains(err.Error(), "图内无实证边") {
 		t.Fatalf("msg=%v", err)
 	}
 }

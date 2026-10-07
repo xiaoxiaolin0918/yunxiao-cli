@@ -1,6 +1,7 @@
 package zhiyi
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -40,6 +41,22 @@ func ResolveBugStatusId(aliasOrID string, statuses map[string]string) string {
 	return aliasOrID
 }
 
+// NoPathError means current and target are both on the profile edge graph but BFS
+// found no route (#123). Callers may fall back to a single-step direct status PUT.
+type NoPathError struct {
+	From, To string
+}
+
+func (e *NoPathError) Error() string {
+	return fmt.Sprintf("当前状态无法流转到目标状态：%s → %s（图内无实证边）", e.From, e.To)
+}
+
+// IsNoPath reports whether err is (or wraps) a NoPathError.
+func IsNoPath(err error) bool {
+	var np *NoPathError
+	return errors.As(err, &np)
+}
+
 // TransitionSteps ports domain.ts transitionSteps exactly.
 // edges: adjacency keyed by status id (only on-graph nodes are keys).
 // allStatuses: every known bug status id (values of BUG_STATUSES).
@@ -77,7 +94,7 @@ func TransitionSteps(current, target string, edges map[string][]string, allStatu
 				queue = append(queue, node{id: next, path: path})
 			}
 		}
-		return nil, fmt.Errorf("当前状态无法流转到目标状态：%s → %s（图内无实证边）", current, target)
+		return nil, &NoPathError{From: current, To: target}
 	}
 	// Side-branch: single hop
 	return []string{target}, nil

@@ -93,7 +93,7 @@ yunxiao workitem +bug-create --profile zhiyi \
 
 通用任意类型流转（无智衣命名必填 flags）见 `workitem +transition`（profile.`workflows`）。
 
-## 缺陷流转（`+bug-transition`）
+## 缺陷流转（`+bug-transition（BFS 无路时 direct_fallback / --direct，#123）`）
 
 按实证状态图 **BFS 多步 PUT**；途经每一态的必填字段取 **并集**（不只看终点）。
 

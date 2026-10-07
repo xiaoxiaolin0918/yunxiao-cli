@@ -17,6 +17,15 @@ var workitemBugTransitionCmd = &cobra.Command{
 
 Needs active profile with bug_statuses (e.g. --profile zhiyi / YUNXIAO_PROFILE=zhiyi).
 
+Profile bug_edges are an unverified template topology (OpenAPI exposes statuses only;
+run workitem +explore-workflow --write-profile in a sandbox to probe and persist real
+edges). When BFS finds no path in profile edges but current->target may still be a legal
+single step on the platform, the CLI falls back to one direct status PUT
+(meta.transition_mode=direct_fallback) unless --direct is already forcing that path (#123).
+Failures distinguish cause: no path in profile edges (dry-run note / profile_edges) vs
+platform rejected transition (error.subtype=platform_rejected_transition).
+
+
   yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
     --plan-due-date 2026-09-20 --developer <uid> --dry-run
   yunxiao workitem +bug-transition --id ZYPT-5768 --to testing \
@@ -97,10 +106,28 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			return
 		}
 		target := zhiyi.ResolveBugStatusId(to, pf.BugStatuses)
-		steps, err := zhiyi.TransitionSteps(current, target, pf.StatusGraph(), pf.AllStatusIDs())
-		if err != nil {
-			handleErr(err)
-			return
+		direct, _ := cmd.Flags().GetBool("direct")
+		transitionMode := "profile_graph"
+		var steps []string
+		var noPathNote string
+		if direct {
+			if current != target {
+				steps = []string{target}
+			}
+			transitionMode = "direct"
+		} else {
+			var terr error
+			steps, terr = zhiyi.TransitionSteps(current, target, pf.StatusGraph(), pf.AllStatusIDs())
+			if terr != nil {
+				if zhiyi.IsNoPath(terr) {
+					steps = []string{target}
+					transitionMode = "direct_fallback"
+					noPathNote = terr.Error()
+				} else {
+					handleErr(terr)
+					return
+				}
+			}
 		}
 
 		planDueDate, _ := cmd.Flags().GetString("plan-due-date")
@@ -183,7 +210,11 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			})
 		}
 
-		metaBase := map[string]any{"risk": risk.Write, "profile": pf.Name}
+		metaBase := map[string]any{"risk": risk.Write, "profile": pf.Name, "transition_mode": transitionMode}
+		if noPathNote != "" {
+			metaBase["profile_edges"] = "no_path"
+			metaBase["profile_edges_note"] = noPathNote
+		}
 		if resolvedID != "" {
 			metaBase["resolved_id"] = resolvedID
 		}
@@ -205,6 +236,12 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 				"provided_fields": provided,
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
+				"transition_mode": transitionMode,
+			}
+			if noPathNote != "" {
+				req["profile_edges"] = "no_path"
+				req["profile_edges_note"] = noPathNote
+				req["warning"] = "profile bug_edges have no BFS path; dry-run plans a single-step direct PUT (platform may still reject)"
 			}
 			if p := view.previewProjection(); p != nil {
 				req["projection"] = p
@@ -247,8 +284,9 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 				if bugTypeID == "" {
 					bugTypeID = pf.BugTypeID
 				}
-				handleErr(transitionPutError(cmd.Context(), c, "workitem +bug-transition", i+1, len(steps), applied, err, item,
-					zhiyi.ResolveSpaceID(item, pf.SpaceID, ""), bugTypeID, id, to))
+				putErr := transitionPutError(cmd.Context(), c, "workitem +bug-transition", i+1, len(steps), applied, err, item,
+					zhiyi.ResolveSpaceID(item, pf.SpaceID, ""), bugTypeID, id, to)
+				handleErr(annotateBugTransitionPutErr(putErr, transitionMode, noPathNote, current, target))
 				return
 			}
 			applied = append(applied, st)
@@ -265,6 +303,7 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			"applied":          applied,
 			"refresh_ok":       refreshOK,
 			"refreshed_status": zhiyi.CurrentStatusID(refreshed),
+			"transition_mode":  transitionMode,
 		}
 		result["item"] = view.itemValue(refreshed, item)
 		if view.mode != "full" {
@@ -295,5 +334,34 @@ func init() {
 	workitemBugTransitionCmd.Flags().String("bug-impact-scope", "", "free-text impact scope (not an enum id)")
 	workitemBugTransitionCmd.Flags().Bool("full", false, "print the raw refreshed work item object (default: brief view, #114)")
 	workitemBugTransitionCmd.Flags().Bool("brief", false, "print the brief result (default; explicit form of the default view)")
+	workitemBugTransitionCmd.Flags().Bool("direct", false, "force a single-step status PUT to --to (skip profile edge BFS; #123)")
 	workitemCmd.AddCommand(workitemBugTransitionCmd)
+}
+
+// annotateBugTransitionPutErr (#123) labels platform rejection and, when the CLI
+// already fell back because profile edges had no BFS path, keeps that context on
+// the error so agents can tell "no path in profile edges" apart from "platform
+// rejected transition".
+func annotateBugTransitionPutErr(err error, transitionMode, noPathNote, current, target string) error {
+	if err == nil {
+		return nil
+	}
+	cause := "platform_rejected_transition"
+	msg := fmt.Sprintf("platform rejected transition %s -> %s (cause=%s, transition_mode=%s)", current, target, cause, transitionMode)
+	if noPathNote != "" {
+		msg = fmt.Sprintf("%s; profile edges previously had no BFS path: %s", msg, noPathNote)
+	}
+	return &detailedError{
+		Subtype: cause,
+		Message: msg,
+		Hint:    "profile bug_edges are an unverified template; probe with: yunxiao workitem +explore-workflow --write-profile (sandbox). Retry with --direct to force a single-step PUT, or fix edges.",
+		Details: map[string]any{
+			"cause":           cause,
+			"transition_mode": transitionMode,
+			"current":         current,
+			"target":          target,
+			"profile_edges":   map[string]any{"no_path": noPathNote != "", "note": noPathNote},
+			"platform_error":  err.Error(),
+		},
+	}
 }
