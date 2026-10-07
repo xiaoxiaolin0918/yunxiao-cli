@@ -76,9 +76,9 @@ func mergeDetail(overrides map[string]any) string {
 	return string(b)
 }
 
-// runMrsMerge executes `codeup mrs merge --repo 123 --local-id 9 --merge-type <t>`
+// runMrsMergeCase executes `codeup mrs merge --repo 123 --local-id 9 --merge-type <t>`
 // with dryRun/yes and returns the envelopes plus server counters.
-func runMrsMerge(t *testing.T, s *mergeSrv, dryRun, yes bool, mergeType string, extra ...string) (output.Envelope, output.Envelope, int) {
+func runMrsMergeCase(t *testing.T, s *mergeSrv, dryRun, yes bool, mergeType string, extra ...string) (output.Envelope, output.Envelope, int) {
 	t.Helper()
 	srv := httptest.NewServer(s)
 	t.Cleanup(srv.Close)
@@ -297,7 +297,7 @@ func TestMrsMergePrecheck(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &mergeSrv{detailJSON: tc.detail, detailCode: tc.detailCode}
-			env, eenv, code := runMrsMerge(t, s, tc.dryRun, tc.yes, tc.mergeType)
+			env, eenv, code := runMrsMergeCase(t, s, tc.dryRun, tc.yes, tc.mergeType)
 			if code != tc.wantCode {
 				t.Fatalf("code=%d want %d (stdout ok=%v)", code, tc.wantCode, env.OK)
 			}
@@ -363,7 +363,7 @@ func mergePrecheckMap(t *testing.T, env output.Envelope) map[string]any {
 // request and the precheck outcome in one envelope.
 func TestMrsMergePrecheckDryRunRequestShape(t *testing.T) {
 	s := &mergeSrv{detailJSON: mergeDetail(map[string]any{"mergeTypes": []any{"squash", "rebase"}})}
-	env, _, code := runMrsMerge(t, s, true, false, "rebase")
+	env, _, code := runMrsMergeCase(t, s, true, false, "rebase")
 	if code != 0 || !env.OK || !env.DryRun {
 		t.Fatalf("code=%d env=%#v", code, env)
 	}
