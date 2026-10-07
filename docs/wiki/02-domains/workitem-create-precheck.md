@@ -58,4 +58,4 @@ Projex 创建接口一次只报**一个**缺失的必填字段（如先报「所
 - `defaultValue` 是否真的由服务端自动填充未验证，目前直接跳过。
 - `--dry-run` 现在需要凭证与网络来读字段配置（401 失败，其他失败降级，不阻塞预览）；离线请用 `--no-precheck`。
 - 发版前需在 play 沙箱实测：`workitem fields` 的键名 / 原生字段 id，以及一次带齐必填字段的真实 create；ZYPT 上只允许 `--dry-run`。
-- `+bug-create` 已接入同一套预检（#107）：`--no-precheck` 可跳过；`--minimal` / profile `bug_create_fields` 生成的 body 同样过检。
+- `+bug-create` 已接入同一套预检（#107）；`--no-precheck` 可跳过；`+risk-create` / `+req-create`（#128）同样走该预检。`--minimal` / profile `bug_create_fields` 决定的 body 同样参与。
