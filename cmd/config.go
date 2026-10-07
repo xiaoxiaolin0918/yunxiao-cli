@@ -37,7 +37,7 @@ var configShowCmd = &cobra.Command{
 
 var configSetCmd = &cobra.Command{
 	Use:   "set <key> <value>",
-	Short: "Set a config key (api_base_url|organization_id|edition|access_token)",
+	Short: "Set a config key (api_base_url|organization_id|edition|access_token|profile)",
 	Long:  "Risk: write",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -56,6 +56,8 @@ var configSetCmd = &cobra.Command{
 			f.Edition = val
 		case "access_token", "access-token", "token":
 			f.AccessToken = val
+		case "profile":
+			f.Profile = val // default tenant profile (#130); empty clears it
 		default:
 			handleErr(fmt.Errorf("unknown key %q", key))
 			return

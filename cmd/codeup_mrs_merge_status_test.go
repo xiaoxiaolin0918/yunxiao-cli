@@ -49,7 +49,10 @@ type mrsMergeServer struct {
 	mergeBody    string
 	detailGETs   int
 	detailStatus int // non-zero: detail GET fails with this status
-	detailBody   string
+	// when non-zero, detail GETs beyond this count fail with detailStatus —
+	// lets the #130 precheck GET succeed while the #124 refresh GET fails.
+	detailGETsBeforeFail int
+	detailBody           string
 }
 
 func newMrsMergeServer(t *testing.T, detailBody string) *mrsMergeServer {
@@ -69,7 +72,7 @@ func newMrsMergeServer(t *testing.T, detailBody string) *mrsMergeServer {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/changeRequests/125"):
 			s.detailGETs++
 			w.Header().Set("Content-Type", "application/json")
-			if s.detailStatus != 0 {
+			if s.detailStatus != 0 && (s.detailGETsBeforeFail == 0 || s.detailGETs > s.detailGETsBeforeFail) {
 				w.WriteHeader(s.detailStatus)
 				_, _ = io.WriteString(w, `{"errorCode":"SystemError","errorMessage":"boom"}`)
 				return
@@ -113,7 +116,8 @@ func TestMrsMergeGateWithoutYes(t *testing.T) {
 	}
 }
 
-// Dry-run previews the POST only (no merge, no status refresh).
+// Dry-run previews the POST plus the #130 read-only precheck (one detail GET);
+// the merge itself is never sent.
 func TestMrsMergeDryRun(t *testing.T) {
 	s := newMrsMergeServer(t, mrsMergeDetailUnderDev)
 	stdout, stderr, code := runMrsMergeCmd(t, true, false, "--dry-run")
@@ -124,8 +128,8 @@ func TestMrsMergeDryRun(t *testing.T) {
 	if req["method"] != "POST" || !strings.Contains(fmtURL(req["url"]), "/changeRequests/125/merge") {
 		t.Fatalf("request=%#v", req)
 	}
-	if s.mergePOSTs != 0 || s.detailGETs != 0 {
-		t.Fatalf("dry-run must not call the API: POSTs=%d GETs=%d", s.mergePOSTs, s.detailGETs)
+	if s.mergePOSTs != 0 || s.detailGETs != 1 {
+		t.Fatalf("dry-run: POSTs=%d (must be 0) GETs=%d (one precheck, #130)", s.mergePOSTs, s.detailGETs)
 	}
 }
 
@@ -164,16 +168,19 @@ func TestMrsMerge405UnderDevEnriched(t *testing.T) {
 	if len(todo) != 1 {
 		t.Fatalf("details.mr.todo=%#v", mr["todo"])
 	}
-	if s.mergePOSTs != 1 || s.detailGETs != 1 {
-		t.Fatalf("POSTs=%d GETs=%d (one refresh after the failed merge)", s.mergePOSTs, s.detailGETs)
+	if s.mergePOSTs != 1 || s.detailGETs != 2 {
+		t.Fatalf("POSTs=%d GETs=%d (one #130 precheck + one refresh after the failed merge)", s.mergePOSTs, s.detailGETs)
 	}
 }
 
 // A failing status refresh never masks the original merge error (degrade silently).
+// The first detail GET (the #130 precheck) succeeds; only the refresh after the
+// failed POST hits the 500.
 func TestMrsMergeDegradesWhenRefreshFails(t *testing.T) {
 	t.Cleanup(client.SetRetrySleepForTest(func(ctx context.Context, d time.Duration) error { return nil }))
 	s := newMrsMergeServer(t, mrsMergeDetailUnderDev)
 	s.detailStatus = http.StatusInternalServerError
+	s.detailGETsBeforeFail = 1
 	stdout, stderr, code := runMrsMergeCmd(t, false, true, "--yes")
 	if code != 1 {
 		t.Fatalf("exit=%d stdout=%s stderr=%s", code, stdout, stderr)
@@ -199,8 +206,8 @@ func TestMrsMergeTitlePrefixWipHint(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%s", code, stderr)
 	}
 	eb := decodeErrorBody(t, stderr)
-	if s.mergePOSTs != 1 || s.detailGETs != 1 {
-		t.Fatalf("POSTs=%d GETs=%d", s.mergePOSTs, s.detailGETs)
+	if s.mergePOSTs != 1 || s.detailGETs != 2 {
+		t.Fatalf("POSTs=%d GETs=%d (precheck + refresh)", s.mergePOSTs, s.detailGETs)
 	}
 	if !strings.Contains(eb.Hint, `"WIP:"`) || !strings.Contains(eb.Hint, "mrs update") || !strings.Contains(eb.Hint, `--title "fix docs"`) {
 		t.Fatalf("hint=%q", eb.Hint)
@@ -222,8 +229,8 @@ func TestMrsMergeRequirementsHint(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%s", code, stderr)
 	}
 	eb := decodeErrorBody(t, stderr)
-	if s.mergePOSTs != 1 || s.detailGETs != 1 {
-		t.Fatalf("POSTs=%d GETs=%d", s.mergePOSTs, s.detailGETs)
+	if s.mergePOSTs != 1 || s.detailGETs != 2 {
+		t.Fatalf("POSTs=%d GETs=%d (precheck + refresh)", s.mergePOSTs, s.detailGETs)
 	}
 	if !strings.Contains(eb.Hint, "merge requirements not met: MERGE_CONFLICT_CHECK, CI_CHECK") {
 		t.Fatalf("hint=%q", eb.Hint)
@@ -259,8 +266,11 @@ func TestMrsMergeSuccessKeepsRawOut(t *testing.T) {
 	if env.Meta["risk"] != "high-risk-write" {
 		t.Fatalf("meta.risk: %#v", env.Meta)
 	}
-	if s.detailGETs != 0 {
-		t.Fatalf("no refresh on success, got %d", s.detailGETs)
+	if env.Meta["precheck"] == nil {
+		t.Fatalf("meta.precheck from the #130 precheck: %#v", env.Meta)
+	}
+	if s.detailGETs != 1 {
+		t.Fatalf("one #130 precheck GET, no refresh on success, got %d", s.detailGETs)
 	}
 }
 
