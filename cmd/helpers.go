@@ -661,8 +661,17 @@ func workitemIDFromFlagOrArg(cmd *cobra.Command, args []string) (string, error) 
 	return id, nil
 }
 
-// resolveCodeupRepo resolves --repo as numeric id, profile.repositories alias, or org/repo path.
+// resolveCodeupRepo resolves --repo (#125): numeric id, profile.repositories alias,
+// org[/group]/repo path (the CLI URL-encodes it — plain slashes work), or a bare repo
+// name. Bare unregistered names are auto-discovered via one read-only codeup repos
+// search when they match exactly one repository in the organization (this GET also
+// runs under --dry-run, same as the #93/#95 read prechecks).
 func resolveCodeupRepo(repoFlag string) (string, error) {
+	return resolveCodeupRepoContext(context.Background(), repoFlag)
+}
+
+// resolveCodeupRepoContext is resolveCodeupRepo with a caller context.
+func resolveCodeupRepoContext(ctx context.Context, repoFlag string) (string, error) {
 	pf, err := applyActiveProfileOrg()
 	if err != nil {
 		return "", err
@@ -671,7 +680,74 @@ func resolveCodeupRepo(repoFlag string) (string, error) {
 	if pf != nil {
 		repos = pf.Repositories
 	}
-	return zhiyi.ResolveRepositoryID(repoFlag, repos)
+	resolved, err := zhiyi.ResolveRepositoryID(repoFlag, repos)
+	if err == nil {
+		return resolved, nil
+	}
+	if !zhiyi.IsBareRepoName(repoFlag) {
+		return "", err
+	}
+	return discoverRepositoryIDByName(ctx, strings.TrimSpace(repoFlag), err)
+}
+
+// repoDiscoveryMaxPages caps auto-follow pagination for bare-name discovery (#125).
+const repoDiscoveryMaxPages = 5
+
+// discoverRepositoryIDByName resolves a bare repo name against
+// GET .../repositories?search=<name> (pages followed via client.ListAll, cap
+// repoDiscoveryMaxPages). Exactly one name/path-suffix match → its numeric id.
+// Zero matches → aliasErr (which carries the profile repo-add hint) with a note.
+// Multiple matches → an error listing every candidate plus copyable --repo /
+// profile repo-add lines. When the lookup itself cannot run (no credentials,
+// network/API failure), aliasErr is returned with the failure appended so the
+// caller still sees the actionable register hint.
+func discoverRepositoryIDByName(ctx context.Context, name string, aliasErr error) (string, error) {
+	unavailable := func(cause error) error {
+		return fmt.Errorf("%w (bare-name lookup via codeup repos list unavailable: %v)", aliasErr, cause)
+	}
+	c, _, err := mustClient()
+	if err != nil {
+		return "", unavailable(err)
+	}
+	path, err := c.CodeupPath(ctx, "/repositories")
+	if err != nil {
+		return "", unavailable(err)
+	}
+	fetch := func(ctx context.Context, q map[string]string) (any, http.Header, error) {
+		var out any
+		hdr, err := c.Do(ctx, "GET", path, q, nil, &out)
+		// Some Yunxiao list endpoints wrap the array as {"result": [...]};
+		// client.ExtractListItems does not look under "result", so unwrap it first (#125).
+		if m, ok := out.(map[string]any); ok {
+			if r, ok := m["result"]; ok {
+				out = r
+			}
+		}
+		return out, hdr, err
+	}
+	res, err := client.ListAll(ctx, 1, 20, repoDiscoveryMaxPages, map[string]string{"search": name}, fetch)
+	if err != nil {
+		return "", unavailable(err)
+	}
+	matches := zhiyi.MatchRepoCandidates(name, res.Items)
+	switch len(matches) {
+	case 1:
+		return matches[0].ID, nil
+	case 0:
+		return "", fmt.Errorf("%w (auto-discovery found no repository named %q in the organization)", aliasErr, name)
+	default:
+		var b strings.Builder
+		fmt.Fprintf(&b, "ambiguous repository name %q: %d matches in the organization — pass --repo <id|org/repo> explicitly, or register one:", name, len(matches))
+		for _, m := range matches {
+			label := m.Path
+			if label == "" {
+				label = m.Name
+			}
+			fmt.Fprintf(&b, "\n  id=%s  %s", m.ID, label)
+		}
+		fmt.Fprintf(&b, "\nhint: %s", zhiyi.ProfileRepoAddHint(name))
+		return "", errors.New(b.String())
+	}
 }
 
 // asStringMap coerces decoded JSON objects to map[string]any.

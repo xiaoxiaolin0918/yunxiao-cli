@@ -394,6 +394,8 @@ func WithWipTitle(title, target string, wip bool) string {
 
 // ResolveRepositoryID ports domain.ts resolveRepositoryId with profile.repositories.
 // Accepts: numeric id, profile alias, or path-style id (org/repo or URL-encoded).
+// Bare names that are not registered aliases return an error carrying a copyable
+// `yunxiao profile repo-add` line (#125); the cmd layer may auto-discover them first.
 func ResolveRepositoryID(repo string, repositories map[string]int64) (string, error) {
 	repo = strings.TrimSpace(repo)
 	if repo == "" {
@@ -411,7 +413,93 @@ func ResolveRepositoryID(repo string, repositories map[string]int64) (string, er
 			return fmt.Sprintf("%d", id), nil
 		}
 	}
-	return "", fmt.Errorf("unknown repository alias %q: register it under profile.repositories (alias→numeric id), or pass numeric repositoryId / org%%2Frepo path", repo)
+	return "", fmt.Errorf("unknown repository alias %q: pass the numeric repositoryId or org/repo path, or register it under profile.repositories: %s", repo, ProfileRepoAddHint(repo))
+}
+
+// ProfileRepoAddHint returns the copyable register command for a repository alias (#125).
+func ProfileRepoAddHint(alias string) string {
+	return fmt.Sprintf("yunxiao profile repo-add %s <repo-id-or-org/repo-path>", strings.TrimSpace(alias))
+}
+
+// IsBareRepoName reports whether s is a bare repository-name candidate for org-wide
+// auto-discovery (#125): non-empty, not a pure numeric id, and containing neither
+// "/" nor an URL-encoded separator ("%2f", case-insensitive).
+func IsBareRepoName(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || IsNumericRepositoryID(s) {
+		return false
+	}
+	return !strings.Contains(s, "/") && !strings.Contains(strings.ToLower(s), "%2f")
+}
+
+// RepoCandidate is one repository match for bare-name discovery (#125).
+type RepoCandidate struct {
+	ID   string
+	Name string
+	Path string // pathWithNamespace when available, else path
+}
+
+// NormalizeRepositoryID renders a repository id JSON value as a decimal string
+// (JSON numbers decode as float64 → %.0f); empty for nil / unparsable values.
+func NormalizeRepositoryID(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case float64:
+		return fmt.Sprintf("%.0f", t)
+	case string:
+		s := strings.TrimSpace(t)
+		if s == "" || s == "<nil>" {
+			return ""
+		}
+		return s
+	case int64:
+		return fmt.Sprintf("%d", t)
+	case int:
+		return fmt.Sprintf("%d", t)
+	default:
+		s := strings.TrimSpace(fmt.Sprint(t))
+		if s == "" || s == "<nil>" {
+			return ""
+		}
+		return s
+	}
+}
+
+// MatchRepoCandidates filters Codeup repos list items whose name — or the last
+// path segment of pathWithNamespace / path — equals name exactly (#125).
+// Order follows the input items.
+func MatchRepoCandidates(name string, items []any) []RepoCandidate {
+	name = strings.TrimSpace(name)
+	var out []RepoCandidate
+	if name == "" {
+		return out
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := NormalizeRepositoryID(m["id"])
+		if id == "" {
+			continue
+		}
+		itemName, _ := m["name"].(string)
+		path, _ := m["pathWithNamespace"].(string)
+		if path == "" {
+			path, _ = m["path"].(string)
+		}
+		matched := itemName == name
+		if !matched && path != "" {
+			segments := strings.Split(strings.Trim(path, "/"), "/")
+			matched = segments[len(segments)-1] == name
+		}
+		if !matched {
+			continue
+		}
+		out = append(out, RepoCandidate{ID: id, Name: itemName, Path: path})
+	}
+	return out
 }
 
 // WorkItemURL builds a Projex web URL when spaceID and id/serial are known.
@@ -476,15 +564,10 @@ func AddRepositoryIDsFromListItems(dst map[string]struct{}, items []any) {
 		if !ok {
 			continue
 		}
-		id := strings.TrimSpace(fmt.Sprint(m["id"]))
-		if id == "" || id == "<nil>" {
-			continue
+		// NormalizeRepositoryID handles float64 JSON ids ("11") and nil alike.
+		if id := NormalizeRepositoryID(m["id"]); id != "" {
+			dst[id] = struct{}{}
 		}
-		// fmt.Sprint(float64) may yield "11"; int/string are fine.
-		if f, ok := m["id"].(float64); ok {
-			id = fmt.Sprintf("%.0f", f)
-		}
-		dst[id] = struct{}{}
 	}
 }
 
