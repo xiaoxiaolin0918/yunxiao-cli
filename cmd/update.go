@@ -39,6 +39,8 @@ var updateCmd = &cobra.Command{
   YUNXIAO_CLI_GITHUB_REPO=owner/repo
   YUNXIAO_CLI_DOWNLOAD_BASE=https://example.com/path
 
+更新时除替换二进制外，还会把归档内的 skills/ 与 profiles/ 解压到可执行文件同目录（覆盖旧目录；skills install 源目录随之刷新）。
+
 GitHub Releases 是唯一安装渠道（npm 薄包装已停用，#115）；从旧 npm 渠道迁移：卸载后从
 https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest 下载归档覆盖安装。`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -141,8 +143,23 @@ func runUpdate(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	sidecars, sideErr := update.ExtractSidecars(archivePath, extractDir)
+	if sideErr != nil {
+		return fmt.Errorf("extract skills/profiles: %w", sideErr)
+	}
 	if err := update.ReplaceExecutable(exe, binPath); err != nil {
 		return err
+	}
+	installed, installErr := update.InstallSidecars(filepath.Dir(exe), extractDir, sidecars)
+	if installErr != nil {
+		meta["sidecars_warning"] = installErr.Error()
+	} else if len(installed) > 0 {
+		meta["sidecars_installed"] = installed
+		for _, name := range installed {
+			meta[name+"_dir"] = filepath.Join(filepath.Dir(exe), name)
+		}
+	} else {
+		meta["sidecars_note"] = "archive had no skills/ or profiles/; binary-only update"
 	}
 	if err := update.VerifyBinaryVersion(exe, latest); err != nil {
 		meta["verify_warning"] = err.Error()

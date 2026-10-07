@@ -2,6 +2,7 @@ package update
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"os"
 	"path/filepath"
@@ -235,4 +236,158 @@ func TestGithubRepoDefault(t *testing.T) {
 	if GithubRepo() != "acme/yunxiao-cli" {
 		t.Fatalf("got %s", GithubRepo())
 	}
+}
+
+func TestExtractAndInstallSidecarsTarGz(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "a.tar.gz")
+	files := map[string]string{
+		"yunxiao":                        "bin\n",
+		"skills/yunxiao-shared/SKILL.md": "# shared\n",
+		"profiles/zhiyi.example.json":    "{\"ok\":true}\n",
+		"README.md":                      "docs\n",
+	}
+	if err := writeTarGzFiles(archive, files); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	found, err := ExtractSidecars(archive, outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 2 || found[0] != "skills" || found[1] != "profiles" {
+		t.Fatalf("found=%v", found)
+	}
+	skillMD := filepath.Join(outDir, "skills", "yunxiao-shared", "SKILL.md")
+	b, err := os.ReadFile(skillMD)
+	if err != nil || string(b) != "# shared\n" {
+		t.Fatalf("skill content: %v %q", err, b)
+	}
+	if _, err := ExtractBinary(archive, filepath.Join(dir, "binout"), "linux"); err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(dir, "install")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(target, "skills", "old", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, []byte("stale\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := InstallSidecars(target, outDir, found)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 2 {
+		t.Fatalf("installed=%v", installed)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("stale skill should be gone: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, "skills", "yunxiao-shared", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(target, "profiles", "zhiyi.example.json")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExtractSidecarsZip(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "a.zip")
+	if err := writeZipFiles(archive, map[string]string{
+		"yunxiao.exe":                    "MZ",
+		"skills/yunxiao-codeup/SKILL.md": "# codeup\n",
+		"profiles/play.example.json":     "{}\n",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	found, err := ExtractSidecars(archive, outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 2 {
+		t.Fatalf("found=%v", found)
+	}
+	b, err := os.ReadFile(filepath.Join(outDir, "skills", "yunxiao-codeup", "SKILL.md"))
+	if err != nil || string(b) != "# codeup\n" {
+		t.Fatalf("got %v %q", err, b)
+	}
+}
+
+func TestExtractSidecarsRejectsZipSlip(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "evil.tar.gz")
+	if err := writeTarGzFiles(archive, map[string]string{
+		"skills/../../escape.txt": "nope\n",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ExtractSidecars(archive, filepath.Join(dir, "out"))
+	if err == nil {
+		t.Fatal("expected zip-slip error")
+	}
+}
+
+func TestExtractSidecarsMissingOK(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "binonly.tar.gz")
+	if err := writeTarGzFiles(archive, map[string]string{"yunxiao": "x\n"}); err != nil {
+		t.Fatal(err)
+	}
+	found, err := ExtractSidecars(archive, filepath.Join(dir, "out"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 0 {
+		t.Fatalf("found=%v", found)
+	}
+}
+
+func writeTarGzFiles(archivePath string, files map[string]string) error {
+	f, err := os.Create(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gw := gzip.NewWriter(f)
+	defer gw.Close()
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+	for name, content := range files {
+		b := []byte(content)
+		hdr := &tar.Header{Name: name, Mode: 0o644, Size: int64(len(b))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if _, err := tw.Write(b); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeZipFiles(archivePath string, files map[string]string) error {
+	f, err := os.Create(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	defer zw.Close()
+	for name, content := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
