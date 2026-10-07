@@ -329,6 +329,61 @@ func BuildCreateBugArgs(input CreateBugInput, pf *profile.Profile) (map[string]a
 	}, nil
 }
 
+// CreateCategoryItemInput is the user-facing +risk-create / +req-create payload
+// before field-id mapping (#128). Sprint is deliberately optional: Risk/Req (and
+// some custom) types often reject sprint (未启用此字段【迭代】), so it is sent only
+// when explicitly provided.
+type CreateCategoryItemInput struct {
+	Category     string // "Risk" | "Req" (meta only; body uses TypeID)
+	TypeID       string
+	Title        string
+	Description  string
+	Priority     string // alias / 显示值 / option id; empty = omit (workitem_defaults may fill)
+	Sprint       string // optional; empty = not sent
+	AssignedTo   string
+	Participants []string // optional user ids
+}
+
+// BuildCreateCategoryItemArgs builds the POST /workitems body for +risk-create /
+// +req-create using profile space + resolved type id. Priority resolves via
+// pf.ResolveTypedCreatePriority (显示值 → shared bug alias map → medium fallback →
+// option id). Callers apply profile.ApplyWorkitemDefaults afterwards for
+// trackers/participants/其他 defaults unless --no-defaults.
+func BuildCreateCategoryItemArgs(input CreateCategoryItemInput, pf *profile.Profile) (map[string]any, error) {
+	if pf == nil {
+		return nil, fmt.Errorf("profile required to build create body")
+	}
+	if pf.SpaceID == "" {
+		return nil, fmt.Errorf("profile missing space_id")
+	}
+	input.TypeID = strings.TrimSpace(input.TypeID)
+	if input.TypeID == "" {
+		return nil, fmt.Errorf("workitem type id required (profile risk_type_id/req_type_id or --type-id)")
+	}
+	priority, err := pf.ResolveTypedCreatePriority(input.TypeID, input.Priority)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]any{
+		"spaceId":        pf.SpaceID,
+		"workitemTypeId": input.TypeID,
+		"subject":        input.Title,
+		"description":    input.Description,
+		"formatType":     "MARKDOWN",
+		"assignedTo":     input.AssignedTo,
+	}
+	if strings.TrimSpace(input.Sprint) != "" {
+		body["sprint"] = strings.TrimSpace(input.Sprint)
+	}
+	if len(input.Participants) > 0 {
+		body["participants"] = input.Participants
+	}
+	if priority != "" {
+		body["customFieldValues"] = map[string]any{"priority": priority}
+	}
+	return body, nil
+}
+
 // WithWipTitle ports domain.ts withWipTitle.
 func WithWipTitle(title, target string, wip bool) string {
 	if target == "master" && wip && !strings.HasPrefix(title, "WIP: ") {
