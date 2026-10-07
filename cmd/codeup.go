@@ -737,7 +737,21 @@ var codeupCommitsListCmd = &cobra.Command{
 var codeupMrsMergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Merge a merge request (high-risk-write)",
-	Long:  "Risk: high-risk-write\nHTTP: POST .../changeRequests/{localId}/merge",
+	Long: `Risk: high-risk-write
+HTTP: POST .../changeRequests/{localId}/merge
+
+Merge precheck (#130): before the POST (and also under --dry-run, read-only) the
+CLI GETs the MR detail once and verifies merge-method / status consistency:
+terminal status (MERGED / CLOSED), conflictCheckStatus HAS_CONFLICT / CHECKING,
+mergeable=false, and --merge-type against the repo's enabled merge methods when
+the payload exposes them (mergeTypes / supportedMergeTypes / mergeSetting, or
+supportMergeFastForwardOnly=false for ff-only). A failed check exits 1 with a
+structured error (mr_already_merged / mr_closed / mr_conflict /
+mr_conflict_checking / mr_not_mergeable / merge_type_not_supported) and an
+actionable hint instead of an undefined server 405; nothing is POSTed. Passing
+checks attach meta.precheck (dry-run: request.precheck). If the detail GET
+fails, the merge is refused (fail closed). Without --yes the confirmation gate
+still trips first (exit 10 confirmation_required) and no request is sent.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -772,7 +786,31 @@ var codeupMrsMergeCmd = &cobra.Command{
 		if removeSource {
 			body["removeSourceBranch"] = true
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs merge", risk.HighRiskWrite, "POST", path, nil, body, nil))
+		rp := c.Preview("POST", path, nil, body)
+		if globalDryRun {
+			// Read-only precheck GET even in dry-run (#130): the preview shows
+			// whether the merge would pass before the user confirms anything.
+			pre, perr := precheckMrsMerge(cmd.Context(), c, repoID, localID, mergeType)
+			if perr != nil {
+				handleErr(perr)
+				return
+			}
+			handleErr(output.DryRunResult(string(risk.HighRiskWrite), requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}))
+			return
+		}
+		// Gate first (exit 10 without --yes, unchanged), then precheck inside
+		// the exec step: the POST only runs after the precheck passes.
+		handleErr(runMutating("codeup mrs merge", risk.HighRiskWrite, globalDryRun, globalYes, rp, func() error {
+			pre, perr := precheckMrsMerge(cmd.Context(), c, repoID, localID, mergeType)
+			if perr != nil {
+				return perr
+			}
+			var out any
+			if _, err := c.Do(cmd.Context(), "POST", path, nil, body, &out); err != nil {
+				return err
+			}
+			return output.Success(out, map[string]any{"risk": risk.HighRiskWrite, "precheck": pre})
+		}))
 	},
 }
 
