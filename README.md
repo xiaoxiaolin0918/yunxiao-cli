@@ -439,7 +439,7 @@ yunxiao schema
 
 Tenant-specific Projex constants live in a **profile JSON**, not hardcoded CLI defaults.
 Profiles are **project-scoped** (`space_id`); discovered workitem graphs live under `workflows` keyed by **`type_id`**.
-`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create`, `+bug-create` and the `+risk-create` / `+req-create` shortcuts (#128) apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields. `allowed_environments` / `allowed_modules` are **snapshots** of the live field options (they gate `+bug-create --environment` / `--module`); `profile doctor` diffs them against the live options and reports drift as `enum_stale_in_profile` / `enum_missing_in_profile` findings (#121) — keep them in sync or empty the list to disable the gate.
+`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create`, `+bug-create` and the `+risk-create` / `+req-create` shortcuts (#128) apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields. `allowed_environments` / `allowed_modules` are **snapshots** of the live field options (they gate `+bug-create --environment` / `--module`); `profile doctor` diffs them against the live options and reports drift as `enum_stale_in_profile` / `enum_missing_in_profile` findings (#121) — keep them in sync or empty the list to disable the gate. Findings carry live status displayName/nameEn and field names; `--fix-suggest` (default on) adds alias backfill suggestions for live statuses missing from the profile, and `--write` applies those suggestions to the profile file (edges untouched; #120).
 
 | Profile | Purpose |
 |---------|---------|
@@ -458,7 +458,10 @@ yunxiao profile show
 # and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
 # --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-yunxiao profile doctor                 # diff profile vs live fields/workflow + allowed_* enums (read)
+yunxiao profile doctor                 # diff profile vs live fields/workflow + allowed_* enums (read);
+                                       # findings carry live displayName/nameEn/fieldName + --fix-suggest (#120)
+yunxiao profile doctor --write --dry-run  # preview backfilling suggested status ids into the profile
+yunxiao profile doctor --write         # backfill bug_statuses[alias] + workflows[type].statuses (edges untouched)
 yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
 yunxiao sprint +current --dry-run
 # Zhiyi full create:
@@ -487,7 +490,7 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor`.
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
 
 **Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 
