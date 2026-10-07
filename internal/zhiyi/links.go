@@ -178,13 +178,17 @@ func UnwrapMergeRequestPayload(out map[string]any) map[string]any {
 }
 
 // MRStatus returns the merge-request lifecycle status.
-// Codeup GetChangeRequest uses "status" (UNDER_REVIEW/MERGED/...); list UIs sometimes label it "state".
+// Codeup GetChangeRequest uses "status" (UNDER_DEV/UNDER_REVIEW/TO_BE_MERGED/MERGED/...);
+// ListMergeRequests items use "newVersionState" (#132) and legacy lowercase "state".
 func MRStatus(mr map[string]any) string {
 	if mr == nil {
 		return ""
 	}
 	// Prefer top-level status (OpenAPI GetChangeRequest). Do not read author.state.
 	if s := stringField(mr, "status"); s != "" {
+		return s
+	}
+	if s := stringField(mr, "newVersionState", "new_version_state"); s != "" {
 		return s
 	}
 	if s := stringField(mr, "mergeStatus", "merge_status"); s != "" {
@@ -200,8 +204,10 @@ func MRStatus(mr map[string]any) string {
 	return ""
 }
 
-// StabilizeMergeRequest copies mr and ensures script-stable keys: localId, title, status, state, detailUrl, url.
+// StabilizeMergeRequest copies mr and ensures script-stable keys: localId, title, status, state, wip, detailUrl, url.
 // "state" is an alias of "status" for consumers that expect GitLab-like naming (issue #46).
+// "wip" (0.16.x, #132) is true when the push-review status is UNDER_DEV (开发中) or
+// workInProgress is true; omitted when the object carries no WIP signal.
 func StabilizeMergeRequest(mr map[string]any) map[string]any {
 	if mr == nil {
 		return map[string]any{}
@@ -221,6 +227,9 @@ func StabilizeMergeRequest(mr map[string]any) map[string]any {
 		out["status"] = st
 		out["state"] = st
 	}
+	if wip, ok := MergeRequestWIP(mr); ok {
+		out["wip"] = wip
+	}
 	if u := MergeRequestURL(mr); u != "" {
 		out["detailUrl"] = u
 		out["url"] = u
@@ -228,10 +237,10 @@ func StabilizeMergeRequest(mr map[string]any) map[string]any {
 	return out
 }
 
-// BriefMergeRequest returns a small script-friendly view (issue #46/#50).
+// BriefMergeRequest returns a small script-friendly view (issue #46/#50, wip since #132).
 func BriefMergeRequest(mr map[string]any) map[string]any {
 	s := StabilizeMergeRequest(mr)
-	return map[string]any{
+	brief := map[string]any{
 		"localId":   s["localId"],
 		"title":     s["title"],
 		"status":    s["status"],
@@ -239,6 +248,10 @@ func BriefMergeRequest(mr map[string]any) map[string]any {
 		"detailUrl": s["detailUrl"],
 		"url":       s["url"],
 	}
+	if wip, ok := s["wip"]; ok {
+		brief["wip"] = wip
+	}
+	return brief
 }
 
 // EnrichMergeRequestMeta sets meta.url from MergeRequestURL when available.

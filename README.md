@@ -313,13 +313,15 @@ yunxiao codeup files tree --repo <repoId> --ref master
 yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
-yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
+yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # on 405: error.details.mr carries MR status/wip + WIP hint (#124)
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
 yunxiao codeup mrs list --state opened --source feat/x --repo <id> --all   # client-side branch filter, meta.filtered_by=client (#96)
 yunxiao codeup mrs update --repo <id> --local-id 1 --unwip   # strip WIP: title prefix; --wip adds it; idempotent (#97)
+yunxiao codeup mrs list --state opened --status UNDER_DEV   # client-side push-review status filter; items carry injected status/wip (#132)
+yunxiao codeup mrs +push-review-status --repo <id>          # open MRs: status/wip/ahead/behind/mergeable/review (#132)
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # per-item latest + meta.latest_patchset_biz_id (#94)
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL: latest patchset by default (#93)

@@ -71,3 +71,40 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 - `meta.latest_patchset_biz_id`（无候选时省略）与 `meta.latest_version_no`（缺失时省略）。
 
 「最新」与上文 comments create 缺省规则完全相同（共用 `internal/mrpatchset.Latest`）。无候选（空列表 / 仅 MERGE_TARGET / 有 MERGE_TARGET（或其他带类型条目）但无 MERGE_SOURCE——即使同时存在未带类型的条目）时全部 `latest:false`，命令仍 `ok:true`。不要再按 `createTime` 自行排序——`MERGE_TARGET` 的时间可能最新。
+
+## 推送评审 WIP 状态：merge 405 与状态感知（#124 / #132）
+
+推送评审（push review）模式下 `git push` 自动创建/累积更新的 MR，初始状态为「开发中」
+（服务端状态，非标题前缀）。状态枚举（`ListMergeRequests` 的 `newVersionState`、
+`GetChangeRequest` 的 `status`）：
+
+| 状态 | 含义 | 可合并 |
+|------|------|--------|
+| `UNDER_DEV` | 开发中（WIP） | 否（405 `SYSTEM_FORBIDDEN_ERROR`「该状态下的评审不允许合并」，即使评审已 PASS） |
+| `UNDER_REVIEW` | 评审中 | 否 |
+| `TO_BE_MERGED` | 待合并 | 满足合并前置条件后可 |
+| `CLOSED` / `MERGED` | 已关闭 / 已合并 | — |
+
+**没有任何已确认的 OpenAPI 可以切换该服务端状态**：`UpdateChangeRequest` 仅接受
+title/description（官方文档实证），官方 MCP server 也没有 WIP 工具。「取消 WIP」只存在于
+网页（MR 页右上「…」→ **取消 WIP**，状态立即转「待合并」）。CLI 因此**不发明端点**，
+而是：
+
+- `mrs merge` 失败（API 错误）时，CLI 追加一次只读 `GET .../changeRequests/{localId}`，
+  把当前状态挂进 `error.details.mr`（localId/title/status/state/wip/ahead/behind/
+  mergeable/todo），并按状态给出可行动 hint：`UNDER_DEV` → 指向网页「取消 WIP」并给出
+  重试命令；`allRequirementsPass=false` → 列出未通过的检查项
+  （MERGE_CONFLICT_CHECK / COMMENTS_CHECK / CI_CHECK / REVIEWER_APPROVED_CHECK）；
+  标题带 `WIP: ` 前缀 → 提示改名（标题前缀 WIP 是独立信号，PR #135 的 `--wip/--unwip`
+  即针对它；改名**不能**解除 UNDER_DEV）。刷新失败时静默退化为原始 merge 错误。
+- 状态感知（#132）：`mrs list` / `+open-mrs` 每条 MR 注入 CLI 计算的 `status`
+  （newVersionState 优先，旧版 `state` 兜底）与 `wip`（UNDER_DEV 或 workInProgress；
+  无信号时省略；注入会覆盖 API 同名字段，旧版小写 `state` 不动 —— 同 #94 `latest` 惯例）。
+  `mrs get`（含 `--brief`）同样输出 `wip`。
+- `mrs list --status UNDER_DEV`：**客户端过滤**（服务端可能忽略 status 参数，见上），
+  回显 `meta.status_filter`；非 `--all` 时只过滤当前页。
+- 新 shortcut `codeup mrs +push-review-status --repo <r>`：列出该仓 open MR（一次 list
+  GET）并逐条 GET 详情，输出 status/wip/ahead/behind/mergeable/todo/reviewers（含
+  review_opinion_status）+ `meta.count` / `meta.wip_count`；`--local-id` 单查一条（仅一次
+  详情 GET）；`--all` 跟页（ListAll 上限 50）。典型闭环：
+  push → `+push-review-status` 发现 `wip:true` → 网页取消 WIP → `mrs merge`。
