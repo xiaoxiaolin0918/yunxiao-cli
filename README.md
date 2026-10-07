@@ -501,7 +501,7 @@ make ci                 # go build -ldflags … ./... && go test ./... && go vet
 
 CI/CD is **GitHub Actions only** (this repo is maintained on GitHub, not mirrored to Codeup Flow):
 
-- `.github/workflows/ci.yml` — CI on pushes to `main` and pull requests
+- `.github/workflows/ci.yml` — CI on pushes to `main` and on pull requests with any base branch (incl. stacked PRs), on an `ubuntu-latest` + `windows-latest` matrix (#108/#109)
 - `.github/workflows/release.yml` — build platform archives and publish a GitHub Release when a `v*` tag is pushed
 
 See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.

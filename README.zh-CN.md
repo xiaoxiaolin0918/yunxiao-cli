@@ -463,7 +463,7 @@ make ci                 # go build -ldflags … ./... && go test ./... && go vet
 
 CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像到 Codeup Flow）：
 
-- `.github/workflows/ci.yml` — 推送到 `main` 或 Pull Request 时跑 CI
+- `.github/workflows/ci.yml` — 推送到 `main` 或 Pull Request（任意 base 分支，含叠放 PR）时跑 CI，`ubuntu-latest` + `windows-latest` 矩阵（#108/#109）
 - `.github/workflows/release.yml` — 推送 `v*` 标签时构建各平台归档并发布 GitHub Release
 
 ## 已知缺口

@@ -279,8 +279,20 @@ func resolveContentFilePath(p, flagName string) (string, error) {
 	return cleaned, nil
 }
 
+// looksAbsolutePath reports whether p should be treated as an absolute path:
+// platform-absolute (filepath.IsAbs), volume-less rooted ("/x" — absolute on
+// POSIX, drive-rooted on Windows where it resolves against the current drive's
+// root rather than cwd), a Windows drive path (C:/ or C:\), or UNC (\\x, //x).
+// The Windows-style forms are recognized on every platform so path validation
+// behaves the same regardless of where the CLI runs.
 func looksAbsolutePath(p string) bool {
 	if filepath.IsAbs(p) {
+		return true
+	}
+	// Rooted without a volume: "/x" is absolute on POSIX and drive-rooted on
+	// Windows, so treat it as absolute on both. A leading "\" is only a path
+	// separator on Windows (on POSIX it is a legal filename character).
+	if strings.HasPrefix(p, "/") || (os.PathSeparator == '\\' && strings.HasPrefix(p, `\`)) {
 		return true
 	}
 	// Windows-style drive path (C:/ or C:\) or UNC
@@ -486,12 +498,14 @@ func parseJSONMap(s string) (map[string]any, error) {
 	return m, nil
 }
 
-// assertRelativePath rejects absolute paths and parent traversal (same rule as --content-file).
+// assertRelativePath rejects absolute paths and parent traversal (same rule as
+// --content-file, incl. Windows drive/UNC/rooted paths — a leading "/" or "\"
+// escapes cwd on Windows via the current drive's root).
 func assertRelativePath(p string) error {
 	if p == "" {
 		return fmt.Errorf("empty path")
 	}
-	if filepath.IsAbs(p) || strings.HasPrefix(filepath.Clean(p), "..") {
+	if looksAbsolutePath(p) || strings.HasPrefix(filepath.Clean(p), "..") {
 		return fmt.Errorf("unsafe file path: must be a relative path under cwd (got %q)", p)
 	}
 	return nil
