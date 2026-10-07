@@ -128,13 +128,18 @@ func handleErr(err error) {
 	if ee, ok := err.(output.ExitError); ok {
 		processExit(ee.Code)
 	}
+	if de, ok := err.(*client.DecodeError); ok {
+		_ = output.Fail(renderDecodeError(de), 1)
+		processExit(1)
+		return
+	}
 	if ce, ok := err.(*contextError); ok {
 		body := output.ErrorBody{Type: "cli", Message: ce.Error(), Hint: ce.Hint}
-		var ae *client.APIError
-		if errors.As(ce.Err, &ae) {
-			// Same body as an unwrapped APIError (type/code/hint/subtype/details),
-			// with the context-prefixed message and the context hint appended.
-			body = apiErrorBody(ae)
+		var de *client.DecodeError
+		if errors.As(ce.Err, &de) {
+			// Same body as an unwrapped DecodeError, with the context-prefixed
+			// message and the context hint appended.
+			body = renderDecodeError(de)
 			body.Message = ce.Error()
 			switch {
 			case ce.Hint == "":
@@ -142,6 +147,21 @@ func handleErr(err error) {
 				body.Hint = ce.Hint
 			default:
 				body.Hint += "; " + ce.Hint
+			}
+		} else {
+			var ae *client.APIError
+			if errors.As(ce.Err, &ae) {
+				// Same body as an unwrapped APIError (type/code/hint/subtype/details),
+				// with the context-prefixed message and the context hint appended.
+				body = apiErrorBody(ae)
+				body.Message = ce.Error()
+				switch {
+				case ce.Hint == "":
+				case body.Hint == "":
+					body.Hint = ce.Hint
+				default:
+					body.Hint += "; " + ce.Hint
+				}
 			}
 		}
 		_ = output.Fail(body, 1)
@@ -344,9 +364,40 @@ func loadJSONBodyFromFlags(data, dataFile string) (any, error) {
 	return body, nil
 }
 
+// renderDecodeError renders a *client.DecodeError (2xx non-JSON response, #117):
+// type "api", subtype "non_json_response", status code, machine-readable
+// details (method/url/content_type/body_preview) and an MSYS/HTML hint.
+func renderDecodeError(de *client.DecodeError) output.ErrorBody {
+	return output.ErrorBody{
+		Type:    "api",
+		Subtype: "non_json_response",
+		Message: de.Error(),
+		Code:    de.Status,
+		Hint:    decodeErrorHint(de),
+		Details: map[string]any{
+			"method":       de.Method,
+			"url":          de.URL,
+			"content_type": de.ContentType,
+			"body_preview": de.Body,
+		},
+	}
+}
+
+// decodeErrorHint points at the two usual causes of a 2xx HTML body: an
+// MSYS-mangled path visible in the final URL, or a wrong path/base URL.
+func decodeErrorHint(de *client.DecodeError) string {
+	if hasWindowsDriveInURLPath(de.URL) {
+		return msysHint
+	}
+	return htmlResponseHint
+}
+
 func apiErrorHint(ae *client.APIError) string {
 	if ae == nil {
 		return ""
+	}
+	if hasWindowsDriveInURLPath(ae.URL) {
+		return msysHint
 	}
 	body := ae.Body
 	msg := ae.Error()
