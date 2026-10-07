@@ -324,10 +324,10 @@ yunxiao codeup files tree --repo <repoId> --ref master
 yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
-yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # 405 时 error.details.mr 带 MR 状态/wip + 取消 WIP hint（#124）
+yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # API 拒绝时：subtype merge_rejected + current_status/state_gap/suggested_actions + error.details.mr（#124/#127）
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
-#        ^ merge 前先预检（#130）：状态/冲突/mergeable + --merge-type 对照仓库合并方式；
-#          不支持时 exit 1 merge_type_not_supported（不发 POST）
+#        ^ merge 前会预检（#130）：状态/冲突/mergeable + --merge-type 对照仓库合并方式；
+#          不支持时 exit 1 merge_type_not_supported（不会 POST）
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 

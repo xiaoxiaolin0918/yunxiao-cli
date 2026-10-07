@@ -315,7 +315,7 @@ yunxiao codeup files tree --repo <repoId> --ref master
 yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
-yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # on 405: error.details.mr carries MR status/wip + WIP hint (#124)
+yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # on API rejection: subtype merge_rejected + current_status/state_gap/suggested_actions + error.details.mr (#124/#127)
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
 #        ^ merge prechecks the MR first (#130): status/conflict/mergeable + --merge-type vs the
 #          repo's merge settings; unsupported type -> exit 1 merge_type_not_supported (no POST)
