@@ -742,7 +742,13 @@ var codeupCommitsListCmd = &cobra.Command{
 var codeupMrsMergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Merge a merge request (high-risk-write)",
-	Long:  "Risk: high-risk-write\nHTTP: POST .../changeRequests/{localId}/merge",
+	Long: `Risk: high-risk-write
+HTTP: POST .../changeRequests/{localId}/merge
+
+On API rejection (#127) the error envelope is enriched: subtype "merge_rejected" with
+error.details (current MR status via a best-effort GET of the MR, state_gap,
+suggested_actions) and a hint naming the next step (e.g. clear WIP in the Codeup web UI
+「…」menu →「取消 WIP」before retrying).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -777,7 +783,12 @@ var codeupMrsMergeCmd = &cobra.Command{
 		if removeSource {
 			body["removeSourceBranch"] = true
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs merge", risk.HighRiskWrite, "POST", path, nil, body, nil))
+		err = runJSONMutating(cmd.Context(), c, "codeup mrs merge", risk.HighRiskWrite, "POST", path, nil, body, nil)
+		if err != nil {
+			// #127: rejection errors attach current MR status/gap/next actions.
+			err = enrichMrsMergeError(cmd.Context(), c, repo, repoID, localID, mergeType, err)
+		}
+		handleErr(err)
 	},
 }
 

@@ -311,7 +311,7 @@ yunxiao codeup files tree --repo <repoId> --ref master
 yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
-yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
+yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # rejections attach current MR status + next actions (#127)
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 

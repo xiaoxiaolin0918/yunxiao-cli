@@ -71,3 +71,23 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 - `meta.latest_patchset_biz_id`（无候选时省略）与 `meta.latest_version_no`（缺失时省略）。
 
 「最新」与上文 comments create 缺省规则完全相同（共用 `internal/mrpatchset.Latest`）。无候选（空列表 / 仅 MERGE_TARGET / 有 MERGE_TARGET（或其他带类型条目）但无 MERGE_SOURCE——即使同时存在未带类型的条目）时全部 `latest:false`，命令仍 `ok:true`。不要再按 `createTime` 自行排序——`MERGE_TARGET` 的时间可能最新。
+
+## mrs merge 拒绝错误可行动化（0.16.36+ / #127）
+
+服务端拒绝合并（405「该状态下的评审不允许合并，请刷新页面后重试」等）时，平台文案不含任何可行动信息。CLI 在合并失败后 best-effort 再 GET 一次 MR 详情（与 `mrs get` 同一端点；诊断失败则原样透传平台错误，不编造状态），并给错误信封附加：
+
+- `error.subtype="merge_rejected"`（HTTP 层仍 `type:"api"` + 状态码，message 前缀 `merge MR <n>:`）；
+- `error.details.current_status`（当前状态，识别不出时省略）、`state_gap`（状态机差距一句话）、`suggested_actions`（下一步动作数组）、`mr`（localId/title/status/url）、`diagnose.source`（`GET <MR 详情路径>`）；
+- `error.hint` 汇总差距与下一步。
+
+状态 → 建议动作：
+
+| 当前状态 | state_gap 要点 | suggested_actions |
+|----------|----------------|-------------------|
+| `UNDER_DEV`（开发中/WIP） | 需先解除 WIP 才能合并 | 网页 MR 页「…」菜单 →「取消 WIP」（暂无 OpenAPI，见 #124）；随后重试 merge 命令（附可复制命令，含 `--yes`） |
+| `MERGED` | 已合并，无事可做 | `mrs get` 确认 |
+| `CLOSED` | 需先重开 | `mrs reopen --dry-run`（确认后 `--yes`）；重试 merge |
+| `UNDER_REVIEW` | 需评审通过 | `mrs review --opinion PASS --dry-run`（确认后 `--yes`）；重试 merge |
+| 其他/未知 | 按原始状态提示 | `mrs get`；重试 merge |
+
+注意：high-risk 门（缺 `--yes` → exit 10 `confirmation_required`）先于一切诊断，不产生任何 API 调用；合并成功也不发诊断 GET。重试命令里的 `--yes` 只是提示文本，仍需用户/agent 自行确认。
