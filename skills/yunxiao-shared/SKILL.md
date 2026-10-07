@@ -131,7 +131,7 @@ yunxiao +onboard --space-id <id> --dry-run
 
 ```bash
 yunxiao update --check          # 仅检查；有新版本则 exit 2
-yunxiao update                  # TTY：确认后替换本地二进制
+yunxiao update                  # TTY：确认后替换本地二进制，并刷新同目录 skills/、profiles/
 yunxiao update --yes            # 非交互直接更新（脚本/CI）
 ```
 

@@ -185,7 +185,7 @@ yunxiao update --yes       # 非交互直接更新（脚本）
 # 别名：yunxiao self-update
 ```
 
-`yunxiao update` 从 [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases) 下载对应平台归档（`yunxiao-cli-<ver>-<os>-<arch>.tar.gz|.zip`），在有 `checksums.txt` 时校验 SHA-256，并安全替换正在运行的二进制（先写到旁边再 rename；Windows 上若 `--version` 仍显示旧版本，请重启进程）。门禁：`--dry-run` / `--check` 不写入；真正替换需 TTY 确认或 `--yes`。
+`yunxiao update` 从 [GitHub Releases](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases) 下载对应平台归档（`yunxiao-cli-<ver>-<os>-<arch>.tar.gz|.zip`），在有 `checksums.txt` 时校验 SHA-256，安全替换正在运行的二进制（先写到旁边再 rename；Windows 上若 `--version` 仍显示旧版本，请重启进程），并在归档含 `skills/`、`profiles/` 时把它们解压到可执行文件同目录（整目录覆盖，使 `yunxiao skills list|install` 跟随新版本）。门禁：`--dry-run` / `--check` 不写入；真正替换需 TTY 确认或 `--yes`。
 
 可选 doctor 探测（仍需显式打开；不下载）：
 
