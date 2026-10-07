@@ -91,6 +91,25 @@ yunxiao workitem +bug-create --profile zhiyi \
 
 默认：`--environment 测试环境`、`--module MES`、`--priority high`、`--serious-level normal`；`--assigned-to` 默认 profile `default_assigned_to`（空则 `self`）。
 
+## 创建风险 / 需求（`workitem +risk-create` / `+req-create`，#128）
+
+对齐 `+bug-create` 的 profile 字段映射，免手拼 typeId / option id：
+
+- **type id**：`--type-id` > profile `risk_type_id` / `req_type_id` > workitem_defaults / workflows 里**唯一** category=Risk/Req 条目；多条会报候选（设 profile key 或传 `--type-id`）。
+- **优先级** `--priority`（默认 `medium`）：`workitem_defaults[<type>].fields.priority.display` 显示值（如 `高`）→ 共享 `bug_create_fields.priority` 别名 → medium 回退该类型默认值 → option id 直传；未映射的已知别名直接报错（不盲发 API 400）。`--priority ""` 整体省略（交给 defaults / 预检）。
+- **默认不挂 sprint**（Risk 类型常 `未启用此字段【迭代】`）；确需时显式 `--sprint <id>`。
+- `--assignee <显示名>` 经组织 `members:search` 精确解析 userId（歧义报候选）；或 `--assigned-to <userId|self>`（二选一，默认 `default_assigned_to` / `self`）。
+- `workitem_defaults[<type>]` 自动补 participants / trackers 等（`--no-defaults` 跳过）；创建前走 #95 必填预检（`--no-precheck` 跳过）；`formatType` 默认 MARKDOWN；`--title-file` / `--description-file` 同 `+bug-create`。
+
+```bash
+yunxiao workitem +risk-create --profile zhiyi --title "风险" --description "影响" --dry-run
+yunxiao workitem +risk-create --profile zhiyi --title-file ./t.txt --description-file ./d.md \
+  --priority 高 --yes
+yunxiao workitem +req-create --profile zhiyi --assignee "崔健" --title "需求" --description "…" --dry-run
+```
+
+Risk: **write**（真发需 `--yes`）。风险/需求类型同样需项目 UI 先启用；Topic/Risk 无启用 OpenAPI。
+
 通用任意类型流转（无智衣命名必填 flags）见 `workitem +transition`（profile.`workflows`）。
 
 ## 缺陷流转（`+bug-transition（BFS 无路时 direct_fallback / --direct，#123）`）

@@ -33,7 +33,8 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem types list --space-id <id>            # default: all categories merged (#99)
   yunxiao workitem statuses --space-id <id> --type-id <id>  # status table from the type workflow (#118)
 
-Risk: search/get/comments/types/statuses/relations.list/attachments.list=read; +transition/+bug-transition/+bug-create/+risk-create/+req-create/+explore-workflow/create/comment/update/relations/attachments.create=write; delete=high-risk-write`,}
+Risk: search/get/comments/types/statuses/relations.list/attachments.list=read; +transition/+bug-transition/+bug-create/+risk-create/+req-create/+explore-workflow/create/comment/update/relations/attachments.create=write; delete=high-risk-write`,
+}
 
 func resolveSelfID(ctx context.Context, c *client.Client, v string) (string, error) {
 	if v != "self" {
