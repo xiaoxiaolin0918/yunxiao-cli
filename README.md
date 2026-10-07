@@ -122,6 +122,18 @@ For AI agents, the CLI workflow is Agent paste followed by `yunxiao …`; the MC
 
 Download the archive for your OS/arch, extract it, and add the `yunxiao` binary to `PATH`.
 
+**Windows (PowerShell):**
+
+```powershell
+# from a clone, or download install.ps1 from the repo
+irm https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/install.ps1 | iex
+# or pinned:
+# .\install.ps1 -Version 0.16.39
+```
+
+Installs into `%USERPROFILE%\.local\bin` (plus `skills/` / `profiles/` when present) and prepends that dir to the user `PATH`. Later upgrades: `yunxiao update --yes`.
+
+
 ```bash
 yunxiao --version   # should match GitHub latest Release
 ```

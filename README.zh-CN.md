@@ -9,6 +9,17 @@ CLI 二进制名：**`yunxiao`**。
 ## 人类 30 秒快速开始
 
 1. 安装：打开 [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)，下载对应平台归档，把 `yunxiao` 加入 PATH。
+
+**Windows（PowerShell）：**
+
+```powershell
+irm https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/install.ps1 | iex
+# 或指定版本：
+# .\install.ps1 -Version 0.16.39
+```
+
+默认安装到 `%USERPROFILE%\.local\bin`（归档含 `skills/` / `profiles/` 时一并放下），并把该目录前置到用户 `PATH`。之后升级：`yunxiao update --yes`。
+
 2. 登录：`yunxiao auth login --browser`（CI 用 `--token`）。
 3. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`。
 4. 打开控制台页：`yunxiao browse pipeline --pipeline-id <id> --print-only`。
