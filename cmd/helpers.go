@@ -148,6 +148,11 @@ func handleErr(err error) {
 		processExit(1)
 		return
 	}
+	if ade, ok := err.(*apiDetailsError); ok {
+		_ = output.Fail(ade.body(""), 1)
+		processExit(1)
+		return
+	}
 	if ae, ok := err.(*client.APIError); ok {
 		_ = output.Fail(apiErrorBody(ae), 1)
 		processExit(1)

@@ -185,6 +185,10 @@ func handleCreateErr(err error, precheck map[string]any) {
 			Hint:    joinPrecheckHint(apiErrorHint(e), hint),
 			Code:    e.Status,
 		}, 1)
+	case *apiDetailsError:
+		// Enriched API error (#99): same envelope as handleErr's branch, with the
+		// precheck-skip reason appended to the hint.
+		_ = output.Fail(e.body(hint), 1)
 	case risk.GateResult, output.ExitError, *detailedError:
 		handleErr(err)
 		return

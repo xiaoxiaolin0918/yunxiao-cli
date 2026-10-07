@@ -50,7 +50,12 @@ changed; other server validation errors pass through unchanged.
 Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
 stripped) over inline flags. Use only one of each pair (--custom-fields vs
---custom-fields-file, etc.).`,
+--custom-fields-file, etc.).
+
+When the API rejects the type itself (工作项类型未启用), the error carries the
+space's enabled types as error.details.available_types (id/name/category) with
+subtype workitem_type_not_enabled (#99) — pick one of those ids, or enable the
+type in the Projex project settings UI (no OpenAPI for that).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
@@ -189,6 +194,11 @@ stripped) over inline flags. Use only one of each pair (--custom-fields vs
 			}
 			return zhiyi.BriefWorkItem(item), meta
 		})
-		handleCreateErr(err, precheck)
+	// #99: when the POST fails because the type is not enabled in this space,
+	// attach the enabled types (error.details.available_types) to the error.
+	if err != nil {
+		err = enrichTypeNotEnabledError(cmd.Context(), c, spaceID, typeID, err)
+	}
+	handleCreateErr(err, precheck)
 	},
 }

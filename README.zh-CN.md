@@ -331,10 +331,13 @@ yunxiao pipeline job retry --pipeline-id <id> --run-id <r> --job-id <j> --dry-ru
 yunxiao pipeline job pass --pipeline-id <id> --run-id <r> --job-id <j> --dry-run
 yunxiao pipeline job refuse --pipeline-id <id> --run-id <r> --job-id <j> --dry-run
 yunxiao packages artifacts delete --repo-id <id> --repo-type GENERIC --id <aid> --dry-run
-yunxiao workitem types list --space-id <sid> --category Req
+yunxiao workitem types list --space-id <sid>            # 缺省合并全部类别（含缺陷类）（#99）
+yunxiao workitem types list --space-id <sid> --category Bug
+yunxiao workitem statuses --space-id <sid> --type-id <tid>   # 类型状态表 + meta.default_status_id（#118）
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 # create 会先预检必填字段（一次只读 GET，--dry-run 也会发）：缺失字段一次性全部报出
 # （error.details.missing[]：field_id / name / pass_via / options）；--no-precheck 跳过（#95）
+# 未启用的 type-id 报错自动附带 error.details.available_types（id/name/category），无需再查一遍（#99）
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem delete --id <id> --dry-run
