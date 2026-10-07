@@ -282,6 +282,7 @@ yunxiao organization members search --query alice
 
 # project / work items
 yunxiao project list --name demo
+yunxiao project labels list --space-id <id>   # id/name/color (#141)
 yunxiao project +my-open-items
 yunxiao project +created-by-me --status-stage 1,2
 yunxiao workitem search --assigned-to self --category Req --priority <id>

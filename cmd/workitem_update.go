@@ -16,6 +16,8 @@ var workitemUpdateCmd = &cobra.Command{
 	Long: `Risk: write
 HTTP: PUT .../workitems/{id}
 
+--labels replaces the entire label set (not append). Safe pattern: workitem get then merge ids then update --labels a,b,c. Discover ids: yunxiao project labels list (#141).
+
 When changing status to cancelled (已取消 / Canceled / 141230), Yunxiao often requires
 custom field 取消原因. Pass --cancel-reason <text> (looks up the field on the item's type)
 or --custom-fields '{"<fieldId>":"…"}'.
