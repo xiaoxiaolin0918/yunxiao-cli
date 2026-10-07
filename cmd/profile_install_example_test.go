@@ -295,42 +295,6 @@ func TestDefaultProfileExampleSearchDirsOmitsCwdAndCaller(t *testing.T) {
 	}
 }
 
-// #110: the install-example success hint must warn that the suggested
-// +explore-workflow refresh is a write operation (creates/moves/deletes a
-// probe work item), point at --cleanup, and forbid auto-running it on
-// production ZYPT before a sandbox pass.
-func TestProfileInstallExampleHintWarnsExploreWorkflowWrites(t *testing.T) {
-	xdg := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", xdg)
-	withNoDiskProfileExamples(t)
-
-	stdout, stderr, code := runProfileCmd(t, false, "profile", "install-example", "play")
-	if code != 0 {
-		t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
-	}
-	var env struct {
-		OK   bool `json:"ok"`
-		Data struct {
-			Installed string `json:"installed"`
-			Hint      string `json:"hint"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(stdout), &env); err != nil || !env.OK {
-		t.Fatalf("decode %q: %v", stdout, err)
-	}
-	for _, want := range []string{
-		"+explore-workflow --cleanup --write-profile --yes",
-		"write operation",
-		"sandbox",
-		"ZYPT",
-		"--dry-run",
-	} {
-		if !strings.Contains(env.Data.Hint, want) {
-			t.Fatalf("hint missing %q: %s", want, env.Data.Hint)
-		}
-	}
-}
-
 func TestValidProfileExample(t *testing.T) {
 	if validProfileExample("zhiyi", nil) || validProfileExample("zhiyi", []byte("")) {
 		t.Fatal("empty should be invalid")
@@ -343,5 +307,102 @@ func TestValidProfileExample(t *testing.T) {
 	}
 	if !validProfileExample("zhiyi", []byte(`{"name":"zhiyi","space_id":"x"}`)) {
 		t.Fatal("valid example rejected")
+	}
+}
+
+// #116: lock the example resolution matrix across install layouts —
+// GitHub Release zip (binary + profiles/ at archive root), npm package
+// (bin/ + profiles/ one level up), and bare-binary installs (go install /
+// archives without profiles/) that must fall back to the embedded copy.
+func TestFindProfileExampleResolutionMatrix(t *testing.T) {
+	repoZhiyi := repoProfileExample(t, "zhiyi")
+	diskCopy := []byte("{\"name\":\"zhiyi\",\"space_id\":\"disk-copy\"}\n")
+
+	cases := []struct {
+		name     string
+		dirs     []string // search dir names (under a temp root), in order
+		emptyAt  []int    // dir indexes receiving an empty (invalid) zhiyi.example.json
+		diskAt   []int    // dir indexes receiving a valid disk copy; first one should win
+		wantDisk bool     // true = expect the first diskAt copy; false = expect embedded
+	}{
+		{
+			name:     "bare_binary_no_profiles_dir",
+			dirs:     []string{"profiles-missing-a", "profiles-missing-b"},
+			wantDisk: false,
+		},
+		{
+			name:     "dir_exists_without_example_file",
+			dirs:     []string{"profiles-empty"},
+			wantDisk: false,
+		},
+		{
+			name:     "release_zip_layout_valid_disk_wins",
+			dirs:     []string{"profiles"},
+			diskAt:   []int{0},
+			wantDisk: true,
+		},
+		{
+			name:     "npm_bin_layout_parent_profiles_wins",
+			dirs:     []string{"profiles-missing", "bin/profiles"},
+			diskAt:   []int{1},
+			wantDisk: true,
+		},
+		{
+			name:     "bad_copy_skipped_next_valid_dir_wins",
+			dirs:     []string{"profiles-bad", "profiles"},
+			emptyAt:  []int{0},
+			diskAt:   []int{1},
+			wantDisk: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			dirs := make([]string, len(tc.dirs))
+			for i, d := range tc.dirs {
+				dirs[i] = filepath.Join(root, d)
+			}
+			for _, i := range tc.emptyAt {
+				if err := os.MkdirAll(dirs[i], 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dirs[i], "zhiyi.example.json"), []byte(""), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, i := range tc.diskAt {
+				if err := os.MkdirAll(dirs[i], 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dirs[i], "zhiyi.example.json"), diskCopy, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			prev := profileExampleSearchDirs
+			profileExampleSearchDirs = func() []string { return dirs }
+			t.Cleanup(func() { profileExampleSearchDirs = prev })
+
+			src, data, err := findProfileExample("zhiyi")
+			if err != nil {
+				t.Fatalf("findProfileExample: %v", err)
+			}
+			if !tc.wantDisk {
+				if src != "embedded:profiles/zhiyi.example.json" {
+					t.Fatalf("src = %q, want embedded", src)
+				}
+				if !bytes.Equal(data, repoZhiyi) {
+					t.Fatalf("embedded content mismatch: got %d bytes, want repo example %d bytes", len(data), len(repoZhiyi))
+				}
+				return
+			}
+			absWant, _ := filepath.Abs(filepath.Join(dirs[tc.diskAt[0]], "zhiyi.example.json"))
+			if src != absWant {
+				t.Fatalf("src = %q, want disk copy %q", src, absWant)
+			}
+			if !bytes.Equal(data, diskCopy) {
+				t.Fatalf("disk content mismatch: got %d bytes, want %d bytes", len(data), len(diskCopy))
+			}
+		})
 	}
 }

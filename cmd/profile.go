@@ -34,9 +34,9 @@ yunxiao profile use <name> (writes "profile" into config.json as the default
 for every new shell session, #130). Precedence: --profile > YUNXIAO_PROFILE >
 config default; profile use --unset clears the default.
 Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).
-Examples are embedded in the binary and also ship in the GitHub Release archives,
-so install-example works from any install; an on-disk profiles/<name>.example.json
-(next to the binary) takes precedence when it is valid JSON with matching "name".`,
+Examples are embedded in the binary (#92) and also ship in GitHub Release archives
+as on-disk profiles/ next to the binary (#116); install-example works from any install.
+A valid on-disk copy takes precedence; empty/truncated/name-mismatched copies are skipped (#104).`,
 }
 
 var profileUseCmd = &cobra.Command{
@@ -183,7 +183,7 @@ var profilePathCmd = &cobra.Command{
 var profileInstallExampleCmd = &cobra.Command{
 	Use:   "install-example <name>",
 	Short: "Copy profiles/<name>.example.json into ~/.config/yunxiao/profiles/",
-	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play); a valid on-disk profiles/<name>.example.json (next to the binary) wins when present. Empty, truncated, or name-mismatched disk copies are skipped (#104).\nExample: yunxiao profile install-example zhiyi",
+	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play) and in release archives as profiles/ next to the binary (#92, #116); a valid on-disk copy wins, empty/truncated/name-mismatched disk copies are skipped (#104).\nExample: yunxiao profile install-example zhiyi",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -250,9 +250,9 @@ func validProfileExample(name string, data []byte) bool {
 	return doc.Name == name
 }
 
-// findProfileExample resolves <name>.example.json: a *valid* on-disk copy (release archive
-// profiles/, next to the binary) wins; empty/truncated/name-mismatched disk files are
-// skipped; otherwise the copy embedded in the binary is used (#92, #104).
+// findProfileExample resolves <name>.example.json: a *valid* on-disk copy (release
+// archive profiles/, next to the binary) wins; empty/truncated/name-mismatched disk
+// files are skipped; otherwise the copy embedded in the binary is used (#92, #104, #116).
 // Returns a display source (absolute path or "embedded:profiles/<file>") and content.
 func findProfileExample(name string) (string, []byte, error) {
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\:`) || strings.Contains(name, "..") {
