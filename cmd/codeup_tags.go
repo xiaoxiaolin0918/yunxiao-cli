@@ -147,17 +147,17 @@ var codeupTagsDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	codeupTagsListCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupTagsListCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupTagsListCmd.Flags().String("search", "", "search keyword")
 	codeupTagsListCmd.Flags().Int("page", 1, "page")
 	codeupTagsListCmd.Flags().Int("per-page", 20, "per page")
 	codeupTagsListCmd.Flags().String("sort", "", "desc|asc")
 	codeupTagsListCmd.Flags().String("order-by", "", "name|create")
-	codeupTagsCreateCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupTagsCreateCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupTagsCreateCmd.Flags().String("tag-name", "", "tag name (required)")
 	codeupTagsCreateCmd.Flags().String("ref", "", "branch, tag, or commit SHA (required)")
 	codeupTagsCreateCmd.Flags().String("message", "", "optional tag message")
-	codeupTagsDeleteCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupTagsDeleteCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupTagsDeleteCmd.Flags().String("tag-name", "", "tag name (required)")
 	codeupTagsCmd.AddCommand(codeupTagsListCmd, codeupTagsCreateCmd, codeupTagsDeleteCmd)
 	codeupCmd.AddCommand(codeupTagsCmd)

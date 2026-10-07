@@ -26,6 +26,7 @@ var profileCmd = &cobra.Command{
   yunxiao profile path [name]
   yunxiao profile doctor [name] [--all-workflows]
   yunxiao profile install-example zhiyi|play [--force]
+  yunxiao profile repo-add <alias> <repo> [--force]   # register codeup --repo alias (#125)
 
 Select with --profile <name> or YUNXIAO_PROFILE=<name>.
 Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).

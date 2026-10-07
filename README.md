@@ -297,6 +297,10 @@ yunxiao workitem update --id <id> --assigned-to self --dry-run
 yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
 
 # codeup
+# --repo accepts: numeric id | profile alias | org[/group]/repo path (CLI URL-encodes it —
+# pass plain slashes, not %2F) | bare repo name (resolved by one read-only search when
+# unique in the org; #125). Register a stable alias once:
+yunxiao profile repo-add zhiyi_doc sanzhi/zhiyi/zhiyi_doc --profile zhiyi
 yunxiao codeup repos list
 yunxiao codeup branches list --repo <repoId>
 yunxiao codeup tags list --repo <repoId>
@@ -454,6 +458,8 @@ yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
 yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 # Codeup --content-file accepts cwd-relative or absolute paths
+# codeup --repo aliases live in profile.repositories; register with
+# `yunxiao profile repo-add <alias> <repo-id|org/repo-path|repo-name>` (#125)
 yunxiao codeup files update --repo sandbox --path README.md --branch x \
   --message "…" --content-file /tmp/note.md --dry-run
 yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \

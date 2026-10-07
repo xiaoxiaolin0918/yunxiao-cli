@@ -283,6 +283,130 @@ func TestResolveRepositoryID(t *testing.T) {
 	if _, err := ResolveRepositoryID("sandbox", nil); err == nil {
 		t.Fatal("alias without map should fail")
 	}
+	// #125: multi-segment org/group/repo paths pass through untouched (encoded later).
+	got, err = ResolveRepositoryID("sanzhi/zhiyi/zhiyi_doc", nil)
+	if err != nil || got != "sanzhi/zhiyi/zhiyi_doc" {
+		t.Fatalf("multi-segment path: %s %v", got, err)
+	}
+	got, err = ResolveRepositoryID("sanzhi%2fzhiyi%2fzhiyi_doc", nil)
+	if err != nil || got != "sanzhi%2fzhiyi%2fzhiyi_doc" {
+		t.Fatalf("pre-encoded multi-segment path: %s %v", got, err)
+	}
+}
+
+// #125: the unknown-alias error carries a copyable register command.
+func TestResolveRepositoryID_UnknownAliasRepoAddHint(t *testing.T) {
+	_, err := ResolveRepositoryID("zhiyi_doc", map[string]int64{"other": 1})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	for _, want := range []string{
+		`unknown repository alias "zhiyi_doc"`,
+		"profile.repositories",
+		"yunxiao profile repo-add zhiyi_doc <repo-id-or-org/repo-path>",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error missing %q: %v", want, err)
+		}
+	}
+}
+
+func TestProfileRepoAddHint(t *testing.T) {
+	if got := ProfileRepoAddHint(" zhiyi_doc "); got != "yunxiao profile repo-add zhiyi_doc <repo-id-or-org/repo-path>" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestIsBareRepoName(t *testing.T) {
+	cases := map[string]bool{
+		"zhiyi_doc":                true,
+		"my-repo":                  true,
+		"  padded  ":               true, // trims first
+		"4951320":                  false, // numeric id
+		"7287010":                  false,
+		"org/repo":                 false, // slash path
+		"sanzhi/zhiyi/zhiyi_doc":   false,
+		"org%2Frepo":               false, // pre-encoded (uppercase)
+		"org%2frepo":               false, // pre-encoded (lowercase)
+		"":                         false,
+		"   ":                      false,
+	}
+	for in, want := range cases {
+		if got := IsBareRepoName(in); got != want {
+			t.Fatalf("IsBareRepoName(%q)=%v want %v", in, got, want)
+		}
+	}
+}
+
+func TestNormalizeRepositoryID(t *testing.T) {
+	cases := map[string]struct {
+		in   any
+		want string
+	}{
+		"float64":  {4951320.0, "4951320"},
+		"string":   {"4951320", "4951320"},
+		"spaced":   {" 4951320 ", "4951320"},
+		"int":      {7, "7"},
+		"int64":    {int64(8), "8"},
+		"nil":      {nil, ""},
+		"nilword":  {"<nil>", ""}, // filtered like the old AddRepositoryIDsFromListItems logic
+	}
+	for name, c := range cases {
+		if got := NormalizeRepositoryID(c.in); got != c.want {
+			t.Fatalf("%s: NormalizeRepositoryID(%#v)=%q want %q", name, c.in, got, c.want)
+		}
+	}
+	if got := NormalizeRepositoryID(fmt.Sprint(nil)); got != "" {
+		t.Fatalf("fmt.Sprint(nil) should be filtered, got %q", got)
+	}
+}
+
+// #125: bare-name discovery candidate matching over codeup repos list items.
+func TestMatchRepoCandidates(t *testing.T) {
+	items := []any{
+		map[string]any{"id": 4951320.0, "name": "zhiyi_doc", "pathWithNamespace": "sanzhi/zhiyi/zhiyi_doc"},
+		map[string]any{"id": "7287010", "name": "other", "pathWithNamespace": "sanzhi/zhiyi/other"},
+		map[string]any{"id": 111.0, "name": "doc", "path": "team/doc"}, // path fallback + suffix match
+		map[string]any{"name": "no-id"},                                // skipped: no id
+		"not-a-map",                                                    // skipped
+	}
+	// Unique name match.
+	got := MatchRepoCandidates("zhiyi_doc", items)
+	if len(got) != 1 || got[0].ID != "4951320" || got[0].Path != "sanzhi/zhiyi/zhiyi_doc" {
+		t.Fatalf("unique name: %+v", got)
+	}
+	// Suffix match on pathWithNamespace.
+	got = MatchRepoCandidates("other", items)
+	if len(got) != 1 || got[0].ID != "7287010" {
+		t.Fatalf("suffix match: %+v", got)
+	}
+	// Suffix match on plain path.
+	got = MatchRepoCandidates("doc", items)
+	if len(got) != 1 || got[0].ID != "111" || got[0].Path != "team/doc" {
+		t.Fatalf("path suffix: %+v", got)
+	}
+	// Ambiguous: same last segment in two groups.
+	ambig := []any{
+		map[string]any{"id": 1.0, "name": "a", "pathWithNamespace": "g1/zhiyi_doc"},
+		map[string]any{"id": 2.0, "name": "b", "pathWithNamespace": "g2/zhiyi_doc"},
+	}
+	if got := MatchRepoCandidates("zhiyi_doc", ambig); len(got) != 2 {
+		t.Fatalf("ambiguous: %+v", got)
+	}
+	// No match / empty inputs.
+	if got := MatchRepoCandidates("nope", items); len(got) != 0 {
+		t.Fatalf("no match: %+v", got)
+	}
+	if got := MatchRepoCandidates("zhiyi_doc", nil); len(got) != 0 {
+		t.Fatalf("nil items: %+v", got)
+	}
+	if got := MatchRepoCandidates("", items); len(got) != 0 {
+		t.Fatalf("empty name: %+v", got)
+	}
+	// Substrings must not match (exact name / exact last segment only).
+	if got := MatchRepoCandidates("zhiyi", items); len(got) != 0 {
+		t.Fatalf("substring must not match: %+v", got)
+	}
 }
 
 func TestBuildCreateBugArgs(t *testing.T) {

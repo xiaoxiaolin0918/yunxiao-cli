@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.1.7
+version: 1.1.8
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -50,6 +50,17 @@ yunxiao codeup mrs list --state opened
 yunxiao schema codeup.mrs.create
 ```
 
+## `--repo` 引用形态（#125）
+
+`--repo` 按顺序接受：
+
+1. 数字 `repositoryId`；
+2. `profile.repositories` 别名 —— 注册：`yunxiao profile repo-add <别名> <repo-id|org/repo路径|仓库名> [--force]`（写本地 profile 文件，`--dry-run` 只预览）；
+3. `org/repo` / `org/group/repo` 路径 —— **直接写斜杠**，CLI 负责 URL 编码（不要自己转 `%2F`，bash/PowerShell 里极易踩坑）；
+4. 裸仓库名 —— 未注册别名时 CLI 发一次只读 `GET .../repositories?search=<name>`（`--dry-run` 也会发）：组织内唯一命中 → 解析为该仓数字 id；多命中 → 报错并列出候选 id/path；零命中 → 报错并附可复制的 `yunxiao profile repo-add` 一行。
+
+脚本/agent 优先用 1 或 2（稳定、无额外网络请求）；3/4 适合交互调试。
+
 ## 创建 MR（high-risk-write）
 
 **MUST**：先 `--dry-run` → 向用户确认 → 用户同意后再加 `--yes`。
@@ -65,7 +76,7 @@ yunxiao codeup mrs create \
   --title "feat: x" --reviewer <userId1,userId2> --yes
 ```
 
-`--repo` 可为数字 id，或 `org/repo`（会编码）；非数字时 CLI 会尝试拉取仓库解析 `sourceProjectId`/`targetProjectId`。
+`--repo` 可为数字 id、别名、`org/repo` 路径（会编码）或裸仓库名（#125，见上文引用形态）；非数字时 CLI 会尝试拉取仓库解析 `sourceProjectId`/`targetProjectId`。
 
 `--reviewer`：逗号分隔 userId，写入 OpenAPI `reviewerUserIds`；与 `mrs +create --reviewer` 语义一致。
 

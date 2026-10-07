@@ -218,15 +218,15 @@ func parseIntCSV(s string) ([]int, error) {
 }
 
 func init() {
-	codeupProtectedListCmd.Flags().String("repo", "", "repository id or profile alias (required)")
-	codeupProtectedGetCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupProtectedListCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
+	codeupProtectedGetCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupProtectedGetCmd.Flags().String("id", "", "protect rule id (required)")
-	codeupProtectedCreateCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupProtectedCreateCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupProtectedCreateCmd.Flags().String("branch", "", "branch name to protect (required unless body.branch)")
 	codeupProtectedCreateCmd.Flags().String("allow-push-roles", "", "comma-separated role ids, e.g. 40,30")
 	codeupProtectedCreateCmd.Flags().String("allow-merge-roles", "", "comma-separated role ids, e.g. 40,30")
 	codeupProtectedCreateCmd.Flags().String("body", "", "optional full JSON body (merged over flags)")
-	codeupProtectedDeleteCmd.Flags().String("repo", "", "repository id or profile alias (required)")
+	codeupProtectedDeleteCmd.Flags().String("repo", "", "repository id, profile alias, org/repo path, or bare name (required)")
 	codeupProtectedDeleteCmd.Flags().String("id", "", "protect rule id (required)")
 	codeupProtectedBranchesCmd.AddCommand(codeupProtectedListCmd, codeupProtectedGetCmd, codeupProtectedCreateCmd, codeupProtectedDeleteCmd)
 	codeupCmd.AddCommand(codeupProtectedBranchesCmd)
