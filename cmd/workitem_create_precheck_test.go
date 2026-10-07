@@ -125,7 +125,7 @@ func runWiCreate(t *testing.T, dryRun, useDefaults bool, extra ...string) wiCrea
 
 	resetStringFlags(t, workitemCreateCmd,
 		"space-id", "type-id", "subject", "subject-file", "assigned-to",
-		"description", "description-file", "custom-fields", "custom-fields-file",
+		"description", "description-file", "custom-fields", "custom-fields-file", "priority",
 		"format-type", "parent-id", "sprint", "labels", "participants", "trackers", "verifier", "versions",
 		"no-defaults", "no-precheck", "full")
 	args := []string{"workitem", "create", "--space-id", "space-1", "--type-id", "type-req", "--subject", "需求", "--assigned-to", "u1"}

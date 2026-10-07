@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
@@ -47,6 +50,11 @@ workitem_defaults[type].create_required, those ids are checked instead
 --no-precheck skips the GET (old behavior; use offline). Values you pass are never
 changed; other server validation errors pass through unchanged.
 
+Option list fields (#126): --priority and --custom-fields(-file) accept option ids or
+unique display values (e.g. --priority 高 or {"priority":"高"}); the CLI resolves them
+via the type field config before precheck/POST. Ambiguous or unknown values fail with
+the valid list. Resolution uses the same fields GET as the required-field precheck.
+
 Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
 stripped) over inline flags. Use only one of each pair (--custom-fields vs
@@ -87,6 +95,16 @@ type in the Projex project settings UI (no OpenAPI for that).`,
 		if err != nil {
 			handleErr(err)
 			return
+		}
+		if priorityFlag, _ := cmd.Flags().GetString("priority"); strings.TrimSpace(priorityFlag) != "" {
+			if cf == nil {
+				cf = map[string]any{}
+			}
+			if _, exists := cf["priority"]; exists {
+				handleErr(fmt.Errorf("--priority conflicts with customFieldValues.priority; pass only one"))
+				return
+			}
+			cf["priority"] = strings.TrimSpace(priorityFlag)
 		}
 		if err := requireFlags("space-id", spaceID, "type-id", typeID, "assigned-to", assignedTo); err != nil {
 			handleErr(err)
@@ -162,22 +180,19 @@ type in the Projex project settings UI (no OpenAPI for that).`,
 			return
 		}
 		full, _ := cmd.Flags().GetBool("full")
-		// #95: one-shot required-field precheck against the type's field config.
+		// #126 + #95: one fields GET resolves list display values then runs required-field precheck.
 		var precheck map[string]any
-		if noPrecheck, _ := cmd.Flags().GetBool("no-precheck"); !noPrecheck {
-			// Fallback ids when the field config is unusable (read even with --no-defaults;
-			// a broken profile was already reported above when defaults are on).
-			var profileRequired []string
-			if pf, perr := applyActiveProfileOrg(); perr == nil && pf != nil {
-				profileRequired = pf.WorkitemDefaults[typeID].CreateRequired
-			}
-			precheck, err = precheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body, profileRequired)
-			if err != nil {
-				handleErr(err)
-				return
-			}
-			printPrecheckWarning(precheck)
+		var profileRequired []string
+		if pf, perr := applyActiveProfileOrg(); perr == nil && pf != nil {
+			profileRequired = pf.WorkitemDefaults[typeID].CreateRequired
 		}
+		noPrecheck, _ := cmd.Flags().GetBool("no-precheck")
+		precheck, err = resolveAndPrecheckWorkitemCreate(cmd.Context(), c, spaceID, typeID, body, profileRequired, !noPrecheck)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		printPrecheckWarning(precheck)
 		var preview any = c.Preview("POST", path, nil, body)
 		if precheck != nil {
 			preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck}
@@ -196,11 +211,11 @@ type in the Projex project settings UI (no OpenAPI for that).`,
 			}
 			return zhiyi.BriefWorkItem(item), meta
 		})
-	// #99: when the POST fails because the type is not enabled in this space,
-	// attach the enabled types (error.details.available_types) to the error.
-	if err != nil {
-		err = enrichTypeNotEnabledError(cmd.Context(), c, spaceID, typeID, err)
-	}
-	handleCreateErr(err, precheck)
+		// #99: when the POST fails because the type is not enabled in this space,
+		// attach the enabled types (error.details.available_types) to the error.
+		if err != nil {
+			err = enrichTypeNotEnabledError(cmd.Context(), c, spaceID, typeID, err)
+		}
+		handleCreateErr(err, precheck)
 	},
 }

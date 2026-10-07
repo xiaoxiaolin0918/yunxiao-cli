@@ -56,6 +56,7 @@ func init() {
 	workitemCreateCmd.Flags().String("trackers", "", "comma-separated user ids")
 	workitemCreateCmd.Flags().String("verifier", "", "verifier user id or self")
 	workitemCreateCmd.Flags().String("versions", "", "comma-separated version ids")
+	workitemCreateCmd.Flags().String("priority", "", "priority option id or display value (e.g. 高); sets customFieldValues.priority (#126)")
 	workitemCreateCmd.Flags().String("custom-fields", "", "JSON object of customFieldValues (fieldId to value); mutually exclusive with --custom-fields-file")
 	workitemCreateCmd.Flags().String("custom-fields-file", "", "UTF-8 JSON object file for customFieldValues (BOM stripped; preferred on Windows for Chinese)")
 	workitemCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for this type")

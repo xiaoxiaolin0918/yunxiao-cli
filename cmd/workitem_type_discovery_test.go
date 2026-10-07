@@ -384,7 +384,7 @@ func TestWorkitemCreateTypeNotEnabledError(t *testing.T) {
 		s.postBody = notEnabledBody
 		resetStringFlags(t, workitemCreateCmd,
 			"space-id", "type-id", "subject", "subject-file", "assigned-to",
-			"description", "description-file", "custom-fields", "custom-fields-file",
+			"description", "description-file", "custom-fields", "custom-fields-file", "priority",
 			"format-type", "parent-id", "sprint", "labels", "participants", "trackers", "verifier", "versions",
 			"no-defaults", "no-precheck", "full")
 		r := runYxCmd(t, false, "workitem", "create", "--space-id", "space-1", "--type-id", "type-disabled",
@@ -398,7 +398,7 @@ func TestWorkitemCreateTypeNotEnabledError(t *testing.T) {
 		s.postBody = otherBadRequest
 		resetStringFlags(t, workitemCreateCmd,
 			"space-id", "type-id", "subject", "subject-file", "assigned-to",
-			"description", "description-file", "custom-fields", "custom-fields-file",
+			"description", "description-file", "custom-fields", "custom-fields-file", "priority",
 			"format-type", "parent-id", "sprint", "labels", "participants", "trackers", "verifier", "versions",
 			"no-defaults", "no-precheck", "full")
 		r := runYxCmd(t, false, "workitem", "create", "--space-id", "space-1", "--type-id", "type-req",
@@ -497,7 +497,7 @@ func TestWorkitemCreateTypeNotEnabledLookupFails(t *testing.T) {
 	}
 	resetStringFlags(t, workitemCreateCmd,
 		"space-id", "type-id", "subject", "subject-file", "assigned-to",
-		"description", "description-file", "custom-fields", "custom-fields-file",
+		"description", "description-file", "custom-fields", "custom-fields-file", "priority",
 		"format-type", "parent-id", "sprint", "labels", "participants", "trackers", "verifier", "versions",
 		"no-defaults", "no-precheck", "full")
 	r := runYxCmd(t, false, "workitem", "create", "--space-id", "space-1", "--type-id", "type-disabled",
@@ -534,7 +534,7 @@ func TestWorkitemStatusesCommand(t *testing.T) {
 		apiStatus      int // non-zero: workflows GET fails with this status
 	}{
 		{
-			name:          "happy-path",
+			name: "happy-path",
 			workflowsBody: `{"id":"wf-1","name":"缺陷流程","defaultStatusId":"s-open","statuses":[
 				{"id":"s-open","name":"待处理","displayName":"待处理","nameEn":"Open"},
 				{"id":"s-done","displayName":"已完成"}]}`,
@@ -543,7 +543,7 @@ func TestWorkitemStatusesCommand(t *testing.T) {
 		{
 			name:          "wrapped-list-payload",
 			workflowsBody: `[{"id":"wf-2","name":"需求流程","defaultStatusId":"x-1","statuses":[{"id":"x-1","name":"待处理","displayName":"待处理","nameEn":"Open"}]}]`,
-			wantCode: 0, wantDataLen: 1, wantDefault: "x-1",
+			wantCode:      0, wantDataLen: 1, wantDefault: "x-1",
 		},
 		{
 			name:          "unparseable-payload-falls-back-to-raw",
@@ -551,11 +551,11 @@ func TestWorkitemStatusesCommand(t *testing.T) {
 			wantCode:      0, wantRaw: true, wantWarningSub: "could not parse statuses",
 		},
 		{
-			name:           "api-error-passes-through",
-			workflowsBody:  `{"errorCode":"NotFound","errorMessage":"工作项类型未启用！"}`,
-			wantCode:       1,
-			wantAPIStatus:  http.StatusNotFound,
-			apiStatus:      http.StatusNotFound,
+			name:          "api-error-passes-through",
+			workflowsBody: `{"errorCode":"NotFound","errorMessage":"工作项类型未启用！"}`,
+			wantCode:      1,
+			wantAPIStatus: http.StatusNotFound,
+			apiStatus:     http.StatusNotFound,
 		},
 	}
 	for _, tc := range cases {
