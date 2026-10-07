@@ -39,7 +39,7 @@ yunxiao whoami
 yunxiao doctor
 ```
 
-可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。也可在 profile JSON 写可选 `access_token`（优先级：env > profile > config.json）。
+可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。也可在 profile JSON 写可选 `access_token`（优先级：env > profile > config.json）。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>` 一次写入，`profile use --unset` 清除，#130）。
 
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token

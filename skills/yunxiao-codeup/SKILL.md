@@ -46,6 +46,9 @@ WIP**（`UpdateChangeRequest` 仅 title/description）——需网页操作：MR
 ## MR `url`（CLI 0.15.x）
 
 `codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）与 CLI 计算的 `status` / `wip`（#132）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`，并加 `wip`；`--brief` 只出 localId/title/status/state/wip/url。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
+`codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`。
+
+`mrs get` 输出三档（#130）：默认 **summary**（brief 字段 + `mergeable` / `conflictCheckStatus` / `checkList`(含 `requirementRuleItems`) / `supportMergeFastForwardOnly` / `allRequirementsPass` / `ahead` / `behind` / `reviewers` 摘要 `[{name, opinion}]`；API 未返回的键省略，`meta.projection="summary"`）；`--brief` 只出 localId/title/status/state/detailUrl/url；`--full` 为完整原始对象（#130 之前的默认输出）。兼容开关 `YUNXIAO_MRS_GET_VIEW=full|summary|brief`（flag > env > 默认 summary，非法值在发请求前报错；`--dry-run` 在 `request.projection` 显示所选档位）——新旧 CLI 通吃的脚本设 `YUNXIAO_MRS_GET_VIEW=full` 即可。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
 
 ```bash
 yunxiao codeup mrs list --state opened
@@ -158,6 +161,7 @@ merge 被拒（405 `SYSTEM_FORBIDDEN_ERROR`「该状态下的评审不允许合�
 「开发中」(`UNDER_DEV`)：CLI 会自动在 `error.details.mr` 带出当前 status/wip/todo 并给
 hint。取消 WIP 需网页（MR 页「…」→ 取消 WIP）——没有 OpenAPI；改标题去 `WIP: ` 前缀对
 UNDER_DEV 无效（标题前缀是另一套 WIP 信号，见 #135）。
+**merge 预检（#130）**：真正 POST 前（`--dry-run` 下也会做只读 GET）CLI 先取一次 MR 详情，校验状态一致性（MERGED/CLOSED 直接拒绝）、`conflictCheckStatus`（HAS_CONFLICT / CHECKING）、`mergeable=false`，并在详情携带合并方式配置时校验 `--merge-type`（`mergeTypes` / `supportedMergeTypes` / `mergeSetting`，或 `supportMergeFastForwardOnly=false` 拒 ff-only；网页端「创建合并节点」等写法会归一化）。不满足时 exit 1 + 结构化错误（`merge_type_not_supported` 等）+ 可行动 hint（列出可用方式，如 `available: ff-only, no-fast-forward`），**不发 POST**；通过时成功输出带 `meta.precheck`（dry-run 为 `request.precheck`）。详情 GET 失败则拒绝合并（fail closed）。无 `--yes` 时确认门仍先行（exit 10，不发任何请求）。
 
 ### write（`--dry-run` 即可预览；非 high-risk，一般不需 `--yes`）
 
@@ -181,6 +185,9 @@ yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-r
 ```bash
 yunxiao codeup mrs get --repo <id> --local-id 1 --brief   # 含 wip（UNDER_DEV 时 true）
 yunxiao codeup mrs +push-review-status --repo <id>        # open MR 状态巡检（#132）
+yunxiao codeup mrs get --repo <id> --local-id 1            # 默认 summary：够判断能不能合
+yunxiao codeup mrs get --repo <id> --local-id 1 --brief      # 最小 6 键
+yunxiao codeup mrs get --repo <id> --local-id 1 --full       # 完整原始对象
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest:true|false + meta.latest_patchset_biz_id（0.16.32+）
 yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.meta.latest_patchset_biz_id'
 yunxiao codeup compare --repo <id> --from master --to feature
