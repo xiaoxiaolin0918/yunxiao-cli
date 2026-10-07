@@ -1,4 +1,4 @@
-# workitem create 必填字段预检（0.16.33+ / #95）
+# workitem create 必填字段预检（0.16.33+ / #95）与选项显示值解析（#126）
 
 ## 背景
 
@@ -8,10 +8,11 @@ Projex 创建接口一次只报**一个**缺失的必填字段（如先报「所
 
 1. 组装请求体：flag → `--*-file` → profile `workitem_defaults`（除非 `--no-defaults`）。
 2. `GET /oapi/v1/projex/organizations/{org}/projects/{spaceId}/workitemTypes/{typeId}/fields`（只读，`--dry-run` 也发；`--no-precheck` 跳过）。
-3. 对每个 `isRequired` 字段检查请求体：
+3. **选项显示值解析（#126）**：`customFieldValues` 中 list/multiList 字段的显示值改写成 option id（详见下文「选项显示值解析」）；解析失败 → exit 1，不 POST，不再继续预检。
+4. 对每个 `isRequired` 字段检查（已解析后的）请求体：
    - 根级字段（`subject`、`assignedTo`、`description`、`sprint`、`labels`/`tag`、`participants`、`trackers`、`verifier`、`versions`、`parentId`）**只认根级 key**（即对应 flag，`pass_via` 给出 flag）；写进 `customFieldValues` 不算已填；
    - 其余字段（包括 `priority`、所属模块等 SystemCustomField / CustomField）**只认** `customFieldValues[fieldId]`（`pass_via="customFieldValues"`，经 `--custom-fields(-file)` 传入）。
-4. 有缺失 → exit 1，不 POST；`details.missing[]` 按字段配置返回的顺序排列。没有缺失 → 照常 POST，`meta.precheck={status:"ok",source:"fields",required_checked,skipped_default?}`。
+5. 有缺失 → exit 1，不 POST；`details.missing[]` 按字段配置返回的顺序排列。没有缺失 → 照常 POST，`meta.precheck={status:"ok",source:"fields",required_checked,skipped_default?}`（解析映射在 `meta.option_resolution`）。
 
 ## 跳过规则（避免误报）
 
@@ -51,6 +52,16 @@ Projex 创建接口一次只报**一个**缺失的必填字段（如先报「所
 - profile 兜底：若 profile 有 `workitem_defaults[<type_id>].create_required`，降级 / 空配置时改为按这些 id 检查（同样的根级 / customFieldValues 规则），`source:"profile_fallback"`，未提供的 id 列在 `profile_missing[]` 并写进 `warning`——**只告警、不阻塞**。没有该配置时 `source:"none"`。
 
 预检不应比没有预检更差。
+
+## 选项显示值解析（#126）
+
+同一次字段配置 GET 还承担另一件事：`--custom-fields` / `--custom-fields-file` 中 **list/multiList 字段的值可以直接写显示值**（如 `{"priority":"高"}`），CLI 先解析成 option id 再 POST——使用者不再需要把 id 表硬编码进笔记（id 变更即静默失效）。
+
+- 匹配顺序：先精确匹配 option **id**（命中则原样透传，多余的空白归一成规范 id）；再精确匹配 `displayValue` / `value`（命中改写为该 option 的 id）。multiList 数组逐元素解析；非 list 格式（即使带 options）、空白值、非字符串值不解析、原样发送。
+- 成功：POST/预览里是 id；每个映射记在 `meta.option_resolution.resolved[]`（`{field_id, field_name, from, to}`；dry-run 在 `request.option_resolution`）。没有 customFieldValues 时不输出该 meta；全部本来就是 id 时只有 `status:"ok"`、无 `resolved`。
+- 失败（值无匹配，或显示值在多个 id 间歧义）：exit 1，不 POST；`error.subtype=invalid_option_values`，每个坏值一条（`field_id` / `name` / `value` / `reason: not_found|ambiguous` / `options`（not_found 列全部合法值，同 #95 的 MaxOptions=20 截断 + `options_total`；ambiguous 只列冲突项）），见 `error.details.values[]`。解析失败优先于缺字段预检报出。
+- 降级 / `--no-precheck`：配置读不到（`skipped`/`empty`）或跳过 GET 时不解析，值**原样**发送；前者在 `meta.option_resolution.status` 带上 `skipped|empty` + `reason`，后者完全没有该 meta。
+- `workitem update` 的 `--custom-fields`（合并进 body 根级）与 `+bug-create`（profile 别名表）**未接入**该解析。
 
 ## 已知限制 / 待确认
 

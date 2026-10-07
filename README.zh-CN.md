@@ -333,6 +333,8 @@ yunxiao workitem types list --space-id <sid> --category Req
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 # create 会先预检必填字段（一次只读 GET，--dry-run 也会发）：缺失字段一次性全部报出
 # （error.details.missing[]：field_id / name / pass_via / options）；--no-precheck 跳过（#95）
+# 选项类字段（list/multiList）的值可直接写显示值：--custom-fields '{"priority":"高"}' 自动解析成 option id
+# （复用同一次 GET；映射见 meta.option_resolution；解析失败 exit 1 并列出合法值 error.details.values[]，#126）
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem delete --id <id> --dry-run
