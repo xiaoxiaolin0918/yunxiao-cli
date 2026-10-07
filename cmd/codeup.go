@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -847,9 +848,36 @@ var codeupMrsReviewCmd = &cobra.Command{
 
 var codeupMrsGetCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get a merge request by local id",
-	Long:  "Risk: read\nHTTP: GET .../changeRequests/{localId}\n\nNormalizes OpenAPI status into state (alias) for scripts. Use --brief for localId/title/status/url only.",
+	Short: "Get a merge request by local id; summary by default, --full for raw",
+	Long: `Risk: read
+HTTP: GET .../changeRequests/{localId}
+
+Normalizes OpenAPI status into state (alias) for scripts.
+
+Output views (#130; exactly one of):
+  (default) / --summary  brief fields (localId/title/status/state/detailUrl/url)
+                       plus the "can it merge?" set: mergeable, conflictCheckStatus,
+                       checkList (incl. requirementRuleItems), supportMergeFastForwardOnly,
+                       allRequirementsPass, ahead, behind, and reviewers as
+                       [{name, opinion}] (reviewOpinionStatus). Fields the API does
+                       not return are omitted. meta.projection = "summary".
+  --brief              localId/title/status/state/detailUrl/url only.
+  --full               the raw object, identical to the pre-#130 default output.
+Compatibility switch: YUNXIAO_MRS_GET_VIEW=full|summary|brief picks the view when
+no view flag is given (flag > env > default summary), so scripts that must run on
+CLIs before and after #130 can set YUNXIAO_MRS_GET_VIEW=full instead of --full.
+Other values fail before any request. --dry-run shows the chosen view under
+request.projection.
+
+  yunxiao codeup mrs get --repo <id> --local-id 9
+  yunxiao codeup mrs get --repo <id> --local-id 9 --full --jq '.data.description'
+  YUNXIAO_MRS_GET_VIEW=full yunxiao codeup mrs get --repo <id> --local-id 9`,
 	Run: func(cmd *cobra.Command, args []string) {
+		view, err := mrsGetViewFromFlags(cmd)
+		if err != nil {
+			handleErr(err)
+			return
+		}
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
 		localID, _ := cmd.Flags().GetString("local-id")
@@ -873,16 +901,92 @@ var codeupMrsGetCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		brief, _ := cmd.Flags().GetBool("brief")
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
-			m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
-			zhiyi.EnrichMergeRequestMeta(meta, m)
-			if brief {
-				return zhiyi.BriefMergeRequest(m), meta
+		if globalDryRun {
+			rp := c.Preview("GET", path, nil, nil)
+			var preview any = rp
+			if p := view.previewProjection(); p != nil {
+				preview = requestPreviewWithProjection{RequestPreview: rp, Projection: p}
 			}
-			return m, meta
+			handleErr(output.DryRunResult(string(risk.Read), preview))
+			return
+		}
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			m := zhiyi.UnwrapMergeRequestPayload(asStringMap(out))
+			if m == nil {
+				return out, meta
+			}
+			m = zhiyi.StabilizeMergeRequest(m)
+			zhiyi.EnrichMergeRequestMeta(meta, m)
+			switch view.mode {
+			case "brief":
+				meta["projection"] = "brief"
+				return zhiyi.BriefMergeRequest(m), meta
+			case "full":
+				return m, meta
+			default:
+				meta["projection"] = "summary"
+				return zhiyi.SummaryMergeRequest(m), meta
+			}
 		}))
 	},
+}
+
+// envMrsGetView is the compatibility switch for scripts that must run on CLIs
+// before and after #130 (old CLIs ignore it): full | summary | brief.
+const envMrsGetView = "YUNXIAO_MRS_GET_VIEW"
+
+// mrsGetView is the output view picked by --summary / --brief / --full or
+// YUNXIAO_MRS_GET_VIEW (#130, same contract as workitem get #98).
+type mrsGetView struct {
+	mode   string // "summary" (default), "brief" or "full"
+	source string // "flag", "env" or "default"
+}
+
+// mrsGetViewFromFlags validates the view flags and env before any request, so
+// conflicts and malformed values fail the same way with or without --dry-run.
+func mrsGetViewFromFlags(cmd *cobra.Command) (mrsGetView, error) {
+	var set []string
+	for _, f := range []string{"summary", "brief", "full"} {
+		if on, _ := cmd.Flags().GetBool(f); on && cmd.Flags().Changed(f) {
+			set = append(set, "--"+f)
+		}
+	}
+	if len(set) > 1 {
+		return mrsGetView{}, fmt.Errorf("--summary, --brief and --full are mutually exclusive (got %s)", strings.Join(set, " and "))
+	}
+	if len(set) == 1 {
+		switch set[0] {
+		case "--full":
+			return mrsGetView{mode: "full", source: "flag"}, nil
+		case "--brief":
+			return mrsGetView{mode: "brief", source: "flag"}, nil
+		}
+		return mrsGetView{mode: "summary", source: "flag"}, nil
+	}
+	raw, ok := os.LookupEnv(envMrsGetView)
+	switch v := strings.ToLower(strings.TrimSpace(raw)); {
+	case !ok || v == "":
+		return mrsGetView{mode: "summary", source: "default"}, nil
+	case v == "full" || v == "summary" || v == "brief":
+		return mrsGetView{mode: v, source: "env"}, nil
+	default:
+		return mrsGetView{}, &detailedError{
+			Subtype: "invalid_env",
+			Message: fmt.Sprintf("%s=%q: expected full, summary or brief", envMrsGetView, raw),
+			Hint:    fmt.Sprintf("unset %s or set it to full / summary / brief; a --summary / --brief / --full flag overrides it", envMrsGetView),
+			Details: map[string]any{"env": envMrsGetView, "value": raw, "allowed": []string{"full", "summary", "brief"}},
+		}
+	}
+}
+
+// previewProjection is request.projection for --dry-run. nil for --full given as
+// a flag, whose dry-run output stays as before #130.
+func (v mrsGetView) previewProjection() map[string]any {
+	switch {
+	case v.mode == "full" && v.source == "flag":
+		return nil
+	}
+	return map[string]any{"mode": v.mode, "source": v.source}
 }
 
 var codeupMrsUpdateCmd = &cobra.Command{
@@ -1349,7 +1453,6 @@ INLINE_COMMENT requires --comment-type INLINE_COMMENT --patchset-biz-id
 	},
 }
 
-
 var codeupMrsCommentsResolveCmd = &cobra.Command{
 	Use:   "resolve",
 	Short: "Mark an MR comment resolved (write)",
@@ -1408,7 +1511,6 @@ func runMrsCommentResolved(cmd *cobra.Command, resolved bool) {
 	body := map[string]any{"resolved": resolved}
 	handleErr(runJSONMutating(cmd.Context(), c, action, risk.Write, "PUT", path, nil, body, nil))
 }
-
 
 var codeupMrsLabelsCmd = &cobra.Command{Use: "labels", Short: "MR labels (list/attach; no detach OpenAPI)"}
 
@@ -1624,7 +1726,9 @@ func init() {
 	codeupCommitsCmd.AddCommand(codeupCommitsListCmd)
 	codeupMrsGetCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsGetCmd.Flags().String("local-id", "", "MR local id (required)")
+	codeupMrsGetCmd.Flags().Bool("summary", false, "summary view (default): brief fields + mergeable/conflictCheckStatus/checkList/reviewers/opinion digest")
 	codeupMrsGetCmd.Flags().Bool("brief", false, "only localId/title/status/state/detailUrl/url")
+	codeupMrsGetCmd.Flags().Bool("full", false, "raw MR object (pre-#130 default output); env YUNXIAO_MRS_GET_VIEW=full|summary|brief applies when no view flag")
 	codeupMrsUpdateCmd.Flags().String("repo", "", "repository id, alias, or org/repo path")
 	codeupMrsUpdateCmd.Flags().String("local-id", "", "MR local id")
 	codeupMrsUpdateCmd.Flags().String("title", "", "new title")
