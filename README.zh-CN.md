@@ -8,12 +8,13 @@ CLI 二进制名：**`yunxiao`**。
 
 ## 人类 30 秒快速开始
 
-1. 安装（主路径）：打开 [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)，下载对应平台归档，把 `yunxiao` 加入 PATH。
-2. （可选）npm 薄包装：`npm i -g sanzhi-yunxiao-cli`（下载 GitHub Release 二进制；尚未 publish 时用仓库 `npm/` 本地装）。
-3. 登录：`yunxiao auth login --browser`（CI 用 `--token`）。
-4. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`。
-5. 打开控制台页：`yunxiao browse pipeline --pipeline-id <id> --print-only`。
-6. Shell 补全：`yunxiao completion powershell | Out-String | Invoke-Expression`（bash/zsh 见 [usage 索引](docs/wiki/01-usage/README.md)）。
+1. 安装：打开 [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)，下载对应平台归档，把 `yunxiao` 加入 PATH。
+2. 登录：`yunxiao auth login --browser`（CI 用 `--token`）。
+3. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`。
+4. 打开控制台页：`yunxiao browse pipeline --pipeline-id <id> --print-only`。
+5. Shell 补全：`yunxiao completion powershell | Out-String | Invoke-Expression`（bash/zsh 见 [usage 索引](docs/wiki/01-usage/README.md)）。
+
+GitHub Releases 是唯一安装渠道。npm 薄包装（`sanzhi-yunxiao-cli`）已停用：私有 npm 源把它冻结在旧版本，装出来的机器没有 `update` 命令（#115）。
 
 写操作先 `--dry-run`；高风险确认后再加 `--yes`。
 
@@ -196,13 +197,7 @@ yunxiao doctor --check-update
 export YUNXIAO_UPDATE_CHECK=0   # 亦可：false | off | no
 ```
 
-**npm 安装器（`sanzhi-yunxiao-cli`）：**
-
-```bash
-npm install -g sanzhi-yunxiao-cli@latest
-```
-
-与安装器相同的环境变量：`YUNXIAO_CLI_GITHUB_REPO`、`YUNXIAO_CLI_DOWNLOAD_BASE`。
+下载源覆盖：`YUNXIAO_CLI_GITHUB_REPO`、`YUNXIAO_CLI_DOWNLOAD_BASE`。
 
 ## 认证
 
@@ -468,7 +463,7 @@ yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprin
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划——完全离线、零 API 请求，#110），再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制，GitHub Release 归档也随二进制携带，任何安装方式下 `install-example` 都可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 

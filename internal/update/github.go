@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-// EnvGithubRepo overrides the default GitHub owner/repo (same as npm installer).
+// EnvGithubRepo overrides the default GitHub owner/repo.
 const EnvGithubRepo = "YUNXIAO_CLI_GITHUB_REPO"
 
-// EnvDownloadBase optional https:// base for archives (same as npm installer).
+// EnvDownloadBase optional https:// base for archives.
 const EnvDownloadBase = "YUNXIAO_CLI_DOWNLOAD_BASE"
 
 // EnvUpdateCheck disables optional update hints when set to "0" / "false" / "off".
@@ -150,7 +150,7 @@ func ChecksumMap(content string) map[string]string {
 	return out
 }
 
-// DownloadURLCandidates returns primary + optional mirrors (npm installer pattern).
+// DownloadURLCandidates returns primary + optional mirrors.
 func DownloadURLCandidates(primary string) []string {
 	urls := []string{}
 	if base := strings.TrimRight(strings.TrimSpace(os.Getenv(EnvDownloadBase)), "/"); base != "" {

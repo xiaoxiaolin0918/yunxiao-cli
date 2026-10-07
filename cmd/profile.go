@@ -33,8 +33,9 @@ yunxiao profile use <name> (writes "profile" into config.json as the default
 for every new shell session, #130). Precedence: --profile > YUNXIAO_PROFILE >
 config default; profile use --unset clears the default.
 Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).
-Examples are embedded in the binary, so install-example also works from npm / GitHub Release installs;
-an on-disk profiles/<name>.example.json (npm package / next to the binary) takes precedence when it is valid JSON with matching "name".`,
+Examples are embedded in the binary and also ship in the GitHub Release archives,
+so install-example works from any install; an on-disk profiles/<name>.example.json
+(next to the binary) takes precedence when it is valid JSON with matching "name".`,
 }
 
 var profileUseCmd = &cobra.Command{
@@ -181,7 +182,7 @@ var profilePathCmd = &cobra.Command{
 var profileInstallExampleCmd = &cobra.Command{
 	Use:   "install-example <name>",
 	Short: "Copy profiles/<name>.example.json into ~/.config/yunxiao/profiles/",
-	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play); a valid on-disk profiles/<name>.example.json (npm package / next to the binary) wins when present. Empty, truncated, or name-mismatched disk copies are skipped (#104).\nExample: yunxiao profile install-example zhiyi",
+	Long:  "Risk: write\nExamples ship embedded in the binary (zhiyi, play); a valid on-disk profiles/<name>.example.json (next to the binary) wins when present. Empty, truncated, or name-mismatched disk copies are skipped (#104).\nExample: yunxiao profile install-example zhiyi",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -211,7 +212,7 @@ var profileInstallExampleCmd = &cobra.Command{
 }
 
 // profileExampleSearchDirs lists on-disk directories that may hold <name>.example.json
-// (next to the binary, npm package root). Tests override it. Cwd and runtime.Caller
+// (next to the binary). Tests override it. Cwd and runtime.Caller
 // paths are intentionally omitted (#104): they are unreliable under -trimpath and can
 // pick up empty/truncated junk from the working directory.
 var profileExampleSearchDirs = defaultProfileExampleSearchDirs
@@ -248,7 +249,7 @@ func validProfileExample(name string, data []byte) bool {
 	return doc.Name == name
 }
 
-// findProfileExample resolves <name>.example.json: a *valid* on-disk copy (npm package
+// findProfileExample resolves <name>.example.json: a *valid* on-disk copy (release archive
 // profiles/, next to the binary) wins; empty/truncated/name-mismatched disk files are
 // skipped; otherwise the copy embedded in the binary is used (#92, #104).
 // Returns a display source (absolute path or "embedded:profiles/<file>") and content.
@@ -274,7 +275,7 @@ func findProfileExample(name string) (string, []byte, error) {
 	if b, err := examples.Example(name); err == nil {
 		return "embedded:profiles/" + filename, b, nil
 	}
-	return "", nil, fmt.Errorf("example not found: profiles/%s (searched under binary/npm and embedded examples: %s); or download %s%s to ~/.config/yunxiao/profiles/%s.json",
+	return "", nil, fmt.Errorf("example not found: profiles/%s (searched next to the binary and in embedded examples: %s); or download %s%s to ~/.config/yunxiao/profiles/%s.json",
 		filename, strings.Join(examples.Names(), ", "), profileExampleRawBase(), filename, name)
 }
 

@@ -50,7 +50,7 @@ func CurrentPlatformArch() (platform, arch string, err error) {
 	return platform, arch, nil
 }
 
-// ArchiveName matches npm/scripts/install.js resolveArchiveName:
+// ArchiveName matches the release archive naming (darwin/linux/windows × amd64/arm64):
 // yunxiao-cli-{version}-{platform}-{arch}.tar.gz|.zip
 func ArchiveName(version, platform, arch string) string {
 	version = NormalizeVersion(version)
