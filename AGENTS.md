@@ -172,7 +172,7 @@ Alternatives:
 npx skills add /path/to/yunxiao-cli -y -g
 
 # From GitHub (URL MUST end in .git)
-npx skills add https://github.com/sliverTwo/yunxiao-cli.git -y -g
+npx skills add https://github.com/xiaoxiaolin0918/yunxiao-cli.git -y -g
 ```
 
 Then **restart / reload** the AI tool so it picks up skills.

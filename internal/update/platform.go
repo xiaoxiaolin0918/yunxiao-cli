@@ -8,7 +8,7 @@ import (
 const (
 	ArchivePrefix = "yunxiao-cli"
 	BinaryBase    = "yunxiao"
-	DefaultRepo   = "sliverTwo/yunxiao-cli"
+	DefaultRepo   = "xiaoxiaolin0918/yunxiao-cli"
 )
 
 // Platform returns the release platform name (darwin|linux|windows) for goos.

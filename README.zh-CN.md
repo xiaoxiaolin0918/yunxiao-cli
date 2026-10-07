@@ -148,7 +148,7 @@ yunxiao codeup repos list
 yunxiao --version   # 应与 GitHub latest Release 一致
 ```
 
-本项目**仅在 GitHub 上维护**（`sliverTwo/yunxiao-cli`）。
+本项目**仅在 GitHub 上维护**（`xiaoxiaolin0918/yunxiao-cli`；旧名 `sliverTwo/yunxiao-cli` 依赖 GitHub 重定向）。
 
 **从源码安装（次要）：**
 
@@ -160,7 +160,7 @@ go build -o yunxiao .   # 无 ldflags 时回退包内默认见 internal/version 
 # go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=<release>" -o yunxiao .
 ```
 
-需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe` 或 git describe / VERSION）。
+需要 Go 1.24.4+。`make build` / `make ci` 通过 `-ldflags -X …version.Version=$(VERSION)` 注入版本（`VERSION` 默认 `git describe`，或回退 `internal/version` 包内默认值）。
 
 **已知限制：** `go install` / 单独二进制**不包含**仓库 `skills/` 目录；请在源码检出目录运行（或使用会解压 `skills/` 的安装器），或另行复制 / `npx skills add`。需要技能时优先检出目录 `make build`，再执行 `yunxiao skills install`。
 
@@ -169,7 +169,7 @@ go build -o yunxiao .   # 无 ldflags 时回退包内默认见 internal/version 
 
 版本迭代较快——请用 `yunxiao update` 升级。若 GitHub 上有更新的 Release，CLI 偶尔会在 **stderr** 打印一行提示（网络检查最多每 24 小时一次，缓存写在 `~/.config/yunxiao/update_check.json`）。`update` / `self-update` / `completion`、默认的 `--format json`、以及通过环境变量关闭时都会跳过提示。检查失败不会阻塞或导致命令失败；不会自动下载。
 
-提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.6 → 0.16.13。运行：yunxiao update`
+提示示例（打印到 **stderr**）：`发现新版本 yunxiao：0.16.28 → 0.16.29。运行：yunxiao update`
 
 **二进制（GitHub Releases）— 推荐：**
 
@@ -265,7 +265,7 @@ yunxiao skills install --symlink --force
 npx skills add /path/to/yunxiao-cli -y -g
 
 # 3) 从 GitHub（URL 必须以 .git 结尾）
-npx skills add https://github.com/sliverTwo/yunxiao-cli.git -y -g
+npx skills add https://github.com/xiaoxiaolin0918/yunxiao-cli.git -y -g
 ```
 
 安装后请重启 / 重载 AI 工具。查看：`yunxiao skills list|path|read <name>`。
