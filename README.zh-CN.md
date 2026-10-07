@@ -29,7 +29,7 @@ GitHub Releases 是唯一安装渠道。npm 薄包装（`sanzhi-yunxiao-cli`）�
 
 写操作先 `--dry-run`；高风险确认后再加 `--yes`。
 
-详细模块说明：[docs/wiki/01-usage/README.md](docs/wiki/01-usage/README.md) · 从 gh/`yx` 迁移：[docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md)
+详细模块说明：[docs/wiki/01-usage/README.md](docs/wiki/01-usage/README.md) · 从 gh/`yx` 迁移：[docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md)；对外传播 / CSDN 大纲见 [docs/wiki/03-outreach/README.md](docs/wiki/03-outreach/README.md)
 
 ---
 
