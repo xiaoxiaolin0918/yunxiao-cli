@@ -24,6 +24,7 @@ type Option struct {
 type Field struct {
 	ID             string
 	Name           string
+	DisplayName    string // some payloads carry both name and displayName (#113)
 	Format         string // list | multiList | user | sprint | …
 	Type           string // NativeField | SystemCustomField | CustomField
 	Required       bool
@@ -110,6 +111,7 @@ func Parse(raw any) ([]Field, error) {
 		f := Field{
 			ID:           firstNonEmpty(str(m["id"]), str(m["identifier"]), str(m["fieldIdentifier"])),
 			Name:         str(m["name"]),
+			DisplayName:  str(m["displayName"]),
 			Format:       str(m["format"]),
 			Type:         firstNonEmpty(str(m["type"]), str(m["className"])),
 			Required:     boolOf(m["required"]) || boolOf(m["isRequired"]),

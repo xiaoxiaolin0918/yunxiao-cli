@@ -33,6 +33,13 @@ When profile edges are missing, falls back to a single-step status PUT if --to m
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
 sets you can also use: workitem update --status <id> [--cancel-reason …].
 
+Status-entry required fields are not exposed by any OpenAPI config (fields only marks
+type-level required), so dry-run cannot predict them (#113); when a step PUT fails
+HTTP 400 with a 必填 field list, the CLI maps the Chinese names back to field ids via
+the type's field config and reports error.subtype=transition_required_fields with
+details.fields[] (field id, name, current value, options) and a copy-paste
+details.fields_draft for the --fields retry. Unmatched names pass through verbatim.
+
 --dry-run: with profile.workflows[<type>] edges and/or hinted_edges, validates
 current→target locally (edge_validation=validated|hinted|illegal; illegal → ok:false).
 Hinted-only edges (hinted_edges / needs_fields) are not "validated"; when verified
@@ -219,6 +226,9 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 				"required_fields": requiredIDs,
 				"planned_puts":    planned,
 			}
+			if len(steps) > 0 && len(requiredIDs) == 0 {
+				req["required_fields_note"] = transitionRequiredFieldsNote
+			}
 			ev, warn, illegal := transitionDryRunEdgeValidationFull(transitionMode, current, target, wf.Edges, wf.HintedEdges)
 			req["edge_validation"] = ev
 			if warn != "" {
@@ -259,7 +269,8 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 			}
 			var out any
 			if err := c.Put(cmd.Context(), putPath, body, &out); err != nil {
-				handleErr(fmt.Errorf("流转在第 %d/%d 步失败；已成功：%v；%w", i+1, len(steps), applied, err))
+				handleErr(transitionPutError(cmd.Context(), c, "workitem +transition", i+1, len(steps), applied, err, item,
+					zhiyi.ResolveSpaceID(item, pf.SpaceID, ""), typeID, id, to))
 				return
 			}
 			applied = append(applied, st)
