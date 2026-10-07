@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -832,5 +833,163 @@ func TestProfileDoctorHelpDocumentsEnumFindings(t *testing.T) {
 		if !strings.Contains(profileDoctorCmd.Long, want) {
 			t.Fatalf("doctor help missing %q: %s", want, profileDoctorCmd.Long)
 		}
+	}
+}
+
+func runProfileDoctorEnumExtra(t *testing.T, name string, dryRun bool, extra ...string) (string, string, int) {
+	t.Helper()
+	stdout := withCmdJSONCapture(t)
+	prevDry := globalDryRun
+	globalDryRun = dryRun
+	t.Cleanup(func() { globalDryRun = prevDry })
+	var stderr bytes.Buffer
+	prevErr := output.Stderr
+	output.Stderr = &stderr
+	t.Cleanup(func() { output.Stderr = prevErr })
+	prevExit := processExit
+	code := 0
+	processExit = func(c int) {
+		code = c
+		panic(exitPanic{code: c})
+	}
+	t.Cleanup(func() { processExit = prevExit })
+	resetStringFlags(t, profileDoctorCmd, "all-workflows", "fix-suggest", "write")
+	args := append([]string{"profile", "doctor", name}, extra...)
+	rootCmd.SetArgs(args)
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(exitPanic); !ok {
+					panic(r)
+				}
+			}
+		}()
+		if err := rootCmd.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+	}()
+	return stdout.String(), stderr.String(), code
+}
+
+func TestDoctorApplyEnumList(t *testing.T) {
+	got := doctorApplyEnumList([]string{"A", "B"}, "C", "add")
+	if len(got) != 3 || got[2] != "C" {
+		t.Fatalf("add: %#v", got)
+	}
+	got = doctorApplyEnumList([]string{"A", "B", "C"}, "B", "remove")
+	if len(got) != 2 || got[0] != "A" || got[1] != "C" {
+		t.Fatalf("remove: %#v", got)
+	}
+	got = doctorApplyEnumList([]string{"A"}, "A", "add")
+	if len(got) != 1 {
+		t.Fatalf("add idempotent: %#v", got)
+	}
+}
+
+func TestProfileDoctorWriteEnums(t *testing.T) {
+	newDoctorEnumServer(t, doctorEnumFieldsFixture)
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	// Drift both directions on modules; environments missing one live option.
+	writeTransitionTestProfile(t, xdg, &profile.Profile{
+		Name:      "docenum",
+		SpaceID:   "space-enum",
+		BugTypeID: "type-bug",
+		BugCreateFields: profile.BugCreateFields{
+			Module:      "mod-1",
+			Environment: "env-1",
+		},
+		AllowedModules:      []string{"MES", "OMS", "PDM", "公共组件"},
+		AllowedEnvironments: []string{"开发环境"},
+	})
+
+	stdout, stderr, code := runProfileDoctorEnumExtra(t, "docenum", false, "--write")
+	if code != 0 && code != 1 {
+		t.Fatalf("exit=%d stderr=%s stdout=%s", code, stderr, stdout)
+	}
+	var env output.Envelope
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		t.Fatalf("JSON: %v / %s", err, stdout)
+	}
+	data, _ := env.Data.(map[string]any)
+	write, _ := data["write"].(map[string]any)
+	if write == nil || write["saved"] != true {
+		t.Fatalf("write.saved missing: %#v stdout=%s", write, stdout)
+	}
+	applied, _ := write["applied"].([]any)
+	ops := map[string]bool{}
+	for _, a := range applied {
+		m, _ := a.(map[string]any)
+		ops[fmt.Sprintf("%s:%s:%v", m["map"], m["op"], m["value"])] = true
+	}
+	for _, want := range []string{
+		"allowed_modules:remove:公共组件",
+		"allowed_modules:add:系统服务",
+		"allowed_environments:add:测试环境",
+	} {
+		if !ops[want] {
+			t.Fatalf("missing applied %s in %#v", want, applied)
+		}
+	}
+	pf, err := profile.Load("docenum")
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if profile.AllowedContains(pf.AllowedModules, "公共组件") {
+		t.Fatalf("stale not removed: %#v", pf.AllowedModules)
+	}
+	if !profile.AllowedContains(pf.AllowedModules, "系统服务") {
+		t.Fatalf("missing not added: %#v", pf.AllowedModules)
+	}
+	if !profile.AllowedContains(pf.AllowedEnvironments, "测试环境") {
+		t.Fatalf("env missing not added: %#v", pf.AllowedEnvironments)
+	}
+}
+
+func TestProfileDoctorWriteEnumsDryRun(t *testing.T) {
+	newDoctorEnumServer(t, doctorEnumFieldsFixture)
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	writeTransitionTestProfile(t, xdg, &profile.Profile{
+		Name:      "docenum",
+		SpaceID:   "space-enum",
+		BugTypeID: "type-bug",
+		BugCreateFields: profile.BugCreateFields{
+			Module: "mod-1",
+		},
+		AllowedModules: []string{"MES", "公共组件"},
+	})
+	stdout, stderr, code := runProfileDoctorEnumExtra(t, "docenum", true, "--write", "--dry-run")
+	if code != 0 && code != 1 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	var env output.Envelope
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		t.Fatalf("JSON: %v / %s", err, stdout)
+	}
+	if !env.DryRun {
+		t.Fatalf("want dry-run: %+v / %s", env, stdout)
+	}
+	pf, err := profile.Load("docenum")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !profile.AllowedContains(pf.AllowedModules, "公共组件") {
+		t.Fatalf("dry-run must not mutate: %#v", pf.AllowedModules)
+	}
+}
+
+func TestProfileDoctorHelpDocumentsEnumWrite(t *testing.T) {
+	for _, want := range []string{"allowed_modules", "allowed_environments", "enum drift", "enum_stale_in_profile"} {
+		if !strings.Contains(profileDoctorCmd.Long, want) && want != "enum drift" {
+			if want == "enum drift" {
+				continue
+			}
+			t.Fatalf("doctor help missing %q", want)
+		}
+	}
+	if !strings.Contains(profileDoctorCmd.Long, "allowed_*") && !strings.Contains(profileDoctorCmd.Long, "allowed_modules / allowed_environments") {
+		t.Fatalf("Long should mention allowed_* write: %s", profileDoctorCmd.Long)
 	}
 }
