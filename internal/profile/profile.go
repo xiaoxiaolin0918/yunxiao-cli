@@ -33,7 +33,7 @@ type WorkitemWorkflow struct {
 	WorkflowID      string              `json:"workflow_id,omitempty"`
 	WorkflowName    string              `json:"workflow_name,omitempty"`
 	DefaultStatusID string              `json:"default_status_id,omitempty"`
-	Statuses        map[string]string   `json:"statuses,omitempty"` // displayName or alias → id
+	Statuses        map[string]string   `json:"statuses,omitempty"`     // displayName or alias → id
 	Edges           map[string][]string `json:"edges,omitempty"`        // status id → []to ids (verified)
 	HintedEdges     map[string][]string `json:"hinted_edges,omitempty"` // needs_fields edges (issue 61)
 }
@@ -179,7 +179,6 @@ func ListNames() ([]string, string, error) {
 	}
 	return names, d, nil
 }
-
 
 // InstallExampleData writes example content (e.g. embedded in the binary, #92)
 // to profiles/<name>.json. Refuses to overwrite unless force.
@@ -354,6 +353,45 @@ func AllowedContains(list []string, value string) bool {
 	return false
 }
 
+// DiffAllowedEnum diffs an allowed_* snapshot against the live options of the
+// corresponding field (#121). accepted is every token the API would accept for the
+// field (union of option id / value / displayValue); labels is the human-facing
+// option list (displayValue, else value).
+//
+// stale:   snapshot values not offered live (+bug-create would send them and the
+//          server would reject); unlisted: live option labels the snapshot does not
+//          accept (the client-side gate would block a legal value). Both slices are
+// deduped, input order preserved.
+func DiffAllowedEnum(snapshot, accepted, labels []string) (stale, unlisted []string) {
+	acc := map[string]bool{}
+	for _, v := range accepted {
+		if v = strings.TrimSpace(v); v != "" {
+			acc[v] = true
+		}
+	}
+	snap := map[string]bool{}
+	for _, v := range snapshot {
+		v = strings.TrimSpace(v)
+		if v == "" || snap[v] {
+			continue
+		}
+		snap[v] = true
+		if !acc[v] {
+			stale = append(stale, v)
+		}
+	}
+	seenLabel := map[string]bool{}
+	for _, v := range labels {
+		v = strings.TrimSpace(v)
+		if v == "" || snap[v] || seenLabel[v] {
+			continue
+		}
+		seenLabel[v] = true
+		unlisted = append(unlisted, v)
+	}
+	return stale, unlisted
+}
+
 // StatusGraph returns bug_edges, or derives them from bug_statuses aliases when empty.
 func (p *Profile) StatusGraph() map[string][]string {
 	if p == nil {
@@ -468,7 +506,6 @@ func (p *Profile) MergeBugWorkflow(statuses map[string]string, edges map[string]
 		p.BugStatuses[k] = v
 	}
 }
-
 
 // mergeEdgeMapsUnion returns the union of two adjacency maps (deduped destinations).
 func mergeEdgeMapsUnion(a, b map[string][]string) map[string][]string {
