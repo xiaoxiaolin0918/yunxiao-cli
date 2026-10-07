@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.2.0
+version: 1.2.1
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -22,6 +22,7 @@ metadata:
 | `mrs +push-review-status` | 某仓 open MR 的推送评审状态（status/wip/ahead/behind/mergeable/评审） | read |
 
 ```bash
+yunxiao status                 # includes +open-mrs section
 yunxiao codeup +open-mrs
 yunxiao codeup +open-mrs --repo <numericRepoId>
 yunxiao codeup mrs +push-review-status --repo <repoId>
