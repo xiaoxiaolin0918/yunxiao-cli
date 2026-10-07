@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -11,6 +12,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 	"github.com/yunxiao-cli/yunxiao/internal/workflow"
+	"github.com/yunxiao-cli/yunxiao/internal/workitemfields"
 )
 
 var profileDoctorCmd = &cobra.Command{
@@ -23,6 +25,11 @@ Fetches live workitem type fields and workflow for the profile bug_type_id
 bug_fields / bug_create_fields / bug_statuses / bug_transition_required /
 workflows edges / workitem_defaults field ids.
 
+For the bug type it also diffs the allowed_environments / allowed_modules
+snapshots (the client-side gate for +bug-create --environment / --module)
+against the live options of bug_create_fields.environment / .module (#121);
+drift fails the check.
+
   yunxiao profile doctor
   yunxiao profile doctor play
   yunxiao profile doctor --profile play
@@ -33,6 +40,9 @@ Report categories per id:
   missing_on_type    — profile field id not found in live fields
   unknown_in_profile — live status id not listed in profile status maps (informational)
   status_not_in_workflow — profile status / edge target not in live workflow statuses
+  enum_stale_in_profile   — allowed_* snapshot value no longer in the live field options
+  enum_missing_in_profile — live option the allowed_* snapshot would reject
+  enum_unverified         — field options unavailable, snapshot not checked (informational)
 `,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -153,6 +163,8 @@ func doctorType(ctx context.Context, c *client.Client, pf *profile.Profile, type
 	}
 
 	liveFields := extractFieldIDs(fieldsRaw)
+	// #121: full field configs (with options) for the allowed_* snapshot diff.
+	parsedFields, fieldsParseErr := workitemfields.Parse(fieldsRaw)
 	_, _, _, statuses, err := workflow.ParseWorkflowResponse(wfRaw)
 	liveStatus := map[string]bool{}
 	if err == nil {
@@ -296,6 +308,17 @@ func doctorType(ctx context.Context, c *client.Client, pf *profile.Profile, type
 		})
 	}
 
+	// #121: allowed_* snapshots are tenant data snapshots; diff them against the live
+	// field options of the bug type so drift is reported instead of silently gating
+	// +bug-create with stale values.
+	if isBugType {
+		enumFindings, enumDrift := doctorAllowedEnumFindings(pf, parsedFields, fieldsParseErr)
+		findings = append(findings, enumFindings...)
+		if enumDrift {
+			ok = false
+		}
+	}
+
 	sort.Slice(findings, func(i, j int) bool {
 		a, _ := findings[i]["id"].(string)
 		b, _ := findings[j]["id"].(string)
@@ -337,6 +360,94 @@ func doctorType(ctx context.Context, c *client.Client, pf *profile.Profile, type
 		"findings":                findings,
 		"ok":                      ok,
 	}, ok
+}
+
+// doctorAllowedEnumFindings diffs profile allowed_environments / allowed_modules
+// snapshots against the live options of the matching bug-create fields (#121).
+// Skips enums the profile does not gate (no field id or empty snapshot list);
+// emits informational enum_unverified when the field exists but options are
+// unavailable. Returns drift=true when the snapshot and live options disagree.
+func doctorAllowedEnumFindings(pf *profile.Profile, fields []workitemfields.Field, fieldsParseErr error) (findings []map[string]any, drift bool) {
+	if pf == nil {
+		return nil, false
+	}
+	byID := make(map[string]workitemfields.Field, len(fields))
+	for _, f := range fields {
+		byID[f.ID] = f
+	}
+	checks := []struct {
+		source  string   // profile key, also the finding source
+		fieldID string   // live field whose options are the truth
+		allowed []string // profile snapshot (empty = gate disabled)
+	}{
+		{"allowed_modules", pf.ModuleFieldID(), pf.AllowedModules},
+		{"allowed_environments", pf.EnvironmentFieldID(), pf.AllowedEnvironments},
+	}
+	for _, ck := range checks {
+		if ck.fieldID == "" || len(ck.allowed) == 0 {
+			continue // profile does not gate this enum; nothing to verify
+		}
+		f, found := byID[ck.fieldID]
+		if !found {
+			if fieldsParseErr != nil {
+				// Field ids could not be parsed at all — say so instead of silence.
+				findings = append(findings, map[string]any{
+					"id":     ck.fieldID,
+					"source": ck.source,
+					"status": "enum_unverified",
+					"reason": fieldsParseErr.Error(),
+				})
+			}
+			// Otherwise the field id itself is already reported missing_on_type.
+			continue
+		}
+		var accepted, labels []string
+		for _, o := range f.Options {
+			for _, tok := range []string{o.ID, o.Value, o.DisplayValue} {
+				if tok = strings.TrimSpace(tok); tok != "" {
+					accepted = append(accepted, tok)
+				}
+			}
+			lbl := o.DisplayValue
+			if lbl = strings.TrimSpace(lbl); lbl == "" {
+				lbl = strings.TrimSpace(o.Value)
+			}
+			if lbl != "" {
+				labels = append(labels, lbl)
+			}
+		}
+		if len(labels) == 0 {
+			findings = append(findings, map[string]any{
+				"id":     ck.fieldID,
+				"source": ck.source,
+				"status": "enum_unverified",
+				"reason": "field has no options",
+			})
+			continue
+		}
+		stale, unlisted := profile.DiffAllowedEnum(ck.allowed, accepted, labels)
+		for _, v := range stale {
+			findings = append(findings, map[string]any{
+				"id":           v,
+				"source":       ck.source,
+				"field_id":     ck.fieldID,
+				"status":       "enum_stale_in_profile",
+				"live_options": labels,
+			})
+			drift = true
+		}
+		for _, v := range unlisted {
+			findings = append(findings, map[string]any{
+				"id":       v,
+				"source":   ck.source,
+				"field_id": ck.fieldID,
+				"status":   "enum_missing_in_profile",
+				"allowed":  ck.allowed,
+			})
+			drift = true
+		}
+	}
+	return findings, drift
 }
 
 func extractFieldIDs(raw any) map[string]bool {
