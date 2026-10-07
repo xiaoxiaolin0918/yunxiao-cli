@@ -21,6 +21,7 @@ var codeupCmd = &cobra.Command{
 
 +shortcuts:
   yunxiao codeup +open-mrs [--repo <id|alias>]
+  yunxiao codeup mrs +push-review-status --repo <id|alias> [--local-id <n>] [--all]
   yunxiao codeup mrs +create --repo <alias|id> --source <br> --title "…" [--work-item ZYPT-…] [--wip] [--reviewer <ids>]
 
 Typed:
@@ -120,6 +121,18 @@ WARNING (server-ignored params): Codeup list_change_requests may silently ignore
 repositoryId and status. This command sends projectIds (via --repo) and lowercase
 state (via --state). Do not rely on repositoryId/status filters on the raw API.
 
+Per-item injection (#132): each MR gets a CLI-computed "status" (push-review
+lifecycle: newVersionState UNDER_DEV/UNDER_REVIEW/TO_BE_MERGED/CLOSED/MERGED, or
+legacy state as fallback) and "wip" (true when UNDER_DEV / workInProgress; omitted
+when the item carries no signal). Same convention as #94 latest: CLI-injected keys
+overwrite same-named API fields; the legacy lowercase "state" is left untouched.
++open-mrs injects the same fields.
+
+--status UNDER_DEV (client-side, #132): filters the returned items locally by the
+injected status (the server may ignore a status param — see WARNING above), so it
+is page-local unless combined with --all. The active filter is echoed in
+meta.status_filter (+ status_filter_scope=client-side).
+
 Use --all to follow pages via client.ListAll (cap 50).
 Default order: newest first by update/create time. Client-side --sort applies within
 the current page (or across collected pages with --all). Use --sort asc for oldest first.`,
@@ -127,6 +140,7 @@ the current page (or across collected pages with --all). Use --sort asc for olde
 		flagOrg(globalOrg)
 		state, _ := cmd.Flags().GetString("state")
 		search, _ := cmd.Flags().GetString("search")
+		statusFilter, _ := cmd.Flags().GetString("status")
 		projectIDs, _ := cmd.Flags().GetString("repo")
 		page, _ := cmd.Flags().GetInt("page")
 		perPage, _ := cmd.Flags().GetInt("per-page")
@@ -157,9 +171,7 @@ the current page (or across collected pages with --all). Use --sort asc for olde
 			}
 			q["projectIds"] = resolved
 		}
-		after, err := afterSortByTime(sortFlag, func(out any, meta map[string]any) (any, map[string]any) {
-			return zhiyi.AttachMergeRequestURLs(out), meta
-		})
+		after, err := afterSortByTime(sortFlag, enrichMrsList(statusFilter))
 		if err != nil {
 			handleErr(err)
 			return
@@ -308,7 +320,15 @@ verifies via workitem extRelationRecords, attempts repair if needed, and fails
 var codeupOpenMrsShortcut = &cobra.Command{
 	Use:   "+open-mrs",
 	Short: "Shortcut: list opened merge requests",
-	Long:  "Risk: read",
+	Long: `Risk: read
+HTTP: GET .../changeRequests?state=opened
+
+Per item: clickable "url" plus CLI-computed "status" (push-review lifecycle:
+UNDER_DEV/UNDER_REVIEW/TO_BE_MERGED/CLOSED/MERGED from newVersionState, legacy
+state as fallback) and "wip" (true when UNDER_DEV / workInProgress; omitted when
+no signal) — #132. UNDER_DEV = 开发中 (push-review WIP): mrs merge is blocked
+until WIP is canceled in the web UI (#124); see mrs +push-review-status for
+ahead/behind/merge-requirements.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		search, _ := cmd.Flags().GetString("search")
@@ -337,9 +357,7 @@ var codeupOpenMrsShortcut = &cobra.Command{
 			}
 			q["projectIds"] = resolved
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
-			return zhiyi.AttachMergeRequestURLs(out), meta
-		}))
+		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, enrichMrsList("")))
 	},
 }
 
@@ -751,7 +769,15 @@ mr_conflict_checking / mr_not_mergeable / merge_type_not_supported) and an
 actionable hint instead of an undefined server 405; nothing is POSTed. Passing
 checks attach meta.precheck (dry-run: request.precheck). If the detail GET
 fails, the merge is refused (fail closed). Without --yes the confirmation gate
-still trips first (exit 10 confirmation_required) and no request is sent.`,
+still trips first (exit 10 confirmation_required) and no request is sent.
+
+On an API error from the POST itself the CLI GETs the MR once and attaches
+error.details.mr with the current status/wip/ahead/behind/mergeable/todo plus
+an actionable hint (#124): a 405 SYSTEM_FORBIDDEN_ERROR on a push-review MR
+usually means status UNDER_DEV (开发中/WIP) — there is no OpenAPI to cancel WIP
+(UpdateChangeRequest only edits title/description); cancel it in the Codeup web
+UI (MR page → 更多(…) → 取消 WIP), then retry. Track WIP MRs with: yunxiao
+codeup mrs +push-review-status --repo <r>.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -798,19 +824,10 @@ still trips first (exit 10 confirmation_required) and no request is sent.`,
 			handleErr(output.DryRunResult(string(risk.HighRiskWrite), requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}))
 			return
 		}
-		// Gate first (exit 10 without --yes, unchanged), then precheck inside
-		// the exec step: the POST only runs after the precheck passes.
-		handleErr(runMutating("codeup mrs merge", risk.HighRiskWrite, globalDryRun, globalYes, rp, func() error {
-			pre, perr := precheckMrsMerge(cmd.Context(), c, repoID, localID, mergeType)
-			if perr != nil {
-				return perr
-			}
-			var out any
-			if _, err := c.Do(cmd.Context(), "POST", path, nil, body, &out); err != nil {
-				return err
-			}
-			return output.Success(out, map[string]any{"risk": risk.HighRiskWrite, "precheck": pre})
-		}))
+		// Gate first (exit 10 without --yes, unchanged), then precheck + merge
+		// inside the exec step: the POST only runs after the precheck passes
+		// (#130), and a failing POST is enriched with the MR's current state (#124).
+		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body, mergeType, rp))
 	},
 }
 
@@ -890,16 +907,18 @@ var codeupMrsGetCmd = &cobra.Command{
 	Long: `Risk: read
 HTTP: GET .../changeRequests/{localId}
 
-Normalizes OpenAPI status into state (alias) for scripts.
+Normalizes OpenAPI status into state (alias) for scripts and adds wip (true
+when status is UNDER_DEV / 开发中, the push-review WIP state that blocks
+merges, #132).
 
 Output views (#130; exactly one of):
-  (default) / --summary  brief fields (localId/title/status/state/detailUrl/url)
+  (default) / --summary  brief fields (localId/title/status/state/wip/detailUrl/url)
                        plus the "can it merge?" set: mergeable, conflictCheckStatus,
                        checkList (incl. requirementRuleItems), supportMergeFastForwardOnly,
                        allRequirementsPass, ahead, behind, and reviewers as
                        [{name, opinion}] (reviewOpinionStatus). Fields the API does
                        not return are omitted. meta.projection = "summary".
-  --brief              localId/title/status/state/detailUrl/url only.
+  --brief              localId/title/status/state/wip/detailUrl/url only.
   --full               the raw object, identical to the pre-#130 default output.
 Compatibility switch: YUNXIAO_MRS_GET_VIEW=full|summary|brief picks the view when
 no view flag is given (flag > env > default summary), so scripts that must run on
@@ -1667,6 +1686,26 @@ Example:
 	},
 }
 
+// enrichMrsList is the shared after-hook for mrs list / +open-mrs (#132): per-item
+// url injection (0.15.x) + CLI-computed status/wip injection, then the optional
+// client-side --status filter (the server may ignore status params; see the list
+// WARNING). statusFilter "" keeps all items.
+func enrichMrsList(statusFilter string) func(out any, meta map[string]any) (any, map[string]any) {
+	return func(out any, meta map[string]any) (any, map[string]any) {
+		out = zhiyi.AttachMergeRequestURLs(out)
+		out = zhiyi.AttachMergeRequestStatuses(out)
+		if statusFilter != "" {
+			out = zhiyi.FilterMergeRequestListByStatus(out, statusFilter)
+			if meta == nil {
+				meta = map[string]any{}
+			}
+			meta["status_filter"] = strings.ToUpper(strings.TrimSpace(statusFilter))
+			meta["status_filter_scope"] = "client-side"
+		}
+		return out, meta
+	}
+}
+
 func numericOrEmpty(s string) string {
 	if _, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return s
@@ -1684,6 +1723,7 @@ func init() {
 	codeupBranchesListCmd.Flags().Int("per-page", 20, "per page")
 	codeupMrsListCmd.Flags().String("state", "", "opened|merged|closed")
 	codeupMrsListCmd.Flags().String("search", "", "title search")
+	codeupMrsListCmd.Flags().String("status", "", "client-side filter by injected status: UNDER_DEV|UNDER_REVIEW|TO_BE_MERGED|CLOSED|MERGED (case-insensitive; page-local unless --all)")
 	codeupMrsListCmd.Flags().String("repo", "", "filter by repository id or alias (projectIds)")
 	codeupMrsListCmd.Flags().Int("page", 1, "page")
 	codeupMrsListCmd.Flags().Int("per-page", 20, "per page")
@@ -1765,7 +1805,7 @@ func init() {
 	codeupMrsGetCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsGetCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsGetCmd.Flags().Bool("summary", false, "summary view (default): brief fields + mergeable/conflictCheckStatus/checkList/reviewers/opinion digest")
-	codeupMrsGetCmd.Flags().Bool("brief", false, "only localId/title/status/state/detailUrl/url")
+	codeupMrsGetCmd.Flags().Bool("brief", false, "only localId/title/status/state/wip/detailUrl/url")
 	codeupMrsGetCmd.Flags().Bool("full", false, "raw MR object (pre-#130 default output); env YUNXIAO_MRS_GET_VIEW=full|summary|brief applies when no view flag")
 	codeupMrsUpdateCmd.Flags().String("repo", "", "repository id, alias, or org/repo path")
 	codeupMrsUpdateCmd.Flags().String("local-id", "", "MR local id")

@@ -307,6 +307,7 @@ yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
 #        ^ merge prechecks the MR first (#130): status/conflict/mergeable + --merge-type vs the
 #          repo's merge settings; unsupported type -> exit 1 merge_type_not_supported (no POST)
+#          on a POST 405: error.details.mr carries MR status/wip + WIP hint (#124)
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
@@ -314,6 +315,8 @@ yunxiao codeup mrs get --repo <id> --local-id 1
 yunxiao codeup mrs get --repo <id> --local-id 1 --full    # raw object; default is the summary view
 #   views (#130): default summary = brief + mergeable/conflictCheckStatus/checkList/reviewers
 #   [{name, opinion}]; --brief minimal; --full raw; env YUNXIAO_MRS_GET_VIEW=full|summary|brief
+yunxiao codeup mrs list --state opened --status UNDER_DEV   # client-side push-review status filter; items carry injected status/wip (#132)
+yunxiao codeup mrs +push-review-status --repo <id>          # open MRs: status/wip/ahead/behind/mergeable/review (#132)
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # per-item latest + meta.latest_patchset_biz_id (#94)
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL: latest patchset by default (#93)

@@ -316,6 +316,7 @@ yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
 #        ^ merge 前先预检（#130）：状态/冲突/mergeable + --merge-type 对照仓库合并方式；
 #          不支持时 exit 1 merge_type_not_supported（不发 POST）
+#          POST 405 时 error.details.mr 带 MR 状态/wip + 取消 WIP hint（#124）
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
@@ -323,6 +324,8 @@ yunxiao codeup mrs get --repo <id> --local-id 1
 yunxiao codeup mrs get --repo <id> --local-id 1 --full    # 原始对象；默认为 summary 中间档
 #   三档视图（#130）：默认 summary = brief + mergeable/conflictCheckStatus/checkList/reviewers
 #   [{name, opinion}]；--brief 最小；--full 原始；env YUNXIAO_MRS_GET_VIEW=full|summary|brief
+yunxiao codeup mrs list --state opened --status UNDER_DEV   # 客户端推送评审状态过滤；每条注入 status/wip（#132）
+yunxiao codeup mrs +push-review-status --repo <id>          # open MR：status/wip/ahead/behind/mergeable/评审（#132）
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest + meta.latest_patchset_biz_id（#94）
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # 全局评论缺省取最新 patchset（#93）
