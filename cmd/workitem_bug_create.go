@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
@@ -41,6 +42,8 @@ pair (--title vs --title-file, --description vs --description-file).
     --title "标题" --description "描述" --sprint <id> --dry-run
 
   yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --yes
+
+Required-field precheck (same as workitem create / #95 / #107): before POST (also under --dry-run) the CLI GETs the bug type field config and reports every missing required field at once (error.subtype=missing_required_fields). --no-precheck skips the GET (old behavior). Success / dry-run carry meta.precheck (or request.precheck).
 
 If --sprint is omitted, searches recent Bug sprints and errors with a suggestion (does not create).
 
@@ -222,8 +225,27 @@ workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 			return
 		}
 
+		// #107: reuse workitem create required-field precheck (#95).
+		var precheck map[string]any
+		if noPrecheck, _ := cmd.Flags().GetBool("no-precheck"); !noPrecheck {
+			var profileRequired []string
+			if d, ok := pf.WorkitemDefaults[pf.BugTypeID]; ok {
+				profileRequired = d.CreateRequired
+			}
+			precheck, err = precheckWorkitemCreate(cmd.Context(), c, pf.SpaceID, pf.BugTypeID, body, profileRequired)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			printPrecheckWarning(precheck)
+		}
+
 		if globalDryRun {
-			handleErr(output.DryRunResult(string(risk.Write), c.Preview("POST", path, nil, body)))
+			var preview any = c.Preview("POST", path, nil, body)
+			if precheck != nil {
+				preview = requestPreviewWithPrecheck{RequestPreview: preview.(client.RequestPreview), Precheck: precheck}
+			}
+			handleErr(output.DryRunResult(string(risk.Write), preview))
 			return
 		}
 		if err := risk.CheckConfirmed("workitem +bug-create", risk.Write, globalYes); err != nil {
@@ -235,7 +257,7 @@ workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 		if err := c.Post(cmd.Context(), path, body, &created); err != nil {
 			// #99: a not-enabled bug_type_id gets the enabled-types list attached.
 			err = enrichTypeNotEnabledError(cmd.Context(), c, pf.SpaceID, pf.BugTypeID, withWriteDedupeHint(err, workitemSearchHint(title)))
-			handleErr(err)
+			handleCreateErr(err, precheck)
 			return
 		}
 		internal := zhiyi.InternalID(created)
@@ -265,7 +287,11 @@ workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 				}
 			}
 		}
-		handleErr(output.Success(result, map[string]any{"risk": risk.Write, "profile": pf.Name, "minimal": minimal, "verifier": verifier}))
+		meta := map[string]any{"risk": risk.Write, "profile": pf.Name, "minimal": minimal, "verifier": verifier}
+		if precheck != nil {
+			meta["precheck"] = precheck
+		}
+		handleErr(output.Success(result, meta))
 	},
 }
 
@@ -284,5 +310,6 @@ func init() {
 	workitemBugCreateCmd.Flags().String("verifier", "", "verifier user id or self (default: profile.default_verifier or workitem_defaults verifier)")
 	workitemBugCreateCmd.Flags().Bool("minimal", false, "only subject/description/priority/seriousLevel/sprint/assignedTo (skip module/env/ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for bug_type_id")
+	workitemBugCreateCmd.Flags().Bool("no-precheck", false, "skip the required-field precheck (no GET .../fields before create)")
 	workitemCmd.AddCommand(workitemBugCreateCmd)
 }

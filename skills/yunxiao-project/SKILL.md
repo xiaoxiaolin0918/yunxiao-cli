@@ -82,7 +82,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）
 - `workitem create` 必填预检（0.16.33+，#95）：POST 前（`--dry-run` 也会）读一次类型字段配置，缺失字段**一次性**报出：`error.subtype=missing_required_fields`，按 `error.details.missing[]` 的 `field_id` / `pass_via` / `options` 一次补齐（通常写进 `--custom-fields-file`），不要逐个试错。字段配置读不到 / 为空时只告警（`meta.precheck.status=skipped|empty`，看 `meta.precheck.warning`）照常创建，401 直接失败；带服务端 `defaultValue` 的字段不检查（列在 `skipped_default`）。实测验证只在 **play 沙箱**做（ZYPT 只允许 `--dry-run`）。**不要默认加 `--no-precheck`**；怀疑误报时，把 `error.details.missing` 报告给用户并询问，而不是绕过。
 - `workitem create` / `+bug-create` 遇 `工作项类型未启用`（#99）：报错自动附带该 space 已启用类型 `error.details.available_types[]`（`id` / `name` / `category`，`subtype=workitem_type_not_enabled`），直接挑一个 id 重试，不必再跑一次 types list
-- `workitem +bug-create` 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
+- `workitem +bug-create`（必填预检同 create / #107，`--no-precheck` 可跳过） 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)
