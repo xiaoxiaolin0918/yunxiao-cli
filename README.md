@@ -10,7 +10,7 @@ CLI binary name: **`yunxiao`**.
 
 1. Install: open [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest), download the archive for your OS, put `yunxiao` on PATH.
 2. Login: `yunxiao auth login --browser` (CI: `--token`).
-3. Smoke: `yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`.
+3. Smoke: `yunxiao whoami` · `yunxiao doctor` · `yunxiao status` · `yunxiao codeup +open-mrs`.
 4. Open console: `yunxiao browse pipeline --pipeline-id <id> --print-only`.
 5. Completion: `yunxiao completion bash|zsh|powershell` (see [usage index](docs/wiki/01-usage/README.md)).
 
@@ -431,6 +431,12 @@ yunxiao codeup repos create --name my-repo --path my-repo --dry-run
 yunxiao api GET /oapi/v1/platform/user
 yunxiao schema
 ```
+```bash
+yunxiao status                      # open work items + open MRs (pending gates with --pipeline-id)
+yunxiao status --category Bug --repo <id>
+yunxiao status --pipeline-id <id>   # also scan manual gates
+```
+
 
 
 ## Profiles: play vs zhiyi (optional)

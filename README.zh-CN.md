@@ -10,7 +10,7 @@ CLI 二进制名：**`yunxiao`**。
 
 1. 安装：打开 [https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest](https://github.com/xiaoxiaolin0918/yunxiao-cli/releases/latest)，下载对应平台归档，把 `yunxiao` 加入 PATH。
 2. 登录：`yunxiao auth login --browser`（CI 用 `--token`）。
-3. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao codeup +open-mrs`。
+3. 试跑：`yunxiao whoami` · `yunxiao doctor` · `yunxiao status` · `yunxiao codeup +open-mrs`。
 4. 打开控制台页：`yunxiao browse pipeline --pipeline-id <id> --print-only`。
 5. Shell 补全：`yunxiao completion powershell | Out-String | Invoke-Expression`（bash/zsh 见 [usage 索引](docs/wiki/01-usage/README.md)）。
 
@@ -440,6 +440,12 @@ yunxiao codeup repos create --name my-repo --path my-repo --dry-run
 yunxiao api GET /oapi/v1/platform/user
 yunxiao schema
 ```
+```bash
+yunxiao status                      # 我的未完成工作项 + 开放 MR（加 --pipeline-id 含人工卡点）
+yunxiao status --category Bug --repo <id>
+yunxiao status --pipeline-id <id>
+```
+
 
 ## Profile：play vs zhiyi（可选）
 

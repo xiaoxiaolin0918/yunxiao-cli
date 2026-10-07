@@ -1,6 +1,6 @@
 ---
 name: yunxiao-pipeline
-version: 1.2.1
+version: 1.2.2
 description: "云效 Flow 流水线：列表/详情、YAML、运行 list/get/trigger/cancel/watch、+pending 人工卡点、job pass/refuse --yes。"
 metadata:
   requires:
@@ -61,6 +61,7 @@ List 分页：`meta.has_more` / `total` / `page`；完整集用 `pipeline list -
 ## 任务 / 卡点
 
 ```bash
+yunxiao status --pipeline-id <id>   # dashboard includes +pending section
 yunxiao pipeline +pending --pipeline-id <id>
 yunxiao pipeline +pending --all-pipelines --include-running
 yunxiao pipeline job log --pipeline-id <id> --run-id <rid> --job-id <jid>

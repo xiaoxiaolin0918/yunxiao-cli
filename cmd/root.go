@@ -26,6 +26,7 @@ AGENT QUICKSTART (driving this as an agent? start here):
     On any API call: --jq <expr> filters JSON output, --dry-run previews the request (runs nothing).
 
 EXAMPLES (one per command style, in order of preference):
+    yunxiao status                                        # dashboard: open items + open MRs
     yunxiao project +my-open-items                       # +shortcut — a high-level task, prefer these
     yunxiao pipeline +status --pipeline-id <id>          # +shortcut — latest run status
     yunxiao codeup mrs list --state opened               # typed command for one API method

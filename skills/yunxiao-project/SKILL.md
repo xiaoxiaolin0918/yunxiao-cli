@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.5"
+version: "1.4.6"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -18,10 +18,12 @@ metadata:
 
 | Shortcut | 说明 | Risk |
 |----------|------|------|
+| `yunxiao status` | 聚合：指派给我的未完成工作项 + 开放 MR（可选 pending gates） | read |
 | `project +my-open-items` | 指派给我且未完成的工作项（默认 category=Req，statusStage=1,2） | read |
 | `project +created-by-me` | 我创建的工作项（可用 `--status-stage` 过滤未完成） | read |
 
 ```bash
+yunxiao status
 yunxiao project +my-open-items
 yunxiao project +my-open-items --category Task --space-id <projectId>
 ```

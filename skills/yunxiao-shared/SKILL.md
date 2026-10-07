@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.3
+version: 1.1.4
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout, config, doctor, whoami, self-update (yunxiao update), JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -37,6 +37,7 @@ yunxiao auth login --token "<PAT>"           # 写入 ~/.config/yunxiao/config.j
 yunxiao auth status
 yunxiao whoami
 yunxiao doctor
+yunxiao status          # open workitems + open MRs; optional pending gates
 ```
 
 可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。也可在 profile JSON 写可选 `access_token`（优先级：env > profile > config.json）。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>` 一次写入，`profile use --unset` 清除，#130）。
