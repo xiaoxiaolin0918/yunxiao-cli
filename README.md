@@ -292,6 +292,13 @@ yunxiao workitem comment --id <id> --content "note" --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "title" --assigned-to self --dry-run
 yunxiao workitem update --id <id> --assigned-to self --dry-run
 yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
+yunxiao workitem +transition --id <id> --to <alias> --fields '{"<fieldId>":"<value>"}' --yes
+# +transition success prints a brief result (serialNumber, from_status→to_status displayNames,
+# url, refresh_ok; item is a brief projection — same convention as create/get, #114);
+# --full (or YUNXIAO_WORKITEM_GET_VIEW=full) returns the raw refreshed work item.
+# Status-entry required fields are not in any OpenAPI config (fields only marks type-level
+# required); if the PUT fails 400 "xx必填", the CLI maps the Chinese names back to fieldIds
+# with a copy-paste --fields draft (error.subtype=transition_required_fields, #113).
 
 # codeup
 yunxiao codeup repos list
