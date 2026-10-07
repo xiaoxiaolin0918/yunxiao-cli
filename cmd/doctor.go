@@ -21,7 +21,7 @@ var doctorCmd = &cobra.Command{
 	Short: "CLI health check: config, auth, and connectivity",
 	Long: `Risk: read
 
-	Prints resolved executable path (os.Executable / argv0; Windows-friendly),
+Prints resolved executable path (os.Executable / argv0; Windows-friendly),
 active profile summary (name, organization_id, space_id), config/token checks,
 and a connectivity probe.
 
@@ -130,10 +130,10 @@ func executableCheck() map[string]any {
 func activeProfileCheck(pf *profile.Profile) map[string]any {
 	name := activeProfileName()
 	ch := map[string]any{
-		"name":          "active_profile",
-		"ok":            true,
-		"profile_name":  name,
-		"profile_set":   name != "",
+		"name":         "active_profile",
+		"ok":           true,
+		"profile_name": name,
+		"profile_set":  name != "",
 	}
 	if pf == nil {
 		if name == "" {

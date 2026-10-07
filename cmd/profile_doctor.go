@@ -18,7 +18,7 @@ import (
 var profileDoctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Diff profile field/status ids against live workitem fields + workflow",
-	Long: `Risk: read (--write: write — merges suggested status ids into the local profile file only; never writes to the API)
+	Long: `Risk: read (--write: write — merges suggested status ids and allowed_* enum drift into the local profile file only; never writes to the API)
 
 Fetches live workitem type fields and workflow for the profile bug_type_id
 (and optionally each workflows[*].type_id) and diffs against profile
@@ -35,7 +35,7 @@ drift fails the check.
   yunxiao profile doctor --profile play
   yunxiao profile doctor --all-workflows
   yunxiao profile doctor --fix-suggest=false
-  yunxiao profile doctor --write             # backfill suggested status ids
+  yunxiao profile doctor --write             # backfill status ids + allowed_* enum drift
   yunxiao profile doctor --write --dry-run   # preview the backfill, no file write
 
 Report categories per id:
@@ -46,11 +46,6 @@ Report categories per id:
   enum_stale_in_profile   — allowed_* snapshot value no longer in the live field options
   enum_missing_in_profile — live option the allowed_* snapshot would reject
   enum_unverified         — field options unavailable, snapshot not checked (informational)
-// emits informational enum_unverified when the field exists but options are
-					"status": "enum_unverified",
-				"status": "enum_unverified",
-				"status":       "enum_stale_in_profile",
-				"status":   "enum_missing_in_profile",
 
 Findings carry live metadata (#120): status findings add display_name / name_en
 from the live workflow; field findings add field_name from the live field config;
@@ -59,9 +54,11 @@ missing_on_type adds similar_fields (live fields whose name matches the profile 
 --fix-suggest (default true) attaches suggestions to unknown_in_profile findings:
 an alias guessed from nameEn/displayName plus the exact profile keys to backfill.
 --write applies those suggestions: bug_statuses[alias] for the bug type and
-workflows[type_id].statuses[displayName] for every checked type. Edges and other
-probe-discovered fields are never touched. Keys that already map to another id are
-reported as suggest_conflict and skipped. Prefer --dry-run first.
+workflows[type_id].statuses[displayName] for every checked type. For the bug type it
+also applies allowed_modules / allowed_environments drift: remove enum_stale_in_profile
+values and append enum_missing_in_profile labels. Edges and other probe-discovered
+fields are never touched. Status keys that already map to another id are reported as
+suggest_conflict and skipped. Prefer --dry-run first.
 `,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -132,7 +129,7 @@ reported as suggest_conflict and skipped. Prefer --dry-run first.
 				summaryOK = false
 			}
 			reports = append(reports, rep)
-			if len(sugg.suggestions) > 0 {
+			if len(sugg.suggestions) > 0 || len(sugg.enums) > 0 {
 				allSuggestions = append(allSuggestions, sugg)
 			}
 		}
@@ -230,14 +227,23 @@ type doctorTypeSuggestions struct {
 	typeID      string
 	isBugType   bool
 	suggestions []doctorStatusSuggestion
+	enums       []doctorEnumSuggestion
+}
+
+// doctorEnumSuggestion is one allowed_* add/remove planned by --write.
+type doctorEnumSuggestion struct {
+	Source string // allowed_modules | allowed_environments
+	Value  string
+	Op     string // "add" | "remove"
 }
 
 // doctorWriteEntry is one applied (or previewed) profile backfill (#120).
 type doctorWriteEntry struct {
-	TypeID string `json:"type_id"`
-	Map    string `json:"map"` // "bug_statuses" | "workflows.statuses"
-	Key    string `json:"key"`
+	TypeID string `json:"type_id,omitempty"`
+	Map    string `json:"map"` // "bug_statuses" | "workflows.statuses" | "allowed_modules" | "allowed_environments"
+	Key    string `json:"key,omitempty"`
 	Value  string `json:"value"`
+	Op     string `json:"op,omitempty"` // ""|"set" for statuses; "add"|"remove" for allowed_*
 }
 
 // doctorSkipEntry is a backfill blocked by an existing mapping.
@@ -254,13 +260,21 @@ func doctorWritePlan(suggs []doctorTypeSuggestions) ([]doctorWriteEntry, []docto
 	for _, ts := range suggs {
 		for _, s := range ts.suggestions {
 			for _, tgt := range s.Targets {
-				e := doctorWriteEntry{TypeID: ts.typeID, Map: tgt.Map, Key: tgt.Key, Value: tgt.Value}
+				e := doctorWriteEntry{TypeID: ts.typeID, Map: tgt.Map, Key: tgt.Key, Value: tgt.Value, Op: "set"}
 				if tgt.Conflict != "" {
 					skipped = append(skipped, doctorSkipEntry{doctorWriteEntry: e, Reason: tgt.Conflict})
 					continue
 				}
 				applied = append(applied, e)
 			}
+		}
+		for _, e := range ts.enums {
+			applied = append(applied, doctorWriteEntry{
+				TypeID: ts.typeID,
+				Map:    e.Source,
+				Value:  e.Value,
+				Op:     e.Op,
+			})
 		}
 	}
 	return applied, skipped
@@ -284,7 +298,36 @@ func doctorApplyWrites(pf *profile.Profile, applied []doctorWriteEntry) {
 				TypeID:   e.TypeID,
 				Statuses: map[string]string{e.Key: e.Value},
 			})
+		case "allowed_modules":
+			pf.AllowedModules = doctorApplyEnumList(pf.AllowedModules, e.Value, e.Op)
+		case "allowed_environments":
+			pf.AllowedEnvironments = doctorApplyEnumList(pf.AllowedEnvironments, e.Value, e.Op)
 		}
+	}
+}
+
+// doctorApplyEnumList applies an add/remove op to an allowed_* snapshot (order preserved).
+func doctorApplyEnumList(list []string, value, op string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return list
+	}
+	switch op {
+	case "remove":
+		out := make([]string, 0, len(list))
+		for _, v := range list {
+			if v != value {
+				out = append(out, v)
+			}
+		}
+		return out
+	default: // add
+		for _, v := range list {
+			if v == value {
+				return list
+			}
+		}
+		return append(append([]string{}, list...), value)
 	}
 }
 
@@ -625,8 +668,9 @@ func doctorType(ctx context.Context, c *client.Client, pf *profile.Profile, type
 	// field options of the bug type so drift is reported instead of silently gating
 	// +bug-create with stale values.
 	if isBugType {
-		enumFindings, enumDrift := doctorAllowedEnumFindings(pf, parsedFields, fieldsParseErr)
+		enumFindings, enumSuggs, enumDrift := doctorAllowedEnumFindings(pf, parsedFields, fieldsParseErr, fixSuggest)
 		findings = append(findings, enumFindings...)
+		suggOut.enums = append(suggOut.enums, enumSuggs...)
 		if enumDrift {
 			ok = false
 		}
@@ -675,9 +719,9 @@ func doctorType(ctx context.Context, c *client.Client, pf *profile.Profile, type
 	}, suggOut, ok
 }
 
-func doctorAllowedEnumFindings(pf *profile.Profile, fields []workitemfields.Field, fieldsParseErr error) (findings []map[string]any, drift bool) {
+func doctorAllowedEnumFindings(pf *profile.Profile, fields []workitemfields.Field, fieldsParseErr error, fixSuggest bool) (findings []map[string]any, suggs []doctorEnumSuggestion, drift bool) {
 	if pf == nil {
-		return nil, false
+		return nil, nil, false
 	}
 	byID := make(map[string]workitemfields.Field, len(fields))
 	for _, f := range fields {
@@ -735,27 +779,37 @@ func doctorAllowedEnumFindings(pf *profile.Profile, fields []workitemfields.Fiel
 		}
 		stale, unlisted := profile.DiffAllowedEnum(ck.allowed, accepted, labels)
 		for _, v := range stale {
-			findings = append(findings, map[string]any{
+			entry := map[string]any{
 				"id":           v,
 				"source":       ck.source,
 				"field_id":     ck.fieldID,
 				"status":       "enum_stale_in_profile",
 				"live_options": labels,
-			})
+			}
+			if fixSuggest {
+				entry["suggestion"] = fmt.Sprintf("remove %s[%q]", ck.source, v)
+				suggs = append(suggs, doctorEnumSuggestion{Source: ck.source, Value: v, Op: "remove"})
+			}
+			findings = append(findings, entry)
 			drift = true
 		}
 		for _, v := range unlisted {
-			findings = append(findings, map[string]any{
+			entry := map[string]any{
 				"id":       v,
 				"source":   ck.source,
 				"field_id": ck.fieldID,
 				"status":   "enum_missing_in_profile",
 				"allowed":  ck.allowed,
-			})
+			}
+			if fixSuggest {
+				entry["suggestion"] = fmt.Sprintf("add %s[%q]", ck.source, v)
+				suggs = append(suggs, doctorEnumSuggestion{Source: ck.source, Value: v, Op: "add"})
+			}
+			findings = append(findings, entry)
 			drift = true
 		}
 	}
-	return findings, drift
+	return findings, suggs, drift
 }
 
 func extractFieldIDs(raw any) map[string]bool {
@@ -797,6 +851,6 @@ func extractFieldIDs(raw any) map[string]bool {
 func init() {
 	profileDoctorCmd.Flags().Bool("all-workflows", false, "also check each workflows[*].type_id (default: bug_type_id only)")
 	profileDoctorCmd.Flags().Bool("fix-suggest", true, "attach alias suggestions to unknown_in_profile findings")
-	profileDoctorCmd.Flags().Bool("write", false, "backfill suggested status ids into the profile (bug_statuses alias + workflows[type].statuses; edges untouched; use --dry-run to preview)")
+	profileDoctorCmd.Flags().Bool("write", false, "backfill suggested status ids and allowed_* enum drift into the profile (bug_statuses + workflows[type].statuses + allowed_modules/environments; edges untouched; use --dry-run to preview)")
 	profileCmd.AddCommand(profileDoctorCmd)
 }
