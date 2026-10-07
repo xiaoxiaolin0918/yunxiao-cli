@@ -188,7 +188,7 @@ var Registry = []Method{
 	{ID: "codeup.files.delete", Domain: "codeup", Description: "Delete a file",
 		HTTPMethod: "DELETE", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/files/{path}", Risk: risk.HighRiskWrite,
 		Example: "yunxiao codeup files delete --repo <id> --path a.txt --branch master --message 'rm' --dry-run"},
-	{ID: "codeup.mrs.merge", Domain: "codeup", Description: "Merge a merge request",
+	{ID: "codeup.mrs.merge", Domain: "codeup", Description: "Merge a merge request (rejections attach current MR status, state_gap and suggested_actions, #127)",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests/{id}/merge", Risk: risk.HighRiskWrite,
 		Example: "yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run"},
 	{ID: "codeup.mrs.close", Domain: "codeup", Description: "Close a merge request",

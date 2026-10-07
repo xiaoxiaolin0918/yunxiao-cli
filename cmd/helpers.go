@@ -100,10 +100,14 @@ func apiErrorBody(ae *client.APIError) output.ErrorBody {
 // contextError prefixes err with what the CLI was doing ("<Context>: <err>") and adds
 // Hint. handleErr still reports a wrapped *client.APIError exactly like an unwrapped one
 // (type "api", status code, subtype/details) with the API hint and Hint joined by "; ";
-// other causes are type "cli".
+// other causes are type "cli". Subtype/Details (#127) are merged into the error body:
+// an API-derived subtype (e.g. yaml_validation) wins over Subtype, and Details keys are
+// merged on top of API-derived details.
 type contextError struct {
 	Context string
 	Hint    string
+	Subtype string
+	Details map[string]any
 	Err     error
 }
 
@@ -142,6 +146,19 @@ func handleErr(err error) {
 				body.Hint = ce.Hint
 			default:
 				body.Hint += "; " + ce.Hint
+			}
+		}
+		// #127: wrapper-provided subtype/details merge into the body (API-derived
+		// subtype wins; details keys are merged on top).
+		if body.Subtype == "" {
+			body.Subtype = ce.Subtype
+		}
+		if len(ce.Details) > 0 {
+			if body.Details == nil {
+				body.Details = map[string]any{}
+			}
+			for k, v := range ce.Details {
+				body.Details[k] = v
 			}
 		}
 		_ = output.Fail(body, 1)
