@@ -310,6 +310,7 @@ yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
 yunxiao codeup mrs list --state opened --source feat/x --repo <id> --all   # client-side branch filter, meta.filtered_by=client (#96)
+yunxiao codeup mrs update --repo <id> --local-id 1 --unwip   # strip WIP: title prefix; --wip adds it; idempotent (#97)
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # per-item latest + meta.latest_patchset_biz_id (#94)
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL: latest patchset by default (#93)

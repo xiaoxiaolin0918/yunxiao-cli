@@ -141,11 +141,15 @@ yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 ```bash
 yunxiao codeup mrs update --repo <id> --local-id 1 --title "WIP: docs" --dry-run
 yunxiao codeup mrs update --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
+yunxiao codeup mrs update --repo <id> --local-id 1 --wip --dry-run    # 加 WIP: 前缀（#97）
+yunxiao codeup mrs update --repo <id> --local-id 1 --unwip            # 去掉 WIP:/WIP 前缀（#97）
 yunxiao codeup mrs link --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 ```
 
 `update` / `link` / `unlink` 为 **write**（标题/描述或工作项关联变更），不是 high-risk-write。
+
+`mrs update --wip/--unwip`（#97）：WIP 前缀 = 行首 `WIP`（大小写不敏感）后跟冒号（冒号两侧空格可选）或空白（`WIP: x` / `wip x` / `Wip:x`；`WIPfix` 不算）。两者都需要先 GET 当前标题（`--dry-run` 下也会发这次 GET）；前缀已加/已无 → 幂等无操作（不发 PUT，`meta.wip_changed=false`）；成功路径 `meta.wip_action` + `meta.wip_changed`，dry-run `request.resolved.{before,after,changed}`。与 `--title` 互斥（`--wip` 与 `--unwip` 也互斥）；可与 `--description` / `--work-item` 组合。
 
 `mrs update` 的数字 `--repo` 会校验是否属于当前 organization/profile 可达仓（profile.repositories ∪ org GET）；不匹配直接报错（无 `--yes` 放行）。别名未注册仍按 #49 失败。
 

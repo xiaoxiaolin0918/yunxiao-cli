@@ -906,14 +906,32 @@ HTTP: PUT .../changeRequests/{localId} (title/description);
       POST .../workitems/{id}/extRelationRecords when --work-item is set
 
 Prefer --dry-run first; real writes run only when not dry-run (Write risk).
-At least one of --title / --description / --work-item required.
+At least one of --title / --description / --work-item / --wip / --unwip required.
 --work-item is additive (same as mrs link); does not use UpdateChangeRequest for links.
 Numeric --repo is validated against profile.repositories and organization-reachable
 repos (mismatch → clear error; aliases already fail when unregistered).
 
+--wip/--unwip title prefix toggles (#97), for the "WIP: = not final, strip before
+merge" convention; both need the current title, so the CLI sends one read-only
+GET of the MR first (also under --dry-run, like #93 patchset resolution):
+  - --wip: prefix "WIP: " when the title does not already start with a WIP
+    prefix; already prefixed → idempotent.
+  - --unwip: strip one leading WIP prefix — "WIP" (case-insensitive) followed by
+    a colon (optional surrounding spaces) or whitespace: "WIP: x", "wip x",
+    "Wip:x". No prefix ("WIPfix" is not one) → idempotent.
+  - Idempotent no-op (title unchanged) with nothing else to change: no PUT is
+    sent, ok:true, meta.wip_action + meta.wip_changed=false.
+  - meta.wip_action=wip|unwip and meta.wip_changed=true|false on every path;
+    dry-run previews show request.resolved.{before,after,changed}.
+  - Mutually exclusive: --wip with --unwip, and --wip/--unwip with --title
+    (fold the prefix into --title yourself). --description / --work-item may be
+    combined (PUT body then carries the resolved title too).
+
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --dry-run
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run
-  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item ZYPT-5573`,
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item ZYPT-5573
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --wip --dry-run
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --unwip`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -921,15 +939,25 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 		title, _ := cmd.Flags().GetString("title")
 		desc, _ := cmd.Flags().GetString("description")
 		workItemCSV, _ := cmd.Flags().GetString("work-item")
+		wip, _ := cmd.Flags().GetBool("wip")
+		unwip, _ := cmd.Flags().GetBool("unwip")
 		if err := requireFlags("repo", repo, "local-id", localID); err != nil {
 			handleErr(err)
 			return
 		}
+		if wip && unwip {
+			handleErr(fmt.Errorf("--wip and --unwip are mutually exclusive"))
+			return
+		}
 		title = strings.TrimSpace(title)
 		desc = strings.TrimSpace(desc)
+		if (wip || unwip) && title != "" {
+			handleErr(fmt.Errorf("--wip/--unwip cannot be combined with --title: include or remove the WIP: prefix in --title directly"))
+			return
+		}
 		refs := collectWorkItemRefs(workItemCSV, nil)
-		if title == "" && desc == "" && len(refs) == 0 {
-			handleErr(fmt.Errorf("provide --title and/or --description and/or --work-item"))
+		if title == "" && desc == "" && len(refs) == 0 && !wip && !unwip {
+			handleErr(fmt.Errorf("provide --title and/or --description and/or --work-item and/or --wip/--unwip"))
 			return
 		}
 		repositoryID, err := resolveCodeupRepo(repo)
@@ -947,6 +975,40 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 			return
 		}
 		full, _ := cmd.Flags().GetBool("full")
+
+		// #97: --wip/--unwip resolve against the current title via one read-only
+		// GET of the MR (also under --dry-run, same contract as #93).
+		var wipInfo map[string]any
+		if wip || unwip {
+			mr, err := fetchMRForWipToggle(cmd.Context(), c, client.EncodeRepoID(repositoryID), localID)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+			action := "wip"
+			if unwip {
+				action = "unwip"
+			}
+			current := wipToggleTitle(mr)
+			newTitle, changed := applyWipToggle(current, wip)
+			wipInfo = map[string]any{"action": action, "before": current, "after": newTitle, "changed": changed}
+			if changed {
+				title = newTitle
+			} else {
+				// Idempotent no-op: never resend an unchanged title.
+				title = ""
+				if desc == "" && len(refs) == 0 {
+					meta := wipToggleMeta(wipInfo, map[string]any{"risk": risk.Write})
+					zhiyi.EnrichMergeRequestMeta(meta, mr)
+					var data any = mr
+					if !full {
+						data = zhiyi.BriefMergeRequest(mr)
+					}
+					handleErr(output.Success(data, meta))
+					return
+				}
+			}
+		}
 		hasTitleDesc := title != "" || desc != ""
 
 		// Work-item only: same as mrs link (incl. dry-run preview of extRelationRecords POST).
@@ -971,9 +1033,14 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 
 		// Title/description only: shared mutating helper (incl. PUT dry-run).
 		if len(refs) == 0 {
-			handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
+			preview := any(c.Preview("PUT", path, nil, body))
+			if wipInfo != nil {
+				preview = requestPreviewWithResolved{RequestPreview: c.Preview("PUT", path, nil, body), Resolved: wipInfo}
+			}
+			handleErr(runJSONMutatingPreview(cmd.Context(), c, "codeup mrs update", risk.Write, "PUT", path, nil, body, preview, func(out any, meta map[string]any) (any, map[string]any) {
 				m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 				zhiyi.EnrichMergeRequestMeta(meta, m)
+				meta = wipToggleMeta(wipInfo, meta)
 				if full {
 					return m, meta
 				}
@@ -1012,6 +1079,9 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 					"to_link":            linkMeta["to_link"],
 				}
 			}
+			if wipInfo != nil {
+				req["resolved"] = wipInfo
+			}
 			handleErr(output.DryRunResult(string(risk.Write), req))
 			return
 		}
@@ -1025,6 +1095,7 @@ repos (mismatch → clear error; aliases already fail when unregistered).
 		m := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		meta := map[string]any{"risk": risk.Write}
 		zhiyi.EnrichMergeRequestMeta(meta, m)
+		meta = wipToggleMeta(wipInfo, meta)
 		linkOut, linkMeta, linkErr := applyMRWorkItemLinks(cmd.Context(), c, repositoryID, localID, resolved, false)
 		if linkMeta != nil {
 			for k, v := range linkMeta {
@@ -1645,6 +1716,8 @@ func init() {
 	codeupMrsUpdateCmd.Flags().String("title", "", "new title")
 	codeupMrsUpdateCmd.Flags().String("description", "", "new description")
 	codeupMrsUpdateCmd.Flags().String("work-item", "", "work item serial(s) or id(s), comma-separated; additive link via extRelationRecords")
+	codeupMrsUpdateCmd.Flags().Bool("wip", false, "prefix \"WIP: \" to the current title (idempotent; GETs the MR first; mutually exclusive with --title/--unwip)")
+	codeupMrsUpdateCmd.Flags().Bool("unwip", false, "strip one leading WIP/WIP: prefix from the current title (idempotent no-op when absent; GETs the MR first; mutually exclusive with --title/--wip)")
 	codeupMrsUpdateCmd.Flags().Bool("full", false, "print full MR object instead of brief summary")
 	codeupMrsLinkCmd.Flags().String("repo", "", "repository id or alias (required)")
 	codeupMrsLinkCmd.Flags().String("local-id", "", "MR local id (required)")
