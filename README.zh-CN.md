@@ -422,7 +422,7 @@ yunxiao schema
 运行 `yunxiao +onboard` 可从所选 `space_id` 在 `~/.config/yunxiao/profiles/` 下创建通用本地 profile。
 
 租户级 Projex 常量放在 **profile JSON**，不写进 CLI 全局默认。按项目（`space_id`）隔离；`workflows` 按 **`type_id`** 存放已探索状态图。
-`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` 会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。
+`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` 会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。doctor 的 finding 带线上元数据（状态 displayName/nameEn、字段名），`--fix-suggest`（默认开）为 profile 缺失的线上状态给出别名回填建议，`--write` 把建议写回 profile 文件（不动 edges；#120）。
 
 | Profile | 用途 |
 |---------|------|
@@ -438,13 +438,16 @@ yunxiao profile show
 # 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
 # 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）
+yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）；finding 带线上
+                                         # displayName/nameEn/字段名，--fix-suggest 别名建议默认开（#120）
+yunxiao profile doctor --write --dry-run   # 预览把建议的状态 id 回填进 profile
+yunxiao profile doctor --write         # 回填 bug_statuses[别名] + workflows[type].statuses（不动 edges）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验 —— `unknown_in_profile` finding 附线上 displayName/nameEn 与 `--fix-suggest` 别名建议，`--write`（先 `--dry-run` 预览）可把它们回填进 profile（#120）。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 

@@ -415,7 +415,7 @@ yunxiao schema
 
 Tenant-specific Projex constants live in a **profile JSON**, not hardcoded CLI defaults.
 Profiles are **project-scoped** (`space_id`); discovered workitem graphs live under `workflows` keyed by **`type_id`**.
-`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields.
+`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields; findings carry live status displayName/nameEn and field names, `--fix-suggest` (default on) adds alias backfill suggestions for live statuses missing from the profile, and `--write` applies those suggestions to the profile file (edges untouched; #120).
 
 | Profile | Purpose |
 |---------|---------|
@@ -432,7 +432,10 @@ yunxiao profile show
 # and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
 # --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-yunxiao profile doctor                 # diff profile vs live fields/workflow (read)
+yunxiao profile doctor                 # diff profile vs live fields/workflow (read); findings carry live
+                                       # displayName/nameEn/fieldName and --fix-suggest alias hints (#120, default on)
+yunxiao profile doctor --write --dry-run  # preview backfilling suggested status ids into the profile
+yunxiao profile doctor --write         # backfill bug_statuses[alias] + workflows[type].statuses (edges untouched)
 yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
 yunxiao sprint +current --dry-run
 # Zhiyi full create:
@@ -453,7 +456,7 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item ZYPT-5768 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary (and shipped under the npm package `profiles/`), so `install-example` works from npm / GitHub Release installs; an on-disk `profiles/<name>.example.json` takes precedence (#92). npm installs keep them at `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`. The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan); check with `yunxiao profile doctor`.
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary (and shipped under the npm package `profiles/`), so `install-example` works from npm / GitHub Release installs; an on-disk `profiles/<name>.example.json` takes precedence (#92). npm installs keep them at `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`. The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
 
 **Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 
