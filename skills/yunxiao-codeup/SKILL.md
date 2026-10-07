@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.1.7
+version: 1.1.8
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -132,6 +132,8 @@ yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 ```
 
 均为 **high-risk-write**（尤其 merge 会改写目标分支）。
+
+`mrs merge` 被服务端拒绝（405「该状态下的评审不允许合并」等）时错误可行动化（#127）：`error.subtype=merge_rejected`，`error.details` 附 `current_status`（失败后 best-effort GET 一次 MR 详情）、`state_gap`（状态机差距，如 `UNDER_DEV(开发中/WIP)` 需先解除 WIP）、`suggested_actions`（下一步：`CLOSED`→`mrs reopen`、`UNDER_REVIEW`→`mrs review --opinion PASS`、`UNDER_DEV`→网页「…」菜单→「取消 WIP」（暂无 OpenAPI，#124），均含可复制的重试命令）、`mr`（localId/title/status/url）与 `diagnose.source`；`hint` 汇总差距+下一步。诊断 GET 失败则原样透传平台错误（不编造状态）。
 
 ### write（`--dry-run` 即可预览；非 high-risk，一般不需 `--yes`）
 
