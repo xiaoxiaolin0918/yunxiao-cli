@@ -136,6 +136,8 @@ yunxiao codeup repos list
 
 消费 CLI JSON 时，优先用 **Node / Python 子进程**（以 Buffer/bytes 捕获 stdout 再 `JSON.parse`），避免 PowerShell `>` 重定向改写编码导致解析失败。用 `yunxiao doctor` 查看已解析的可执行文件路径与当前 profile（`organization_id`、`space_id`）。
 
+**git-bash / MSYS 路径改写（#117）：** MSYS 会在 CLI 收到参数前，把以 `/` 开头的参数改写成 Windows 路径，例如 `yunxiao api GET "/oapi/v1/platform/user"` 实际变成 `C:/Program Files/Git/oapi/v1/platform/user`。CLI 会识别该特征并自动还原 `/oapi/...`，同时在 stderr 打一行 `note:`（`YUNXIAO_API_NO_UNMANGLE=1` 可关闭；`//oapi/...` 双斜杠写法也会被折叠）。无法还原时，非 JSON（HTML）响应会以 `error.subtype=non_json_response` 报出最终请求 URL、HTTP 状态码、content-type 与截断正文——检查 `error.details.url` 是否含 `<盘符>:/` 段。Shell 侧规避：`MSYS_NO_PATHCONV=1`、`MSYS2_ARG_CONV_EXCL='*'`，或加双斜杠 `//oapi/v1/...`。
+
 对于 AI Agent，CLI 通过 Agent 粘贴指令并执行 `yunxiao …`；MCP 通过工具调用。MCP 可以减少对命令记忆的要求，但在审计性和可复现性方面通常弱于 CLI。
 
 ## 安装

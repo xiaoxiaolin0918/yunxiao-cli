@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.2
+version: 1.1.3
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout, config, doctor, whoami, self-update (yunxiao update), JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -19,6 +19,14 @@ metadata:
 3. **默认 JSON 输出**：判断成功用 `ok == true`（或进程退出码 0），**不要**用 `code == 0`。
 
 - Topic/Risk 创建不要带 `--sprint`；Topic ↔ Req 等普通关联优先使用 `ASSOCIATED`（依赖使用 `DEPEND_ON`）。
+
+### Windows git-bash 的 MSYS 路径改写（#117）
+
+git-bash/MSYS 会在 CLI 收到参数前，把以 `/` 开头的参数改写成 Windows 路径（`"/oapi/v1/..."` → `"C:/Program Files/Git/oapi/v1/..."`）。影响 `yunxiao api` 的 path 参数。
+
+- 新 CLI 会自动还原 `/oapi/...` 并在 stderr 打一行 `note:`（`YUNXIAO_API_NO_UNMANGLE=1` 关闭）；`//oapi/...` 双斜杠写法也会被折叠成 `/oapi/...`。
+- 还原不可用时，HTML 落地页报错为 `error.subtype=non_json_response`，带最终 URL / 状态码 / content-type / 截断正文；`error.details.url` 含 `<盘符>:/` 段即中招。
+- Shell 侧规避：`MSYS_NO_PATHCONV=1`、`MSYS2_ARG_CONV_EXCL='*'`，或写双斜杠 `//oapi/v1/...`。
 
 ## 认证
 

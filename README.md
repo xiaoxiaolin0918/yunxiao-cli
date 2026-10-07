@@ -108,6 +108,8 @@ Use the CLI for scripts, CI, and copy-paste commands; use MCP for chat in an IDE
 
 Prefer **Node or Python subprocess** (capture stdout as a Buffer/bytes, then `JSON.parse`) over PowerShell `>` redirects when consuming CLI JSON — redirects can alter encoding and break parsers. Use `yunxiao doctor` to print the resolved executable path and active profile (`organization_id`, `space_id`).
 
+**git-bash / MSYS path mangling (#117):** MSYS rewrites arguments that start with `/` into Windows paths before the CLI sees them, so `yunxiao api GET "/oapi/v1/platform/user"` can arrive as `C:/Program Files/Git/oapi/v1/platform/user`. The CLI detects this shape, restores `/oapi/...` automatically and prints a `note:` line on stderr (`YUNXIAO_API_NO_UNMANGLE=1` disables it; the `//oapi/...` double-slash escape is collapsed too). When a restore is not possible, non-JSON (HTML) responses surface as `error.subtype=non_json_response` with the final request URL, HTTP status, content-type and a short body preview — check `error.details.url` for a `<drive>:/` segment. Shell-side workarounds: `MSYS_NO_PATHCONV=1`, `MSYS2_ARG_CONV_EXCL='*'`, or quote a double slash (`//oapi/v1/...`).
+
 For AI agents, the CLI workflow is Agent paste followed by `yunxiao …`; the MCP workflow is tool-based. MCP reduces command memorization, but it often provides weaker auditability and reproducibility than the CLI.
 
 ## Install

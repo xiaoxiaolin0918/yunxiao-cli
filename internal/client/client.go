@@ -331,7 +331,7 @@ func (c *Client) PostMultipart(ctx context.Context, path string, query map[strin
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &APIError{
 			Status: resp.StatusCode,
-			Body:   RedactSecrets(truncate(string(raw), 2000), c.Token),
+			Body:   RedactSecrets(bodyForError(raw), c.Token),
 			URL:    RedactSecrets(u, c.Token),
 			Method: "POST",
 		}
@@ -344,7 +344,14 @@ func (c *Client) PostMultipart(ctx context.Context, path string, query map[strin
 			*s = string(raw)
 			return nil
 		}
-		return fmt.Errorf("decode response: %w; body=%s", err, truncate(string(raw), 500))
+		return &DecodeError{
+			Method:      "POST",
+			URL:         RedactSecrets(u, c.Token),
+			Status:      resp.StatusCode,
+			ContentType: resp.Header.Get("Content-Type"),
+			Body:        RedactSecrets(truncate(string(raw), decodeBodyPreview), c.Token),
+			Err:         err,
+		}
 	}
 	return nil
 }
@@ -609,7 +616,7 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			ae := &APIError{
 				Status: resp.StatusCode,
-				Body:   RedactSecrets(truncate(string(raw), 2000), c.Token),
+				Body:   RedactSecrets(bodyForError(raw), c.Token),
 				URL:    RedactSecrets(u, c.Token),
 				Method: method,
 			}
@@ -631,7 +638,14 @@ func (c *Client) DoRaw(ctx context.Context, method, path string, query map[strin
 				*s = string(raw)
 				return resp.Header, resp.StatusCode, nil
 			}
-			return resp.Header, resp.StatusCode, fmt.Errorf("decode response: %w; body=%s", err, truncate(string(raw), 500))
+			return resp.Header, resp.StatusCode, &DecodeError{
+				Method:      method,
+				URL:         RedactSecrets(u, c.Token),
+				Status:      resp.StatusCode,
+				ContentType: resp.Header.Get("Content-Type"),
+				Body:        RedactSecrets(truncate(string(raw), decodeBodyPreview), c.Token),
+				Err:         err,
+			}
 		}
 		return resp.Header, resp.StatusCode, nil
 	}
@@ -648,6 +662,59 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("yunxiao API %s %s -> HTTP %d: %s", e.Method, e.URL, e.Status, e.Body)
+}
+
+// DecodeError is returned when a 2xx response body is not the expected JSON —
+// typically an HTML landing/auth page the gateway serves for a wrong path
+// (e.g. MSYS-mangled paths from git-bash, #117). It carries the final request
+// URL, status, content-type and a short body preview so the failure is
+// diagnosable instead of a wall of escaped HTML.
+type DecodeError struct {
+	Method      string
+	URL         string
+	Status      int
+	ContentType string
+	Body        string // short preview (already truncated + redacted)
+	Err         error  // underlying decode error
+}
+
+func (e *DecodeError) Error() string {
+	ct := e.ContentType
+	if ct == "" {
+		ct = "unknown"
+	}
+	return fmt.Sprintf("yunxiao API %s %s -> HTTP %d (%s): decode response: %v; body=%s",
+		e.Method, e.URL, e.Status, ct, e.Err, e.Body)
+}
+
+func (e *DecodeError) Unwrap() error { return e.Err }
+
+// decodeBodyPreview caps the body preview embedded in DecodeError messages
+// (bytes); the full diagnosis lives in URL/status/content-type, not the HTML.
+const decodeBodyPreview = 200
+
+// htmlBodyPreview caps HTML page bodies in error envelopes: JSON keeps up to
+// 2000 chars, HTML landing pages collapse to a short preview (#117).
+const htmlBodyPreview = 300
+
+// looksLikeHTML reports whether a response body is an HTML page (landing page,
+// auth wall) rather than API JSON.
+func looksLikeHTML(body string) bool {
+	t := strings.TrimLeft(body, " \t\r\n\uFEFF")
+	lower := strings.ToLower(t)
+	return strings.HasPrefix(lower, "<!doctype html") ||
+		strings.HasPrefix(lower, "<html") ||
+		strings.HasPrefix(lower, "<head")
+}
+
+// bodyForError truncates a raw response body for an error envelope:
+// JSON bodies keep up to 2000 chars; HTML pages collapse to a short preview.
+func bodyForError(raw []byte) string {
+	s := string(raw)
+	if looksLikeHTML(s) {
+		return truncate(s, htmlBodyPreview)
+	}
+	return truncate(s, 2000)
 }
 
 func truncate(s string, n int) string {
