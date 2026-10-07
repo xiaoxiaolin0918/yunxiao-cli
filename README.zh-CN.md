@@ -446,7 +446,7 @@ yunxiao schema
 运行 `yunxiao +onboard` 可从所选 `space_id` 在 `~/.config/yunxiao/profiles/` 下创建通用本地 profile。
 
 租户级 Projex 常量放在 **profile JSON**，不写进 CLI 全局默认。按项目（`space_id`）隔离；`workflows` 按 **`type_id`** 存放已探索状态图。
-`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` / `+risk-create` / `+req-create`（#128）会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。
+`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` / `+risk-create` / `+req-create`（#128）会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。`allowed_environments` / `allowed_modules` 是线上字段选项的**快照**（用于校验 `+bug-create --environment` / `--module`）；`profile doctor` 会将其与线上 options 比对，漂移以 `enum_stale_in_profile` / `enum_missing_in_profile` findings 报告（#121）——请保持同步，或清空列表以停用该门禁。
 
 | Profile | 用途 |
 |---------|------|
@@ -464,7 +464,7 @@ yunxiao profile show
 # 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
 # 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
-yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow（只读）
+yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow 及 allowed_* 枚举（只读）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
 # 风险 / 需求快捷创建（#128）：profile 映射 type id（risk_type_id / req_type_id 或唯一
