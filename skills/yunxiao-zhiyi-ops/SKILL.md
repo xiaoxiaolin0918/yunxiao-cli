@@ -67,6 +67,9 @@ Risk: **read**。
 
 ## 创建缺陷（`workitem +bug-create`）
 
+必填字段预检与 `workitem create` 相同（#107）：缺字段一次报全；`--no-precheck` 跳过；dry-run 含 `request.precheck`。
+
+
 Windows 含中文时优先 `--title-file` / `--description-file`（UTF-8，去 BOM；与内联 `--title` / `--description` 互斥），对齐 `workitem create`（#85/#89）。
 
 ```bash
