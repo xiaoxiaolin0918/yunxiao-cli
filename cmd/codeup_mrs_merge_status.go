@@ -12,18 +12,25 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
-// runMrsMerge is the mrs merge execution path (#124): same gate/dry-run contract as
-// runJSONMutating (high-risk-write → --yes, --dry-run previews the POST), but on an
-// API error from the merge POST it GETs the MR once and enriches the error with
-// error.details.mr (current status/wip/ahead/behind/mergeable/todo) plus an
-// actionable hint. Success output keeps the raw API object (meta gains url/status).
-func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, localID, path string, body map[string]any) error {
-	return runMutating("codeup mrs merge", risk.HighRiskWrite, globalDryRun, globalYes, c.Preview("POST", path, nil, body), func() error {
+// runMrsMerge is the mrs merge execution path (#124 + #130): same gate/dry-run
+// contract as runJSONMutating (high-risk-write → --yes, --dry-run previews the POST),
+// with a read-only precheck before the POST (#130: status/conflicts/merge-type vs
+// repo merge settings; failure refuses the merge without POSTing, success attaches
+// meta.precheck). On an API error from the merge POST it GETs the MR once and
+// enriches the error with error.details.mr (current status/wip/ahead/behind/
+// mergeable/todo) plus an actionable hint. Success output keeps the raw API object
+// (meta gains url/status/precheck).
+func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, localID, path string, body map[string]any, mergeType string, rp client.RequestPreview) error {
+	return runMutating("codeup mrs merge", risk.HighRiskWrite, globalDryRun, globalYes, rp, func() error {
+		pre, perr := precheckMrsMerge(ctx, c, client.EncodeRepoID(repositoryID), localID, mergeType)
+		if perr != nil {
+			return perr
+		}
 		var out any
 		if _, err := c.Do(ctx, "POST", path, nil, body, &out); err != nil {
 			return enrichMrsMergeError(ctx, c, repoArg, repositoryID, localID, err)
 		}
-		meta := map[string]any{"risk": risk.HighRiskWrite}
+		meta := map[string]any{"risk": risk.HighRiskWrite, "precheck": pre}
 		mr := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		zhiyi.EnrichMergeRequestMeta(meta, mr)
 		return output.Success(out, meta)

@@ -777,12 +777,26 @@ var codeupMrsMergeCmd = &cobra.Command{
 	Long: `Risk: high-risk-write
 HTTP: POST .../changeRequests/{localId}/merge
 
-On an API error the CLI GETs the MR once and attaches error.details.mr with the
-current status/wip/ahead/behind/mergeable/todo plus an actionable hint (#124):
-a 405 SYSTEM_FORBIDDEN_ERROR on a push-review MR usually means status UNDER_DEV
-(开发中/WIP) — there is no OpenAPI to cancel WIP (UpdateChangeRequest only edits
-title/description); cancel it in the Codeup web UI (MR page → 更多(…) → 取消 WIP),
-then retry. Track WIP MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
+Merge precheck (#130): before the POST (and also under --dry-run, read-only) the
+CLI GETs the MR detail once and verifies merge-method / status consistency:
+terminal status (MERGED / CLOSED), conflictCheckStatus HAS_CONFLICT / CHECKING,
+mergeable=false, and --merge-type against the repo's enabled merge methods when
+the payload exposes them (mergeTypes / supportedMergeTypes / mergeSetting, or
+supportMergeFastForwardOnly=false for ff-only). A failed check exits 1 with a
+structured error (mr_already_merged / mr_closed / mr_conflict /
+mr_conflict_checking / mr_not_mergeable / merge_type_not_supported) and an
+actionable hint instead of an undefined server 405; nothing is POSTed. Passing
+checks attach meta.precheck (dry-run: request.precheck). If the detail GET
+fails, the merge is refused (fail closed). Without --yes the confirmation gate
+still trips first (exit 10 confirmation_required) and no request is sent.
+
+On an API error from the POST itself the CLI GETs the MR once and attaches
+error.details.mr with the current status/wip/ahead/behind/mergeable/todo plus
+an actionable hint (#124): a 405 SYSTEM_FORBIDDEN_ERROR on a push-review MR
+usually means status UNDER_DEV (开发中/WIP) — there is no OpenAPI to cancel WIP
+(UpdateChangeRequest only edits title/description); cancel it in the Codeup web
+UI (MR page → 更多(…) → 取消 WIP), then retry. Track WIP MRs with: yunxiao
+codeup mrs +push-review-status --repo <r>.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -817,7 +831,22 @@ then retry. Track WIP MRs with: yunxiao codeup mrs +push-review-status --repo <r
 		if removeSource {
 			body["removeSourceBranch"] = true
 		}
-		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body))
+		rp := c.Preview("POST", path, nil, body)
+		if globalDryRun {
+			// Read-only precheck GET even in dry-run (#130): the preview shows
+			// whether the merge would pass before the user confirms anything.
+			pre, perr := precheckMrsMerge(cmd.Context(), c, repoID, localID, mergeType)
+			if perr != nil {
+				handleErr(perr)
+				return
+			}
+			handleErr(output.DryRunResult(string(risk.HighRiskWrite), requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}))
+			return
+		}
+		// Gate first (exit 10 without --yes, unchanged), then precheck + merge
+		// inside the exec step: the POST only runs after the precheck passes
+		// (#130), and a failing POST is enriched with the MR's current state (#124).
+		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body, mergeType, rp))
 	},
 }
 
