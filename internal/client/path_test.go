@@ -154,3 +154,26 @@ func TestAPIErrorNoTokenLeak(t *testing.T) {
 		t.Fatal(msg)
 	}
 }
+
+// #110: ProjexPathOffline must derive the Projex path without any network
+// access whenever the org is locally known, and report ok=false exactly when
+// the online ProjexPath would first GET /platform/user (central, org unknown).
+func TestProjexPathOffline(t *testing.T) {
+	central := &Client{Edition: "central", OrgID: "org1"}
+	if p, ok := central.ProjexPathOffline("/workitems"); !ok || p != "/oapi/v1/projex/organizations/org1/workitems" {
+		t.Fatalf("central+org: p=%q ok=%v", p, ok)
+	}
+	if _, ok := (&Client{Edition: "central"}).ProjexPathOffline("/workitems"); ok {
+		t.Fatal("central without org must not resolve offline")
+	}
+	if _, ok := (&Client{Edition: "central", OrgID: "default"}).ProjexPathOffline("/workitems"); ok {
+		t.Fatal("org=default must not resolve offline")
+	}
+	region := &Client{Edition: "region"}
+	if p, ok := region.ProjexPathOffline("/workitems"); !ok || p != "/oapi/v1/projex/workitems" {
+		t.Fatalf("region: p=%q ok=%v", p, ok)
+	}
+	if p, ok := region.ProjexPathOffline("workitems"); !ok || p != "/oapi/v1/projex/workitems" {
+		t.Fatalf("region no slash: p=%q ok=%v", p, ok)
+	}
+}

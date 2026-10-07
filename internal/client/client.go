@@ -156,11 +156,35 @@ func (c *Client) domainPath(ctx context.Context, domain, suffix string) (string,
 	return "/oapi/v1/" + domain + "/organizations/" + org + suffix, nil
 }
 
+// domainPathOffline builds the domain path without any network access. ok is
+// false when the org id is unknown on the central edition (the online
+// domainPath would resolve it via GET /platform/user first).
+func (c *Client) domainPathOffline(domain, suffix string) (string, bool) {
+	if !strings.HasPrefix(suffix, "/") {
+		suffix = "/" + suffix
+	}
+	if c.IsRegion() {
+		return "/oapi/v1/" + domain + suffix, true
+	}
+	if c.OrgID != "" && c.OrgID != "default" {
+		return "/oapi/v1/" + domain + "/organizations/" + c.OrgID + suffix, true
+	}
+	return "", false
+}
+
 func (c *Client) PlatformPath(ctx context.Context, suffix string) (string, error) {
 	return c.domainPath(ctx, "platform", suffix)
 }
 func (c *Client) ProjexPath(ctx context.Context, suffix string) (string, error) {
 	return c.domainPath(ctx, "projex", suffix)
+}
+
+// ProjexPathOffline returns the Projex API path when it can be derived without
+// network access (region edition, or org id already configured). ok is false
+// when ProjexPath would first need GET /platform/user to resolve the org.
+// Fully-offline dry-run plans use this so they never send requests (#110).
+func (c *Client) ProjexPathOffline(suffix string) (string, bool) {
+	return c.domainPathOffline("projex", suffix)
 }
 func (c *Client) CodeupPath(ctx context.Context, suffix string) (string, error) {
 	return c.domainPath(ctx, "codeup", suffix)
