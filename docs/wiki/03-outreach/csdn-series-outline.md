@@ -201,7 +201,7 @@
 
 ## 5. 文末统一模板（每篇原文粘贴，仅改「本文相关」一句）
 
-```markdown
+````markdown
 ---
 
 ### 安装 yunxiao-cli（GitHub Releases，勿用 npm）
@@ -232,7 +232,7 @@ yunxiao whoami && yunxiao doctor && yunxiao status
 
 **本文相关**：〈一句话点题，如：Codeup MR 合并诊断见上文 `mrs merge --dry-run`〉  
 觉得有用请给仓库点个 **Star**，Issues 欢迎提场景。
-```
+````
 
 ---
 
