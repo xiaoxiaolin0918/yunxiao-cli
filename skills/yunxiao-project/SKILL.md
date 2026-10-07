@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.4"
+version: "1.4.5"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -30,7 +30,10 @@ yunxiao project +my-open-items --category Task --space-id <projectId>
 
 ```bash
 yunxiao project list --name demo
+yunxiao project labels list --space-id <id>   # id/name/color (#141)；缺省可用 profile.space_id
+yunxiao project labels create --name "快速通道" --color "#4676E5" --dry-run  # write；真发需 --yes
 yunxiao workitem search --assigned-to self --category Req
+yunxiao workitem search --category Req --labels <label-id>[,id2] --all  # CONTAINS；CSV label ids (#141)
 yunxiao workitem search --subject "登录" --status-stage 1,2
 # 周报日期窗口 + 跟页（meta.total / --all；oapi 响应可能无 finishTime）
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59" --all
@@ -60,13 +63,15 @@ yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "title" --assigned-to self --dry-run
 yunxiao workitem update --id <id> --assigned-to self --dry-run      # write
+yunxiao workitem update --id <id> --labels <id1>,<id2> --dry-run    # write；REPLACE 整表 (#141)
 yunxiao workitem update --id <id> --status <statusId>               # write
 yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不再需要" --dry-run
 ```
 
 | Command | Risk |
 |---------|------|
-| `project list` / `workitem search` / `workitem get` / `workitem comments list` | read |
+| `project list` / `project labels list` / `workitem search` / `workitem get` / `workitem comments list` | read |
+| `project labels create` | write（先 `--dry-run`；真发 `--yes`） |
 | `workitem types list` / `workitem statuses` | read |
 | `workitem create` / `workitem comment` / `workitem update` | write（先 `--dry-run` 预览） |
 | `workitem comments update` | write（AccessKey RPC；先 `--dry-run`） |
@@ -78,6 +83,9 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--category`：`Req` | `Task` | `Bug` | `Topic` | `Risk` 等；`workitem types list` 缺省（或 `--category all`）会**并发拉全部类别合并**（每项注入 `category`，`meta.categories` 注明；个别类别失败只 warning + `meta.categories_failed`）（#99）
 - `--assigned-to self`：自动解析为当前用户 id
 - `--space-id`：Projex 项目/空间 id
+- `project labels`（#141）：`list` 只读返回 id/name/color；`create` 需 `--name`（`--color` 默认 `#A773E0`），先 `--dry-run` 再 `--yes`；`--space-id` 可缺省为 `profile.space_id`
+- `workitem search --labels`（#141）：CSV label id，映射官方 tag 过滤器（`fieldIdentifier/className=tag`，`multiList`，`CONTAINS`），可与 `--assigned-to` / `--status` 等组合
+- `workitem update --labels`（#141）：**REPLACE** 整表标签（非追加）；安全做法：先 `workitem get`，合并 id 后再 `--labels a,b,c`；id 发现用 `project labels list`。create 也可用 `--labels`
 - `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
 - `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）
 - `workitem create` 必填预检；`--priority`/list 自定义字段支持显示值→option id（#126）（0.16.33+，#95）：POST 前（`--dry-run` 也会）读一次类型字段配置，缺失字段**一次性**报出：`error.subtype=missing_required_fields`，按 `error.details.missing[]` 的 `field_id` / `pass_via` / `options` 一次补齐（通常写进 `--custom-fields-file`），不要逐个试错。字段配置读不到 / 为空时只告警（`meta.precheck.status=skipped|empty`，看 `meta.precheck.warning`）照常创建，401 直接失败；带服务端 `defaultValue` 的字段不检查（列在 `skipped_default`）。实测验证只在 **play 沙箱**做（ZYPT 只允许 `--dry-run`）。**不要默认加 `--no-precheck`**；怀疑误报时，把 `error.details.missing` 报告给用户并询问，而不是绕过。
