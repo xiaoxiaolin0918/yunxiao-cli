@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.3"
+version: "1.4.4"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -81,12 +81,14 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `workitem create` 必填预检（0.16.33+，#95）：POST 前（`--dry-run` 也会）读一次类型字段配置，缺失字段**一次性**报出：`error.subtype=missing_required_fields`，按 `error.details.missing[]` 的 `field_id` / `pass_via` / `options` 一次补齐（通常写进 `--custom-fields-file`），不要逐个试错。字段配置读不到 / 为空时只告警（`meta.precheck.status=skipped|empty`，看 `meta.precheck.warning`）照常创建，401 直接失败；带服务端 `defaultValue` 的字段不检查（列在 `skipped_default`）。实测验证只在 **play 沙箱**做（ZYPT 只允许 `--dry-run`）。**不要默认加 `--no-precheck`**；怀疑误报时，把 `error.details.missing` 报告给用户并询问，而不是绕过。
 - `workitem create` 选项字段接受显示值（#126）：`--custom-fields` / `--custom-fields-file` 里 list/multiList 字段的值可直接写显示值（如 `{"priority":"高"}`），CLI 用与预检同一次字段配置 GET 自动解析成 option id 再 POST（`--dry-run` 预览里已是 id；映射在 `meta.option_resolution.resolved`，dry-run 为 `request.option_resolution`；恰好是 id 的值原样透传）。解析失败（无匹配 / 显示值歧义）exit 1、`error.subtype=invalid_option_values`，每个字段的合法值在 `error.details.values[].options`，不会 POST——**不要**再手工查 id 表硬编码；`--no-precheck` 或配置降级时不解析、值原样发送。multiList 数组逐元素解析；非 list 字段 / 空白 / 非字符串值不解析。
 - `workitem +bug-create` 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
+- `workitem +risk-create` / `+req-create`（#128）：`--title-file` / `--description-file` 同上；`--priority` 支持 别名 / `workitem_defaults` 显示值（如 `高`）/ option id（`--priority ""` 整体省略）；`--assignee <显示名>` 与 `--assigned-to <userId|self>` 二选一；需 profile（`space_id` + type 解析）；默认不带 `--sprint`
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)
 
 - **只能在项目设置 UI 启用类型**：没有用于启用 Topic/Risk 的 OpenAPI；未启用时 create 会返回 `工作项类型未启用！`。
 - **不要传 `--sprint`**：Topic/Risk 通常没有迭代字段；API 会返回 `未启用此字段【迭代】`。`yunxiao workitem create --help` 也会提示这一点。
+- 风险 / 需求优先用快捷创建（#128）：`workitem +risk-create` / `+req-create` 从 profile 解析 type id（`risk_type_id` / `req_type_id`，缺省时取 workitem_defaults/workflows 里唯一的对应 category 条目；多个会报候选），优先级支持 别名 / 显示值 / option id，默认**不**带 sprint，`--assignee` 可直接传组织成员显示名（members:search 精确解析，歧义报候选）；复用 #95 必填预检（`--no-precheck` 跳过）。无 profile 时仍用手拼 `workitem create`。
 - 创建后用 `profile.workflows` 对应 `type_id` 的状态别名做 `+transition`；类别使用 `Topic` 或 `Risk`。
 
 ```bash
@@ -94,6 +96,9 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 yunxiao workitem types list --space-id <sid> --category Topic
 yunxiao workitem create --space-id <sid> --type-id <topicTypeId> \
   --subject "产品主题" --assigned-to self --dry-run
+# Risk / Req 有 profile 时优先快捷创建（type id 与优先级来自 profile；默认不带 sprint）
+yunxiao workitem +risk-create --title "风险" --description "影响" --priority high --dry-run
+yunxiao workitem +req-create --assignee "成员显示名" --title "需求" --dry-run
 yunxiao workitem +transition --id <topicId> --to <alias> --profile play --dry-run
 
 # Topic ↔ Req 关联：ASSOCIATED（sandbox 与 ZYPT 均已验证）

@@ -425,7 +425,7 @@ yunxiao schema
 
 Tenant-specific Projex constants live in a **profile JSON**, not hardcoded CLI defaults.
 Profiles are **project-scoped** (`space_id`); discovered workitem graphs live under `workflows` keyed by **`type_id`**.
-`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create` and `+bug-create` apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields; findings carry live status displayName/nameEn and field names, `--fix-suggest` (default on) adds alias backfill suggestions for live statuses missing from the profile, and `--write` applies those suggestions to the profile file (edges untouched; #120). `allowed_environments` / `allowed_modules` are **snapshots** of the live field options (they gate `+bug-create --environment` / `--module`); `profile doctor` diffs them against the live options and reports drift as `enum_stale_in_profile` / `enum_missing_in_profile` findings (#121) — keep them in sync or empty the list to disable the gate.
+`workitem_defaults` (keyed by **`type_id`**) stores OpenAPI field defaults + create-required ids for create payloads; `workitem create`, `+bug-create` and the `+risk-create` / `+req-create` shortcuts (#128) apply those field defaults (priority/trackers/QA-owner/acceptance-owner, …) unless overridden by flags / `--custom-fields` or `--no-defaults`. `yunxiao profile doctor` reports which types have them and checks those field ids against live fields; findings carry live status displayName/nameEn and field names, `--fix-suggest` (default on) adds alias backfill suggestions for live statuses missing from the profile, and `--write` applies those suggestions to the profile file (edges untouched; #120). `allowed_environments` / `allowed_modules` are **snapshots** of the live field options (they gate `+bug-create --environment` / `--module`); `profile doctor` diffs them against the live options and reports drift as `enum_stale_in_profile` / `enum_missing_in_profile` findings (#121) — keep them in sync or empty the list to disable the gate.
 
 | Profile | Purpose |
 |---------|---------|
@@ -456,6 +456,11 @@ yunxiao workitem +bug-create --title "title" --description "description" \
 yunxiao workitem +bug-create --profile play --title "title" --description "description" \
   --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
+# Risk / Req shortcuts (#128): profile-mapped type id (risk_type_id / req_type_id or a
+# unique category entry) + priority (alias / 显示值 / option id), #95 precheck, no sprint
+# by default; --assignee resolves an organization member display name:
+yunxiao workitem +risk-create --title "risk" --description "impact" --priority high --dry-run
+yunxiao workitem +req-create --assignee "displayName" --title "req" --description "…" --dry-run
 yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
 # bug_edges are unverified template guesses until +explore-workflow writes them back.

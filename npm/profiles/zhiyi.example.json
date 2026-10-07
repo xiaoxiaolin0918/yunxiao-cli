@@ -4,6 +4,8 @@
   "organization_id": "<your-org-id>",
   "space_id": "<your-space-id>",
   "bug_type_id": "<bug-type-id>",
+  "risk_type_id": "<type-risk>",
+  "req_type_id": "<type-req-product>",
   "bug_statuses": {
     "confirm": "<status-confirm>",
     "reopen": "<status-reopen>",

@@ -430,7 +430,7 @@ yunxiao schema
 运行 `yunxiao +onboard` 可从所选 `space_id` 在 `~/.config/yunxiao/profiles/` 下创建通用本地 profile。
 
 租户级 Projex 常量放在 **profile JSON**，不写进 CLI 全局默认。按项目（`space_id`）隔离；`workflows` 按 **`type_id`** 存放已探索状态图。
-`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` 会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。doctor 的 finding 带线上元数据（状态 displayName/nameEn、字段名），`--fix-suggest`（默认开）为 profile 缺失的线上状态给出别名回填建议，`--write` 把建议写回 profile 文件（不动 edges；#120）。`allowed_environments` / `allowed_modules` 是线上字段选项的**快照**（用于校验 `+bug-create --environment` / `--module`）；`profile doctor` 会将其与线上 options 比对，漂移以 `enum_stale_in_profile` / `enum_missing_in_profile` findings 报告（#121）——请保持同步，或清空列表以停用该门禁。
+`workitem_defaults` 同样按 **`type_id`** 存放 OpenAPI 字段默认值与创建必填；`workitem create` / `+bug-create` / `+risk-create` / `+req-create`（#128）会自动填入（可用 `--no-defaults` 跳过）；`profile doctor` 会列出并校验这些字段 id。doctor 的 finding 带线上元数据（状态 displayName/nameEn、字段名），`--fix-suggest`（默认开）为 profile 缺失的线上状态给出别名回填建议，`--write` 把建议写回 profile 文件（不动 edges；#120）。`allowed_environments` / `allowed_modules` 是线上字段选项的**快照**（用于校验 `+bug-create --environment` / `--module`）；`profile doctor` 会将其与线上 options 比对，漂移以 `enum_stale_in_profile` / `enum_missing_in_profile` findings 报告（#121）——请保持同步，或清空列表以停用该门禁。
 
 | Profile | 用途 |
 |---------|------|
@@ -458,6 +458,11 @@ yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprin
 # 报错区分「no path in profile edges（无边）」与「platform rejected transition（平台拒绝）」（#123）。
 yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
+# 风险 / 需求快捷创建（#128）：profile 映射 type id（risk_type_id / req_type_id 或唯一
+# category 条目）与优先级（别名 / 显示值 / option id），#95 预检，默认不挂迭代；
+# --assignee 可直接传组织成员显示名：
+yunxiao workitem +risk-create --title "风险" --description "影响" --priority high --dry-run
+yunxiao workitem +req-create --assignee "成员显示名" --title "需求" --description "…" --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 # codeup --repo 别名存于 profile.repositories，用
 # `yunxiao profile repo-add <别名> <repo-id|org/repo路径|仓库名>` 注册（#125）

@@ -20,6 +20,8 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
   yunxiao workitem +bug-transition --id ZYPT-xxxx --to processing --dry-run
   yunxiao workitem +bug-create --title "…" --description "…" --expected-completion YYYY-MM-DD --sprint <id> --dry-run
+  yunxiao workitem +risk-create --title "…" --description "…" --dry-run   # profile risk_type_id (#128)
+  yunxiao workitem +req-create --assignee 崔健 --title "…" --dry-run      # profile req_type_id (#128)
   yunxiao workitem +explore-workflow --type-id <id> --cleanup --dry-run
   yunxiao workitem comments list --id <id>
   yunxiao workitem comment --id <id> --content '…' [--dry-run]
@@ -30,7 +32,7 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem attachments list|create
   yunxiao workitem types list --space-id <id> --category Req
 
-Risk: search/get/comments/types/relations.list/attachments.list=read; +transition/+bug-transition/+bug-create/+explore-workflow/create/comment/update/relations/attachments.create=write; delete=high-risk-write`,
+Risk: search/get/comments/types/relations.list/attachments.list=read; +transition/+bug-transition/+bug-create/+risk-create/+req-create/+explore-workflow/create/comment/update/relations/attachments.create=write; delete=high-risk-write`,
 }
 
 func resolveSelfID(ctx context.Context, c *client.Client, v string) (string, error) {
