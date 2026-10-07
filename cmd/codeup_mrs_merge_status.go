@@ -28,7 +28,7 @@ func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, l
 		}
 		var out any
 		if _, err := c.Do(ctx, "POST", path, nil, body, &out); err != nil {
-			return enrichMrsMergeError(ctx, c, repoArg, repositoryID, localID, err)
+			return enrichMrsMergeError(ctx, c, repoArg, repositoryID, localID, mergeType, err)
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite, "precheck": pre}
 		mr := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
@@ -37,19 +37,24 @@ func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, l
 	})
 }
 
-// enrichMrsMergeError (#124): when the merge POST fails with an API error, fetch the
-// MR once and attach its current state. The original merge error is never masked: a
-// failing or non-API refresh returns it untouched.
+// enrichMrsMergeError (#124 + #127): when the merge POST fails with an API error,
+// fetch the MR once and attach structured diagnostics. The original merge error is
+// never masked: a failing or non-API refresh returns it untouched.
+//
+// Envelope (#127): subtype "merge_rejected" plus error.details.current_status /
+// state_gap / suggested_actions / diagnose.source, and details.mr (#124) with
+// status/wip/ahead/behind/mergeable/todo/url. Hint prefers the #127 gap+next
+// wording and still mentions failed todo types / title-prefix WIP when relevant.
 //
 // Push-review WIP context: while an MR is UNDER_DEV (开发中) the server rejects
 // merges (405 SYSTEM_FORBIDDEN_ERROR「该状态下的评审不允许合并」) even when the review
 // itself has PASSED. There is NO confirmed OpenAPI to transition the server-side
 // status (UpdateChangeRequest only accepts title/description; the official MCP
-// server has no WIP tool), so the hint points at the web UI's 取消 WIP action.
+// server has no WIP tool), so suggested_actions point at the web UI's 取消 WIP.
 // This is the server-side status, deliberately distinct from the "WIP: " title
 // prefix (PR #135 adds --wip/--unwip title toggles on mrs update; a title-prefix
 // WIP is cleared by renaming, which does not help an UNDER_DEV push-review MR).
-func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, repositoryID, localID string, mergeErr error) error {
+func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, repositoryID, localID, mergeType string, mergeErr error) error {
 	var ae *client.APIError
 	if !errors.As(mergeErr, &ae) {
 		return mergeErr // only API errors carry merge-block context
@@ -58,20 +63,46 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 	if err != nil {
 		return mergeErr // never mask the merge error with a refresh failure
 	}
+	status := zhiyi.MRStatus(mr)
 	detail := mrsMergeErrorDetail(mr)
+	actions := mergeSuggestedActions(repoArg, localID, mergeType, status)
+	details := map[string]any{
+		"action":            "merge",
+		"state_gap":         mergeStateGap(status),
+		"suggested_actions": actions,
+		"diagnose":          map[string]any{"source": "GET changeRequests/" + localID},
+		"mr":                detail,
+	}
+	if status != "" {
+		details["current_status"] = status
+	}
+	hint := mergeRejectionHint(status, actions)
+	// Keep #124 extras that the structured table may not cover.
+	if failed := mrsMergeFailedTodoTypes(mr); len(failed) > 0 {
+		hint += ". merge requirements not met: " + strings.Join(failed, ", ") +
+			" (see error.details.mr.todo; resolve conflicts / pending comments via `mrs comments resolve` / CI / reviewer approval)"
+	}
+	title, _ := zhiyi.StabilizeMergeRequest(mr)["title"].(string)
+	if mergeStatusKey(status) != "UNDER_DEV" && strings.HasPrefix(strings.TrimSpace(title), "WIP:") {
+		hint += ". MR title starts with \"WIP:\", which also blocks merges; rename without the prefix: " +
+			fmt.Sprintf("yunxiao codeup mrs update --repo %s --local-id %s --title %q",
+				shellArg(repoArg), shellArg(localID), strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(title), "WIP:")))
+	}
 	return &contextError{
 		Context: "merge MR " + localID + " blocked",
-		Hint:    mrsMergeBlockedHint(mr, repoArg, localID),
+		Subtype: "merge_rejected",
+		Hint:    hint,
 		Err:     mergeErr,
-		Details: map[string]any{"mr": detail},
+		Details: details,
 	}
 }
 
-// mrsMergeErrorDetail builds error.details.mr from the fetched MR object.
+
+// mrsMergeErrorDetail builds error.details.mr from the fetched MR object (#124/#127).
 func mrsMergeErrorDetail(mr map[string]any) map[string]any {
 	mr = zhiyi.StabilizeMergeRequest(mr)
 	detail := map[string]any{}
-	for _, k := range []string{"localId", "title", "status", "state", "wip"} {
+	for _, k := range []string{"localId", "title", "status", "state", "wip", "url", "detailUrl"} {
 		if v, ok := mr[k]; ok && v != nil {
 			detail[k] = v
 		}
@@ -112,32 +143,3 @@ func mrsMergeFailedTodoTypes(mr map[string]any) []string {
 	return failed
 }
 
-// mrsMergeBlockedHint composes the actionable hint for a failed merge (#124).
-func mrsMergeBlockedHint(mr map[string]any, repoArg, localID string) string {
-	mr = zhiyi.StabilizeMergeRequest(mr)
-	status, _ := mr["status"].(string)
-	title, _ := mr["title"].(string)
-	var parts []string
-	if strings.EqualFold(status, zhiyi.MRStatusUnderDev) {
-		parts = append(parts, fmt.Sprintf(
-			"MR status is UNDER_DEV (开发中, push-review WIP): the server rejects merges in this state even when the review PASSED. "+
-				"There is no OpenAPI to cancel WIP (UpdateChangeRequest only edits title/description) — open the Codeup web UI, MR page → 更多(…) → 取消 WIP (status flips to 待合并/TO_BE_MERGED), then retry: "+
-				"yunxiao codeup mrs merge --repo %s --local-id %s --merge-type <type> --yes",
-			shellArg(repoArg), shellArg(localID)))
-	} else if strings.HasPrefix(strings.TrimSpace(title), "WIP:") {
-		// Title-prefix WIP is a separate signal from the push-review UNDER_DEV status;
-		// clearing it is a rename (PR #135 adds --wip/--unwip toggles for exactly this).
-		parts = append(parts, "MR title starts with \"WIP:\", which also blocks merges; rename without the prefix: "+
-			fmt.Sprintf("yunxiao codeup mrs update --repo %s --local-id %s --title %q", shellArg(repoArg), shellArg(localID), strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(title), "WIP:"))))
-	}
-	if failed := mrsMergeFailedTodoTypes(mr); len(failed) > 0 {
-		parts = append(parts, "merge requirements not met: "+strings.Join(failed, ", ")+
-			" (see error.details.mr.todo; resolve conflicts / pending comments via `mrs comments resolve` / CI / reviewer approval)")
-	}
-	if len(parts) == 0 {
-		parts = append(parts, fmt.Sprintf("check the MR state: yunxiao codeup mrs get --repo %s --local-id %s --brief",
-			shellArg(repoArg), shellArg(localID)))
-	}
-	parts = append(parts, fmt.Sprintf("track push-review MRs: yunxiao codeup mrs +push-review-status --repo %s", shellArg(repoArg)))
-	return strings.Join(parts, ". ")
-}

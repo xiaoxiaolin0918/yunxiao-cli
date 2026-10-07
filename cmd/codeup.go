@@ -796,13 +796,14 @@ checks attach meta.precheck (dry-run: request.precheck). If the detail GET
 fails, the merge is refused (fail closed). Without --yes the confirmation gate
 still trips first (exit 10 confirmation_required) and no request is sent.
 
-On an API error from the POST itself the CLI GETs the MR once and attaches
-error.details.mr with the current status/wip/ahead/behind/mergeable/todo plus
-an actionable hint (#124): a 405 SYSTEM_FORBIDDEN_ERROR on a push-review MR
-usually means status UNDER_DEV (开发中/WIP) — there is no OpenAPI to cancel WIP
-(UpdateChangeRequest only edits title/description); cancel it in the Codeup web
-UI (MR page → 更多(…) → 取消 WIP), then retry. Track WIP MRs with: yunxiao
-codeup mrs +push-review-status --repo <r>.`,
+On an API error from the POST itself the CLI GETs the MR once and enriches
+the error (#124 + #127): subtype merge_rejected, error.details with current_status,
+state_gap, suggested_actions, diagnose.source, and error.details.mr (status/wip/ahead/
+behind/mergeable/todo/url), plus an actionable hint. A 405 SYSTEM_FORBIDDEN_ERROR
+on a push-review MR usually means status UNDER_DEV (开发中/WIP) — there is no
+OpenAPI to cancel WIP (UpdateChangeRequest only edits title/description); cancel
+it in the Codeup web UI (MR page → 更多(…) → 取消 WIP), then retry. Track WIP
+MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -851,7 +852,7 @@ codeup mrs +push-review-status --repo <r>.`,
 		}
 		// Gate first (exit 10 without --yes, unchanged), then precheck + merge
 		// inside the exec step: the POST only runs after the precheck passes
-		// (#130), and a failing POST is enriched with the MR's current state (#124).
+		// (#130), and a failing POST is enriched with structured merge_rejected diagnostics (#124/#127).
 		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body, mergeType, rp))
 	},
 }
