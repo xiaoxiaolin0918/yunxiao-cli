@@ -5,7 +5,7 @@ Practical rules for humans and AI agents working on **yunxiao-cli** (阿里云�
 ## Purpose
 - Bot handoff / migration revival packs live on the Windows machine at `D:\ai\grok-bot\yunxiao-cli\` (`HANDOFF.md` / `AGENT.md`; not in this git repo).
 - Migrating from GitHub CLI or public npm `yx`? See [docs/wiki/00-process/gh-yx-migration.md](docs/wiki/00-process/gh-yx-migration.md).
-- npm channel is RETIRED (#115): GitHub Releases is the only install channel; see [docs/wiki/00-process/npm-oidc-publish.md](docs/wiki/00-process/npm-oidc-publish.md) for the retired process record.
+- npm channel is RETIRED (#115): GitHub Releases is the only install channel; see [docs/wiki/00-process/npm-oidc-publish.md](docs/wiki/00-process/npm-oidc-publish.md) for the short retired notice (not a publish runbook).
 
 - CLI binary: `yunxiao` — DevOps API client for Yunxiao (organization, Projex, Codeup, Flow, Packages, Testhub, AppStack).
 - Designed for **humans + AI agents**: progressive discovery, risk gates, stable JSON envelopes.
