@@ -200,7 +200,7 @@ func TestWorkitemCreateFileInputsDryRun(t *testing.T) {
 	stdout := withCmdJSONCapture(t)
 	resetStringFlags(t, workitemCreateCmd,
 		"space-id", "type-id", "subject", "subject-file", "assigned-to",
-		"description", "description-file", "custom-fields", "custom-fields-file",
+		"description", "description-file", "custom-fields", "custom-fields-file", "priority",
 		"format-type", "parent-id", "sprint", "labels", "participants", "trackers", "verifier", "versions")
 	_ = workitemCreateCmd.Flags().Set("no-defaults", "true")
 	t.Cleanup(func() { _ = workitemCreateCmd.Flags().Set("no-defaults", "false") })

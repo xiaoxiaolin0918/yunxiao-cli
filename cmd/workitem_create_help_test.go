@@ -55,6 +55,7 @@ func TestWorkitemCreateHelpListsFlags(t *testing.T) {
 		{"description-file", "UTF-8 file for description"},
 		{"custom-fields", "JSON object of customFieldValues"},
 		{"custom-fields-file", "UTF-8 JSON object file"},
+		{"priority", "priority option id or display value"},
 		{"sprint", "sprint id"},
 		{"no-defaults", "skip profile workitem_defaults"},
 		{"no-precheck", "skip the required-field precheck"},

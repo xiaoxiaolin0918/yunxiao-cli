@@ -165,6 +165,80 @@ func precheckSkipReason(err error) string {
 	return msg
 }
 
+// resolveAndPrecheckWorkitemCreate (#126 then #95) fetches field config once:
+// resolves list display values in customFieldValues, then optionally runs the
+// required-field precheck. When runPrecheck is false, still resolves when
+// customFieldValues is non-empty (unless the fields GET cannot run).
+func resolveAndPrecheckWorkitemCreate(ctx context.Context, c *client.Client, spaceID, typeID string, body map[string]any, profileRequired []string, runPrecheck bool) (map[string]any, error) {
+	cf, _ := body["customFieldValues"].(map[string]any)
+	needFields := runPrecheck || len(cf) > 0
+	if !needFields {
+		return nil, nil
+	}
+	inspect := fmt.Sprintf("yunxiao workitem fields --space-id %s --type-id %s", spaceID, typeID)
+	pctx, cancel := context.WithTimeout(client.WithRetryPolicy(ctx, precheckMaxAttempts, precheckMaxDelay), precheckTimeout)
+	defer cancel()
+	fields, err := fetchWorkitemFieldConfig(pctx, c, spaceID, typeID)
+	var ae *client.APIError
+	if errors.As(err, &ae) && ae.Status == http.StatusUnauthorized {
+		return nil, err
+	}
+	if err == nil && len(fields) > 0 {
+		if len(cf) > 0 {
+			if rerr := workitemfields.ResolveCustomFieldValues(fields, cf); rerr != nil {
+				return nil, &detailedError{
+					Subtype: "invalid_option_value",
+					Message: rerr.Error(),
+					Hint:    fmt.Sprintf("pass option id, or a unique display value from: %s", inspect),
+					Details: map[string]any{"space_id": spaceID, "type_id": typeID},
+				}
+			}
+		}
+		if !runPrecheck {
+			return nil, nil
+		}
+		return precheckAgainstFields(fields, body, spaceID, typeID, inspect)
+	}
+	if !runPrecheck {
+		return nil, nil
+	}
+	res := map[string]any{"hint": "check required fields with: " + inspect}
+	if err != nil {
+		res["status"] = "skipped"
+		res["reason"] = precheckSkipReason(err)
+	} else {
+		res["status"] = "empty"
+		res["reason"] = "field config returned no fields"
+	}
+	warning := fmt.Sprintf("required-field precheck %s (%s); server-side validation still applies", res["status"], res["reason"])
+	if res["status"] == "skipped" {
+		warning = fmt.Sprintf("required-field precheck skipped (%s); server-side validation still applies", res["reason"])
+	}
+	if len(profileRequired) > 0 {
+		res["source"] = "profile_fallback"
+		pseudo := make([]workitemfields.Field, 0, len(profileRequired))
+		for _, id := range profileRequired {
+			pseudo = append(pseudo, workitemfields.Field{ID: id, Name: id, Required: true})
+		}
+		missing, checked := workitemfields.MissingRequired(pseudo, body)
+		res["required_checked"] = checked
+		if len(missing) > 0 {
+			ids := make([]string, 0, len(missing))
+			for _, m := range missing {
+				ids = append(ids, m.FieldID)
+			}
+			res["profile_missing"] = ids
+			warning += fmt.Sprintf("; profile workitem_defaults[%s].create_required fields not provided: %s (not blocking)", typeID, strings.Join(ids, ", "))
+		} else {
+			warning += fmt.Sprintf("; all profile workitem_defaults[%s].create_required fields provided", typeID)
+		}
+	} else {
+		res["source"] = "none"
+	}
+	res["warning"] = warning
+	return res, nil
+}
+
 // handleCreateErr is handleErr for the create POST. meta.precheck only exists on
 // success, so when the precheck was skipped / empty and the POST then fails, the
 // reason is appended to error.hint as "precheck skipped: <reason>" (or "precheck

@@ -348,7 +348,7 @@ yunxiao workitem types list --space-id <sid> --category Bug
 yunxiao workitem statuses --space-id <sid> --type-id <tid>   # 类型状态表 + meta.default_status_id（#118）
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
 # create 会先预检必填字段（一次只读 GET，--dry-run 也会发）：缺失字段一次性全部报出
-# （error.details.missing[]：field_id / name / pass_via / options）；--no-precheck 跳过（#95）。`+bug-create` 复用同一套预检（#107）
+# （error.details.missing[]：field_id / name / pass_via / options）；--no-precheck 跳过（#95）。`+bug-create` 复用同一套预检（#107）。`--priority` / list 型 custom-fields 支持显示值（#126）
 # 未启用的 type-id 报错自动附带 error.details.available_types（id/name/category），无需再查一遍（#99）
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
