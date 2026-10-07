@@ -38,6 +38,9 @@ Install and init yunxiao CLI with a LOCAL profile:
    Recommended: yunxiao auth login --browser
    WARNING: OAuth consent = full account API capability (no module scopes; broader than fine-grained PAT).
    After login: yunxiao auth probe-oauth
+   Note: oat- tokens are short-lived (~1 day). Login success prints the human-readable
+   expiry (expires_at_local) + renew command; `auth status` / `doctor` warn when <24h
+   remains and no refresh_token is stored — renew via yunxiao auth login --browser (#122).
    PAT fallback:
      Console: https://account-devops.aliyun.com/settings/personalAccessToken
      Help: https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token

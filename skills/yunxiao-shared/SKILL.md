@@ -44,6 +44,8 @@ yunxiao doctor
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token
 
+**OAuth 令牌临期（#122）**：`auth login --browser` 的 oat- 令牌约 1 天短效。登录成功输出含 `expires_at_local`（人类可读过期时间）与续期命令；`auth status` / `doctor` 在剩余 **<24h** 且无 refresh_token（`can_refresh:false`）时输出 `warning` + `hint`（重跑 `yunxiao auth login --browser`）。有 refresh_token 时临期由 CLI 自动刷新，不会打扰。Agent 看到 `expiring:true` / `warning` 时应提醒用户续期。
+
 推荐模块权限：组织/成员读；Projex/Codeup/Flow 读+写（试用可只读）；Packages/Testhub/AppStack 按需。令牌名建议 `yunxiao-cli`。无飞书式一键 OAuth（`CreateOAuthToken` 仍内测）。
 
 **禁止**把完整 token 打到终端或回复里；只用 `token_masked` / `auth status`。
