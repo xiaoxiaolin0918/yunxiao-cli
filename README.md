@@ -305,10 +305,15 @@ yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
+#        ^ merge prechecks the MR first (#130): status/conflict/mergeable + --merge-type vs the
+#          repo's merge settings; unsupported type -> exit 1 merge_type_not_supported (no POST)
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
+yunxiao codeup mrs get --repo <id> --local-id 1 --full    # raw object; default is the summary view
+#   views (#130): default summary = brief + mergeable/conflictCheckStatus/checkList/reviewers
+#   [{name, opinion}]; --brief minimal; --full raw; env YUNXIAO_MRS_GET_VIEW=full|summary|brief
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # per-item latest + meta.latest_patchset_biz_id (#94)
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # GLOBAL: latest patchset by default (#93)
@@ -427,6 +432,8 @@ yunxiao profile install-example zhiyi   # or: play
 # placeholders only: edit org/space/type ids in the installed file, then refresh graphs
 yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
 export YUNXIAO_PROFILE=zhiyi            # or play (or pass --profile zhiyi per command)
+# or set it once as the default for new shells (#130): precedence --profile > YUNXIAO_PROFILE > config default
+yunxiao profile use zhiyi               # writes "profile" into ~/.config/yunxiao/config.json; --unset clears
 yunxiao profile show
 # Refresh the state graph. WRITES data: creates a probe workitem, moves it through states,
 # and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
