@@ -100,8 +100,8 @@ func apiErrorBody(ae *client.APIError) output.ErrorBody {
 // contextError prefixes err with what the CLI was doing ("<Context>: <err>") and adds
 // Hint. handleErr still reports a wrapped *client.APIError exactly like an unwrapped one
 // (type "api", status code, subtype/details) with the API hint and Hint joined by "; ";
-// other causes are type "cli". Subtype/Details, when set, override the API error's own
-// (e.g. the #113 transition 必填 field mapping).
+// other causes are type "cli". Subtype, when set, overrides the API error's own
+// (e.g. the #113 transition required-field mapping). Details (#113/#124) are merged into error.details.
 type contextError struct {
 	Context string
 	Hint    string
@@ -171,7 +171,12 @@ func handleErr(err error) {
 			body.Subtype = ce.Subtype
 		}
 		if ce.Details != nil {
-			body.Details = ce.Details
+			if body.Details == nil {
+				body.Details = map[string]any{}
+			}
+			for k, v := range ce.Details {
+				body.Details[k] = v
+			}
 		}
 		_ = output.Fail(body, 1)
 		processExit(1)

@@ -773,7 +773,15 @@ var codeupCommitsListCmd = &cobra.Command{
 var codeupMrsMergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Merge a merge request (high-risk-write)",
-	Long:  "Risk: high-risk-write\nHTTP: POST .../changeRequests/{localId}/merge",
+	Long: `Risk: high-risk-write
+HTTP: POST .../changeRequests/{localId}/merge
+
+On an API error the CLI GETs the MR once and attaches error.details.mr with the
+current status/wip/ahead/behind/mergeable/todo plus an actionable hint (#124):
+a 405 SYSTEM_FORBIDDEN_ERROR on a push-review MR usually means status UNDER_DEV
+(开发中/WIP) — there is no OpenAPI to cancel WIP (UpdateChangeRequest only edits
+title/description); cancel it in the Codeup web UI (MR page → 更多(…) → 取消 WIP),
+then retry. Track WIP MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -808,7 +816,7 @@ var codeupMrsMergeCmd = &cobra.Command{
 		if removeSource {
 			body["removeSourceBranch"] = true
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs merge", risk.HighRiskWrite, "POST", path, nil, body, nil))
+		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body))
 	},
 }
 
