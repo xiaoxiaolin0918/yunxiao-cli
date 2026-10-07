@@ -72,7 +72,7 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 
 「最新」与上文 comments create 缺省规则完全相同（共用 `internal/mrpatchset.Latest`）。无候选（空列表 / 仅 MERGE_TARGET / 有 MERGE_TARGET（或其他带类型条目）但无 MERGE_SOURCE——即使同时存在未带类型的条目）时全部 `latest:false`，命令仍 `ok:true`。不要再按 `createTime` 自行排序——`MERGE_TARGET` 的时间可能最新。
 
-## mrs merge 拒绝错误可行动化（0.16.36+ / #127）
+## mrs merge 拒绝错误可行动化（0.16.38+ / #127）
 
 服务端拒绝合并（405「该状态下的评审不允许合并，请刷新页面后重试」等）时，平台文案不含任何可行动信息。CLI 在合并失败后 best-effort 再 GET 一次 MR 详情（与 `mrs get` 同一端点；诊断失败则原样透传平台错误，不编造状态），并给错误信封附加：
 
@@ -91,3 +91,42 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 | 其他/未知 | 按原始状态提示 | `mrs get`；重试 merge |
 
 注意：high-risk 门（缺 `--yes` → exit 10 `confirmation_required`）先于一切诊断，不产生任何 API 调用；合并成功也不发诊断 GET。重试命令里的 `--yes` 只是提示文本，仍需用户/agent 自行确认。
+
+## 推送评审 WIP 状态：merge 405 与状态感知（#124 / #132）
+
+推送评审（push review）模式下 `git push` 自动创建/累积更新的 MR，初始状态为「开发中」
+（服务端状态，非标题前缀）。状态枚举（`ListMergeRequests` 的 `newVersionState`、
+`GetChangeRequest` 的 `status`）：
+
+| 状态 | 含义 | 可合并 |
+|------|------|--------|
+| `UNDER_DEV` | 开发中（WIP） | 否（405 `SYSTEM_FORBIDDEN_ERROR`「该状态下的评审不允许合并」，即使评审已 PASS） |
+| `UNDER_REVIEW` | 评审中 | 否 |
+| `TO_BE_MERGED` | 待合并 | 满足合并前置条件后可 |
+| `CLOSED` / `MERGED` | 已关闭 / 已合并 | — |
+
+**没有任何已确认的 OpenAPI 可以切换该服务端状态**：`UpdateChangeRequest` 仅接受
+title/description（官方文档实证），官方 MCP server 也没有 WIP 工具。「取消 WIP」只存在于
+网页（MR 页右上「…」→ **取消 WIP**，状态立即转「待合并」）。CLI 因此**不发明端点**，
+而是：
+
+- `mrs merge` 失败（API 错误）时，CLI 走 #127 的诊断信封（见上节）：追加一次只读
+  `GET .../changeRequests/{localId}`，`error.subtype="merge_rejected"` +
+  `current_status` / `state_gap` / `suggested_actions` / `error.details.mr`
+  （localId/title/status/url + state/wip/ahead/behind/mergeable/todo）。
+  #124 并入的独有信息：`allRequirementsPass=false` → suggested_actions 列出未通过的
+  检查项（MERGE_CONFLICT_CHECK / COMMENTS_CHECK / CI_CHECK / REVIEWER_APPROVED_CHECK，
+  也在 `error.details.mr.todo`）；标题带 `WIP: ` 前缀 → 提示改名（标题前缀 WIP 是
+  独立信号，PR #135 的 `--wip/--unwip` 即针对它；改名**不能**解除 UNDER_DEV）。
+  刷新失败时静默退化为原始 merge 错误。
+- 状态感知（#132）：`mrs list` / `+open-mrs` 每条 MR 注入 CLI 计算的 `status`
+  （newVersionState 优先，旧版 `state` 兜底）与 `wip`（UNDER_DEV 或 workInProgress；
+  无信号时省略；注入会覆盖 API 同名字段，旧版小写 `state` 不动 —— 同 #94 `latest` 惯例）。
+  `mrs get`（含 `--brief`）同样输出 `wip`。
+- `mrs list --status UNDER_DEV`：**客户端过滤**（服务端可能忽略 status 参数，见上），
+  回显 `meta.status_filter`；非 `--all` 时只过滤当前页。
+- 新 shortcut `codeup mrs +push-review-status --repo <r>`：列出该仓 open MR（一次 list
+  GET）并逐条 GET 详情，输出 status/wip/ahead/behind/mergeable/todo/reviewers（含
+  review_opinion_status）+ `meta.count` / `meta.wip_count`；`--local-id` 单查一条（仅一次
+  详情 GET）；`--all` 跟页（ListAll 上限 50）。典型闭环：
+  push → `+push-review-status` 发现 `wip:true` → 网页取消 WIP → `mrs merge`。

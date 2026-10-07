@@ -319,11 +319,19 @@ yunxiao codeup files tree --repo <repoId> --ref master
 yunxiao codeup commits list --repo <repoId> --ref master
 yunxiao codeup files create --repo <id> --path a.txt --branch master --message "add" --content "hi" --dry-run
 yunxiao codeup files delete --repo <id> --path a.txt --branch master --message "rm" --dry-run
-yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run   # 被拒时附当前 MR 状态/差距/下一步（#127）
-yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
+yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
+#        ^ merge 前先预检（#130）：状态/冲突/mergeable + --merge-type 对照仓库合并方式；
+#          不支持时 exit 1 merge_type_not_supported（不发 POST）
+#          POST 被拒时：subtype merge_rejected + 当前状态/差距/下一步，
+#          error.details.mr 带 status/wip/ahead/behind/todo（#127）yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
 
 yunxiao codeup mrs get --repo <id> --local-id 1
+yunxiao codeup mrs get --repo <id> --local-id 1 --full    # 原始对象；默认为 summary 中间档
+#   三档视图（#130）：默认 summary = brief + mergeable/conflictCheckStatus/checkList/reviewers
+#   [{name, opinion}]；--brief 最小；--full 原始；env YUNXIAO_MRS_GET_VIEW=full|summary|brief
+yunxiao codeup mrs list --state opened --status UNDER_DEV   # 客户端推送评审状态过滤；每条注入 status/wip（#132）
+yunxiao codeup mrs +push-review-status --repo <id>          # open MR：status/wip/ahead/behind/mergeable/评审（#132）
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest + meta.latest_patchset_biz_id（#94）
 yunxiao codeup mrs comments list --repo <id> --local-id 1
 yunxiao codeup mrs comments create --repo <id> --local-id 1 --content "LGTM" --dry-run   # 全局评论缺省取最新 patchset（#93）
@@ -442,6 +450,8 @@ yunxiao profile install-example zhiyi   # 或 play
 # 示例只有占位符：编辑安装后的文件填 org/space/type id，再回填状态图
 yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
 export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --profile zhiyi）
+# 或一次写入默认，免去每个 shell 手动 export（#130）：优先级 --profile > YUNXIAO_PROFILE > 默认
+yunxiao profile use zhiyi               # 写 config.json 的 "profile"；--unset 清除
 yunxiao profile show
 # 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
 # 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。

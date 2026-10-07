@@ -20,9 +20,17 @@ import (
 
 // #127 fixtures: the real 405 rejection body observed on zhiyi_doc MR #139, and the
 // post-failure diagnosis GET payload shapes (bare object and {"data":{...}} wrapper).
+// Since #130 the merge also pays one read-only precheck GET before the POST, so the
+// detail endpoint serves precheckFixture on the first GET (when set) and mrFixture on
+// the diagnosis GET after a failed POST.
 const mrsMergeRejectBody = `{"errorCode":"SYSTEM_FORBIDDEN_ERROR","errorMessage":"该状态下的评审不允许合并，请刷新页面后重试","traceId":"0a06dd8617912953944533543e66e0"}`
 
 const mrsMergeDiagURL = "https://codeup.aliyun.com/zhiyi/zhiyi_doc/change/139"
+
+// mrsMergeDiagPrecheckFixture passes the #130 precheck (non-terminal status, no
+// conflict/mergeable signals, no merge-type config) for cases whose diag fixture
+// itself would be refused before the POST (MERGED / CLOSED).
+const mrsMergeDiagPrecheckFixture = `{"localId":139,"title":"feat: pre","status":"TO_BE_MERGED","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`
 
 type mrsMergeDiagServer struct {
 	mu          sync.Mutex
@@ -31,9 +39,13 @@ type mrsMergeDiagServer struct {
 	gets        int
 	mergeStatus int    // 0 → default 405 rejection
 	mergeResp   string // response body for the merge POST (default mrsMergeRejectBody)
-	getStatus   int    // 0 → serve mrFixture; non-zero → error JSON with this status
-	mrFixture   string
-	other       []string
+	getStatus   int    // 0 → serve fixtures; non-zero → error JSON with this status
+	// when non-zero, GETs beyond this count fail with getStatus — lets the #130
+	// precheck GET succeed while the #127 diagnosis GET after the failed POST fails.
+	getsBeforeFail int
+	precheckFixture string // served on the first GET when non-empty
+	mrFixture       string // served on every other GET
+	other           []string
 }
 
 func newMrsMergeDiagServer(t *testing.T, mrFixture string) *mrsMergeDiagServer {
@@ -61,9 +73,13 @@ func newMrsMergeDiagServer(t *testing.T, mrFixture string) *mrsMergeDiagServer {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/changeRequests/139"):
 			s.gets++
 			w.Header().Set("Content-Type", "application/json")
-			if s.getStatus != 0 {
+			if s.getStatus != 0 && (s.getsBeforeFail == 0 || s.gets > s.getsBeforeFail) {
 				w.WriteHeader(s.getStatus)
 				_, _ = io.WriteString(w, `{"errorCode":"SystemError","errorMessage":"boom"}`)
+				return
+			}
+			if s.gets == 1 && s.precheckFixture != "" {
+				_, _ = io.WriteString(w, s.precheckFixture)
 				return
 			}
 			_, _ = io.WriteString(w, s.mrFixture)
@@ -81,9 +97,9 @@ func newMrsMergeDiagServer(t *testing.T, mrFixture string) *mrsMergeDiagServer {
 	return s
 }
 
-// runMrsMerge executes `codeup mrs merge --repo 4951320 --local-id 139 --merge-type ff-only`
+// runMrsMergeDiag executes `codeup mrs merge --repo 4951320 --local-id 139 --merge-type ff-only`
 // and returns stdout, stderr and the processExit code (0 when the command did not exit).
-func runMrsMerge(t *testing.T, yes bool, extra ...string) (string, string, int) {
+func runMrsMergeDiag(t *testing.T, yes bool, extra ...string) (string, string, int) {
 	t.Helper()
 	stdout := withCmdJSONCapture(t)
 	globalDryRun = false
@@ -123,14 +139,15 @@ func runMrsMerge(t *testing.T, yes bool, extra ...string) (string, string, int) 
 // state gap, and concrete next steps (web 取消 WIP for UNDER_DEV, reopen for CLOSED, ...).
 func TestMrsMergeRejectEnriched(t *testing.T) {
 	cases := []struct {
-		name        string
-		mrFixture   string
-		wantStatus  any      // expected details.current_status (nil = key omitted)
-		noURL       bool     // true = expect details.mr.url to be absent/nil
-		wantGap     []string // substrings that must appear in details.state_gap
-		wantActions []string // substrings that must appear somewhere in details.suggested_actions
-		wantHint    []string // substrings that must appear in error.hint
-		noHint      []string // substrings that must NOT appear in error.hint
+		name            string
+		mrFixture       string
+		precheckFixture string // non-empty: first GET (the #130 precheck) serves this
+		wantStatus      any      // expected details.current_status (nil = key omitted)
+		noURL           bool     // true = expect details.mr.url to be absent/nil
+		wantGap         []string // substrings that must appear in details.state_gap
+		wantActions     []string // substrings that must appear somewhere in details.suggested_actions
+		wantHint        []string // substrings that must appear in error.hint
+		noHint          []string // substrings that must NOT appear in error.hint
 	}{
 		{
 			name:      "under_dev_wip_needs_unwip_via_web",
@@ -144,10 +161,11 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 			wantHint: []string{"UNDER_DEV", "取消 WIP", "mrs merge --repo 4951320 --local-id 139 --merge-type ff-only --yes"},
 		},
 		{
-			name:      "wrapped_payload_and_merge_status_fallback",
-			mrFixture: `{"data":{"localId":139,"title":"feat: y","mergeStatus":"MERGED","detailUrl":"https://codeup.aliyun.com/zhiyi/zhiyi_doc/change/139"}}`,
-			wantStatus: "MERGED",
-			wantGap:    []string{"already MERGED"},
+			name:            "wrapped_payload_and_merge_status_fallback",
+			mrFixture:       `{"data":{"localId":139,"title":"feat: y","mergeStatus":"MERGED","detailUrl":"https://codeup.aliyun.com/zhiyi/zhiyi_doc/change/139"}}`,
+			precheckFixture: mrsMergeDiagPrecheckFixture, // MERGED would be refused by the #130 precheck before the POST
+			wantStatus:      "MERGED",
+			wantGap:         []string{"already MERGED"},
 			wantActions: []string{
 				"yunxiao codeup mrs get --repo 4951320 --local-id 139",
 			},
@@ -155,10 +173,11 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 			noHint:   []string{"取消 WIP", "mrs reopen"},
 		},
 		{
-			name:      "closed_suggests_reopen",
-			mrFixture: `{"localId":139,"title":"feat: z","status":"CLOSED","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
-			wantStatus: "CLOSED",
-			wantGap:    []string{"CLOSED", "reopen"},
+			name:            "closed_suggests_reopen",
+			mrFixture:       `{"localId":139,"title":"feat: z","status":"CLOSED","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
+			precheckFixture: mrsMergeDiagPrecheckFixture, // CLOSED would be refused by the #130 precheck before the POST
+			wantStatus:      "CLOSED",
+			wantGap:         []string{"CLOSED", "reopen"},
 			wantActions: []string{
 				"yunxiao codeup mrs reopen --repo 4951320 --local-id 139",
 				"yunxiao codeup mrs merge --repo 4951320 --local-id 139 --merge-type ff-only --yes",
@@ -199,7 +218,8 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newMrsMergeDiagServer(t, tc.mrFixture)
-			_, stderr, code := runMrsMerge(t, true)
+			s.precheckFixture = tc.precheckFixture
+			_, stderr, code := runMrsMergeDiag(t, true)
 			if code != 1 {
 				t.Fatalf("exit %d stderr=%s", code, stderr)
 			}
@@ -254,7 +274,8 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 			if src, _ := diag["source"].(string); !strings.HasPrefix(src, "GET ") || !strings.HasSuffix(src, "/changeRequests/139") {
 				t.Fatalf("details.diagnose=%#v", diag)
 			}
-			if s.mergePOSTs != 1 || s.gets != 1 || len(s.other) != 0 {
+			// one #130 precheck GET + one #127 diagnosis GET after the failed POST
+			if s.mergePOSTs != 1 || s.gets != 2 || len(s.other) != 0 {
 				t.Fatalf("mergePOSTs=%d gets=%d other=%v", s.mergePOSTs, s.gets, s.other)
 			}
 			if len(s.mergeBodies) != 1 || s.mergeBodies[0]["mergeType"] != "ff-only" {
@@ -264,13 +285,49 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 	}
 }
 
+// #127 + #124: the diagnosis folds the push-review extras in — failing merge
+// requirements (todoList) land in suggested_actions and error.details.mr.todo, and
+// every rejection ends with the +push-review-status tracking shortcut.
+func TestMrsMergeRejectFoldsPushReviewContext(t *testing.T) {
+	s := newMrsMergeDiagServer(t, `{
+	 "localId":139,"title":"WIP: feat: x","status":"UNDER_DEV","ahead":2,"behind":0,"allRequirementsPass":false,
+	 "todoList":{"requirementCheckItems":[{"itemType":"COMMENTS_CHECK","pass":false}]},
+	 "targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`)
+	_, stderr, code := runMrsMergeDiag(t, true)
+	if code != 1 {
+		t.Fatalf("exit %d stderr=%s", code, stderr)
+	}
+	eb := decodeErrorBody(t, stderr)
+	if eb.Subtype != "merge_rejected" {
+		t.Fatalf("subtype=%q", eb.Subtype)
+	}
+	for _, want := range []string{"merge requirements not met: COMMENTS_CHECK", "mrs comments resolve", "mrs update", "--title \"feat: x\"", "+push-review-status"} {
+		if !strings.Contains(eb.Hint, want) {
+			t.Fatalf("hint=%q missing %q", eb.Hint, want)
+		}
+	}
+	mr, _ := eb.Details["mr"].(map[string]any)
+	if mr["wip"] != true || mr["ahead"] != float64(2) || mr["behind"] != float64(0) || mr["allRequirementsPass"] != false {
+		t.Fatalf("details.mr merge-state signals missing: %#v", mr)
+	}
+	todo, _ := mr["todo"].([]any)
+	if len(todo) != 1 {
+		t.Fatalf("details.mr.todo=%#v", mr["todo"])
+	}
+	if s.mergePOSTs != 1 || s.gets != 2 {
+		t.Fatalf("mergePOSTs=%d gets=%d", s.mergePOSTs, s.gets)
+	}
+}
+
 // #127: when the diagnosis GET itself fails, the original API error passes through
-// unchanged (no fake status, no misleading 取消 WIP advice).
+// unchanged (no fake status, no misleading 取消 WIP advice). The first detail GET is
+// the #130 precheck and must succeed for the POST to happen at all.
 func TestMrsMergeRejectDiagGETFails(t *testing.T) {
 	t.Cleanup(client.SetRetrySleepForTest(func(ctx context.Context, d time.Duration) error { return nil }))
 	s := newMrsMergeDiagServer(t, `{"localId":139,"status":"UNDER_DEV"}`)
 	s.getStatus = http.StatusInternalServerError
-	_, stderr, code := runMrsMerge(t, true)
+	s.getsBeforeFail = 1
+	_, stderr, code := runMrsMergeDiag(t, true)
 	if code != 1 {
 		t.Fatalf("exit %d stderr=%s", code, stderr)
 	}
@@ -281,7 +338,8 @@ func TestMrsMergeRejectDiagGETFails(t *testing.T) {
 	if !strings.Contains(eb.Message, "该状态下的评审不允许合并") || strings.Contains(eb.Hint, "取消 WIP") {
 		t.Fatalf("message=%q hint=%q", eb.Message, eb.Hint)
 	}
-	if s.mergePOSTs != 1 || s.gets == 0 {
+	if s.mergePOSTs != 1 || s.gets < 2 {
+		// gets: 1 precheck + the diagnosis GET (retried on 5xx by the idempotent policy)
 		t.Fatalf("mergePOSTs=%d gets=%d", s.mergePOSTs, s.gets)
 	}
 }
@@ -290,7 +348,7 @@ func TestMrsMergeRejectDiagGETFails(t *testing.T) {
 // or GET and the exit stays 10 / confirmation_required.
 func TestMrsMergeGateBeforeDiagnosis(t *testing.T) {
 	s := newMrsMergeDiagServer(t, `{"localId":139,"status":"UNDER_DEV"}`)
-	_, stderr, code := runMrsMerge(t, false)
+	_, stderr, code := runMrsMergeDiag(t, false)
 	if code != 10 {
 		t.Fatalf("exit %d stderr=%s", code, stderr)
 	}
@@ -303,12 +361,12 @@ func TestMrsMergeGateBeforeDiagnosis(t *testing.T) {
 	}
 }
 
-// A successful merge never pays the diagnosis GET.
+// A successful merge pays only the #130 precheck GET, never the diagnosis GET.
 func TestMrsMergeSuccessNoDiagnosis(t *testing.T) {
 	s := newMrsMergeDiagServer(t, `{"localId":139,"status":"UNDER_DEV"}`)
 	s.mergeStatus = http.StatusOK
 	s.mergeResp = `{"result":true}`
-	stdout, stderr, code := runMrsMerge(t, true)
+	stdout, stderr, code := runMrsMergeDiag(t, true)
 	if code != 0 {
 		t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
 	}
@@ -316,7 +374,7 @@ func TestMrsMergeSuccessNoDiagnosis(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &env); err != nil || !env.OK {
 		t.Fatalf("envelope=%+v err=%v", env, err)
 	}
-	if s.mergePOSTs != 1 || s.gets != 0 {
+	if s.mergePOSTs != 1 || s.gets != 1 {
 		t.Fatalf("mergePOSTs=%d gets=%d", s.mergePOSTs, s.gets)
 	}
 }

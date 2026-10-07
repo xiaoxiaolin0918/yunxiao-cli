@@ -207,17 +207,32 @@ func writeExample(dst string, b []byte) (string, error) {
 	return dst, nil
 }
 
-// ResolveName returns explicit, else YUNXIAO_PROFILE env.
+// ResolveName returns the active profile name with precedence
+// explicit flag > YUNXIAO_PROFILE env > config.json "profile" default (#130).
 func ResolveName(explicit string) string {
-	if strings.TrimSpace(explicit) != "" {
-		return strings.TrimSpace(explicit)
+	if s := strings.TrimSpace(explicit); s != "" {
+		return s
 	}
-	return strings.TrimSpace(os.Getenv(EnvProfile))
+	if s := strings.TrimSpace(os.Getenv(EnvProfile)); s != "" {
+		return s
+	}
+	return DefaultName()
+}
+
+// DefaultName returns the persisted default profile from config.json
+// (written by `yunxiao profile use <name>`). Empty when unset or unreadable —
+// callers treat it as "no profile".
+func DefaultName() string {
+	f, _, err := config.LoadFile()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(f.Profile)
 }
 
 // HintMissing is the standard error when a command needs a profile.
 func HintMissing() error {
-	return fmt.Errorf("no profile set: use --profile zhiyi or YUNXIAO_PROFILE=zhiyi; install with: yunxiao profile install-example zhiyi")
+	return fmt.Errorf("no profile set: use --profile zhiyi or YUNXIAO_PROFILE=zhiyi, or set a default once with: yunxiao profile use zhiyi (install with: yunxiao profile install-example zhiyi)")
 }
 
 // FieldID returns bug_fields[key] or empty.

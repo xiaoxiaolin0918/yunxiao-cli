@@ -19,6 +19,13 @@ import (
 // suggested_actions) and a hint naming the next step, so agents can self-heal or hand
 // a human a precise instruction instead of digging through the web UI.
 //
+// The #124 enrichment was folded in here as the single implementation: error.details.mr
+// also carries state/wip/ahead/behind/allRequirementsPass and the todoList
+// requirementCheckItems (COMMENTS_CHECK / MERGE_CONFLICT_CHECK / CI_CHECK /
+// REVIEWER_APPROVED_CHECK), suggested_actions gain the failing-check summary, the
+// "WIP:" title-prefix rename advice (a separate signal from the UNDER_DEV push-review
+// status, #135), and the +push-review-status tracking command.
+//
 // Non-API errors (high-risk gate results, CLI failures) pass through untouched, and a
 // failed diagnosis GET returns the original error unchanged — enrichment never masks
 // the merge failure itself.
@@ -37,18 +44,13 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, repoID,
 	status := zhiyi.MRStatus(mr)
 	st := zhiyi.StabilizeMergeRequest(mr)
 
-	actions := mergeSuggestedActions(repoArg, localID, mergeType, status)
+	actions := mergeSuggestedActions(repoArg, localID, mergeType, status, st)
 	details := map[string]any{
 		"action":            "merge",
 		"state_gap":         mergeStateGap(status),
 		"suggested_actions": actions,
 		"diagnose":          map[string]any{"source": "GET " + diagPath},
-		"mr": map[string]any{
-			"localId": st["localId"],
-			"title":   st["title"],
-			"status":  st["status"],
-			"url":     st["url"],
-		},
+		"mr":                mergeDiagMRDetail(st),
 	}
 	if status != "" {
 		details["current_status"] = status
@@ -76,13 +78,31 @@ func fetchMergeRequestForDiag(ctx context.Context, c *client.Client, repoID, loc
 	return zhiyi.UnwrapMergeRequestPayload(asStringMap(out)), path, nil
 }
 
+// mergeDiagMRDetail builds error.details.mr from the stabilized MR object: the #127
+// clickable context (localId/title/status/url) plus the #124 merge-state signals
+// (state/wip/ahead/behind/allRequirementsPass and the todoList check items).
+func mergeDiagMRDetail(st map[string]any) map[string]any {
+	detail := map[string]any{}
+	for _, k := range []string{"localId", "title", "status", "url", "state", "wip", "ahead", "behind", "allRequirementsPass"} {
+		if v, ok := st[k]; ok && v != nil {
+			detail[k] = v
+		}
+	}
+	if todoList, ok := st["todoList"].(map[string]any); ok {
+		if items, ok := todoList["requirementCheckItems"].([]any); ok && len(items) > 0 {
+			detail["todo"] = items
+		}
+	}
+	return detail
+}
+
 // mergeStateGap explains, in one sentence, why merge is blocked at the given MR status.
 // UNDER_DEV evidence: #124/#127 — push-review MRs sit in 开发中(WIP) until the web UI
 // 「取消 WIP」moves them to 待合并; that is the only unblock today (no OpenAPI for it).
 func mergeStateGap(status string) string {
 	switch mergeStatusKey(status) {
 	case "UNDER_DEV":
-		return "MR is UNDER_DEV (开发中/WIP): merge is blocked until WIP is cleared (web UI「取消 WIP」→ 待合并)"
+		return "MR is UNDER_DEV (开发中/WIP): merge is blocked until WIP is cleared (web UI「取消 WIP」→ 待合并); there is no OpenAPI to cancel WIP (UpdateChangeRequest only edits title/description)"
 	case "MERGED":
 		return "MR is already MERGED: nothing left to merge"
 	case "CLOSED":
@@ -98,31 +118,47 @@ func mergeStateGap(status string) string {
 
 // mergeSuggestedActions returns concrete next steps (CLI commands where one exists,
 // otherwise the exact web UI action) for a merge rejected at the given status.
-func mergeSuggestedActions(repoArg, localID, mergeType, status string) []string {
+// #124 extras: failing merge requirements (todoList) and the "WIP:" title prefix are
+// folded in regardless of status, and every rejection ends with the push-review
+// tracking shortcut (#132).
+func mergeSuggestedActions(repoArg, localID, mergeType, status string, st map[string]any) []string {
 	retry := mergeRetryCommand(repoArg, localID, mergeType)
 	inspect := fmt.Sprintf("yunxiao codeup mrs get --repo %s --local-id %s", shellArg(repoArg), shellArg(localID))
+	var actions []string
 	switch mergeStatusKey(status) {
 	case "UNDER_DEV":
 		// #124: 取消 WIP has no OpenAPI yet; the web path is the confirmed workaround.
-		return []string{
+		actions = []string{
 			"web UI: open the MR page →「…」more menu →「取消 WIP」(status becomes 待合并)",
 			retry,
 		}
 	case "MERGED":
-		return []string{inspect + " — already merged; no further action"}
+		actions = []string{inspect + " — already merged; no further action"}
 	case "CLOSED":
-		return []string{
+		actions = []string{
 			fmt.Sprintf("yunxiao codeup mrs reopen --repo %s --local-id %s --dry-run (then --yes)", shellArg(repoArg), shellArg(localID)),
 			retry,
 		}
 	case "UNDER_REVIEW":
-		return []string{
+		actions = []string{
 			fmt.Sprintf("yunxiao codeup mrs review --repo %s --local-id %s --opinion PASS --dry-run (then --yes) once the review should pass", shellArg(repoArg), shellArg(localID)),
 			retry,
 		}
 	default:
-		return []string{inspect, retry}
+		actions = []string{inspect, retry}
 	}
+	if failed := mrsMergeFailedTodoTypes(st); len(failed) > 0 {
+		actions = append(actions, "merge requirements not met: "+strings.Join(failed, ", ")+
+			" (see error.details.mr.todo; resolve conflicts / pending comments via `mrs comments resolve` / CI / reviewer approval)")
+	}
+	if title, _ := st["title"].(string); strings.HasPrefix(strings.TrimSpace(title), "WIP:") {
+		// Title-prefix WIP is a separate signal from the push-review UNDER_DEV status;
+		// clearing it is a rename (PR #135 adds --wip/--unwip toggles for exactly this).
+		actions = append(actions, "MR title starts with \"WIP:\", which also blocks merges; rename without the prefix: "+
+			fmt.Sprintf("yunxiao codeup mrs update --repo %s --local-id %s --title %q", shellArg(repoArg), shellArg(localID), strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(title), "WIP:"))))
+	}
+	actions = append(actions, fmt.Sprintf("track push-review MRs: yunxiao codeup mrs +push-review-status --repo %s", shellArg(repoArg)))
+	return actions
 }
 
 // mergeRejectionHint renders the human/agent hint: gap first, then the next steps.
@@ -142,4 +178,27 @@ func mergeRetryCommand(repoArg, localID, mergeType string) string {
 // mergeStatusKey normalizes an MR status for table lookups (upper-case, trimmed).
 func mergeStatusKey(status string) string {
 	return strings.ToUpper(strings.TrimSpace(status))
+}
+
+// mrsMergeFailedTodoTypes lists the requirement check types that currently fail
+// (e.g. MERGE_CONFLICT_CHECK, COMMENTS_CHECK, CI_CHECK, REVIEWER_APPROVED_CHECK) (#124).
+func mrsMergeFailedTodoTypes(mr map[string]any) []string {
+	todoList, _ := mr["todoList"].(map[string]any)
+	if todoList == nil {
+		return nil
+	}
+	items, _ := todoList["requirementCheckItems"].([]any)
+	var failed []string
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		if pass, ok := m["pass"].(bool); ok && !pass {
+			if t, ok := m["itemType"].(string); ok && t != "" {
+				failed = append(failed, t)
+			}
+		}
+	}
+	return failed
 }

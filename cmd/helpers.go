@@ -153,8 +153,7 @@ func handleErr(err error) {
 		if body.Subtype == "" {
 			body.Subtype = ce.Subtype
 		}
-		if len(ce.Details) > 0 {
-			if body.Details == nil {
+		if len(ce.Details) > 0 {			if body.Details == nil {
 				body.Details = map[string]any{}
 			}
 			for k, v := range ce.Details {

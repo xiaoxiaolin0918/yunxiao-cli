@@ -20,6 +20,10 @@ metadata:
 yunxiao profile install-example zhiyi
 export YUNXIAO_PROFILE=zhiyi          # 或每次 --profile zhiyi
 yunxiao profile show
+
+# 免每个 shell 手动 export（#130）：写进 config.json 当默认
+yunxiao profile use zhiyi             # 优先级 --profile > YUNXIAO_PROFILE > 默认
+yunxiao profile use --unset           # 清除默认
 ```
 
 示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`；GitHub Release 压缩包也与 npm 包一样在二进制旁携带 `profiles/`（#116）。查找顺序是**有效磁盘副本优先**（#104）：release 压缩包 / npm 包或二进制旁的 `profiles/zhiyi.example.json` 须为合法 JSON 且 `name` 匹配，否则跳过并回退内嵌；cwd / `runtime.Caller` 不再参与查找。有效磁盘副本时 `--dry-run` 的 `from` 为该路径；否则为 `embedded:profiles/zhiyi.example.json`（GitHub Release / `go install` 等）。
