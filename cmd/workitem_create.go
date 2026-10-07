@@ -51,6 +51,8 @@ Windows / PowerShell: for Chinese subject, description, or custom-fields JSON,
 prefer --subject-file / --description-file / --custom-fields-file (UTF-8, BOM
 stripped) over inline flags. Use only one of each pair (--custom-fields vs
 --custom-fields-file, etc.).`,
+	Example: `  yunxiao workitem create --space-id <space-id> --type-id <type-id> --subject "…" --assigned-to self --dry-run
+  yunxiao workitem types list --space-id <space-id> --category Risk   # find --type-id`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
