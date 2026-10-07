@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.3
+version: 1.3.4
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -22,7 +22,7 @@ export YUNXIAO_PROFILE=zhiyi          # 或每次 --profile zhiyi
 yunxiao profile show
 ```
 
-示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`。查找顺序是**有效磁盘副本优先**（#104）：npm 包或二进制旁的 `profiles/zhiyi.example.json` 须为合法 JSON 且 `name` 匹配，否则跳过并回退内嵌；cwd / `runtime.Caller` 不再参与查找。有效磁盘副本时 `--dry-run` 的 `from` 为该路径；否则为 `embedded:profiles/zhiyi.example.json`（GitHub Release / `go install` 等）。
+示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`；GitHub Release 压缩包也与 npm 包一样在二进制旁携带 `profiles/`（#116）。查找顺序是**有效磁盘副本优先**（#104）：release 压缩包 / npm 包或二进制旁的 `profiles/zhiyi.example.json` 须为合法 JSON 且 `name` 匹配，否则跳过并回退内嵌；cwd / `runtime.Caller` 不再参与查找。有效磁盘副本时 `--dry-run` 的 `from` 为该路径；否则为 `embedded:profiles/zhiyi.example.json`（GitHub Release / `go install` 等）。
 
 装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --profile zhiyi --write-profile` 回填状态图，`yunxiao profile doctor` 校验。
 

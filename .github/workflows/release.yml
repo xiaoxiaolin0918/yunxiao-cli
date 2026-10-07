@@ -52,6 +52,9 @@ jobs:
           mv "${OUT}" "${STAGE}/"
           cp README.md LICENSE "${STAGE}/" 2>/dev/null || true
           cp -a skills "${STAGE}/skills" 2>/dev/null || true
+          # Ship example tenant profiles next to the binary like skills/ (#116);
+          # the binary also embeds them (#92) — a valid disk copy simply wins.
+          cp -a profiles "${STAGE}/profiles" 2>/dev/null || true
           mkdir -p dist/out
           if [ "${{ matrix.archive }}" = "zip" ]; then
             (cd "${STAGE}" && zip -qr "../../dist/out/yunxiao-cli-${VERSION}-${GOOS}-${GOARCH}.zip" .)

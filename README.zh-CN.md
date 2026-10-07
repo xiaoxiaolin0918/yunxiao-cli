@@ -444,7 +444,7 @@ yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprin
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（npm 包 `profiles/` 也携带），npm / GitHub Release 安装后 `install-example` 可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制（#92），GitHub Release 压缩包与 npm 包也在二进制旁携带 `profiles/`（#116），任何安装方式无需仓内检出即可 `install-example`；磁盘上存在合法的 `profiles/<name>.example.json` 时优先，非法磁盘副本回退内嵌（#92/#104）。npm 安装时示例位于 `$(npm root -g)/sanzhi-yunxiao-cli/profiles/`。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 
