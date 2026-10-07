@@ -443,6 +443,11 @@ yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --categor
 yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow 及 allowed_* 枚举（只读）
 yunxiao workitem +bug-create --profile play --title "标题" --description "描述" --sprint <id> --dry-run
 yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --dry-run
+# bug_edges 在 +explore-workflow 写回前只是未实证模板。BFS 无路时 +bug-transition
+# 回退单步直试目标态（meta.transition_mode=bfs_no_path_direct；--direct 强制直试）；
+# 报错区分「no path in profile edges（无边）」与「platform rejected transition（平台拒绝）」（#123）。
+yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
+  --plan-due-date 2026-09-20 --developer <uid> --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 ```
 

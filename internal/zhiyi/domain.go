@@ -1,6 +1,7 @@
 package zhiyi
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -77,10 +78,76 @@ func TransitionSteps(current, target string, edges map[string][]string, allStatu
 				queue = append(queue, node{id: next, path: path})
 			}
 		}
-		return nil, fmt.Errorf("当前状态无法流转到目标状态：%s → %s（图内无实证边）", current, target)
+		return nil, &NoPathError{Current: current, Target: target}
 	}
 	// Side-branch: single hop
 	return []string{target}, nil
+}
+
+// NoPathError marks a TransitionSteps failure where both statuses are keys of the
+// cached graph but BFS found no route. Callers distinguish it from unknown-status
+// errors and may fall back to a direct single-step platform attempt (#123).
+type NoPathError struct {
+	Current string
+	Target  string
+}
+
+func (e *NoPathError) Error() string {
+	return fmt.Sprintf("当前状态无法流转到目标状态：%s → %s（图内无实证边）", e.Current, e.Target)
+}
+
+// Transition plan modes for +bug-transition (#123).
+const (
+	// TransitionModeNoop: current == target; no PUT planned.
+	TransitionModeNoop = "noop"
+	// TransitionModeProfileBFS: every planned step follows verified profile edges.
+	TransitionModeProfileBFS = "profile_bfs"
+	// TransitionModeBFSNoPathDirect: profile edges hold no route (BFS exhausted, or a
+	// node is off-graph so TransitionSteps single-hops); fall back to ONE direct PUT
+	// of the target status and let the platform decide.
+	TransitionModeBFSNoPathDirect = "bfs_no_path_direct"
+	// TransitionModeDirectForced: --direct skipped the profile graph entirely.
+	TransitionModeDirectForced = "direct_forced"
+)
+
+// BugTransitionPlan plans +bug-transition steps (#123):
+//
+//   - direct: skip BFS (and status-machine membership checks — the target may be
+//     newer than the profile) and single-step PUT the resolved target;
+//   - BFS route found: steps follow the cached edges (profile_bfs);
+//   - NoPathError (both nodes on-graph, no route) or side-branch single-hop
+//     (a node off-graph): fall back to one direct PUT (bfs_no_path_direct) so
+//     "platform allows but the profile has no edge" still works;
+//   - other TransitionSteps errors (unknown current/target status) are returned
+//     as-is: they are input problems, not graph gaps.
+//
+// current == target is a no-op in every mode (no PUT).
+func BugTransitionPlan(current, target string, edges map[string][]string, allStatuses map[string]bool, direct bool) ([]string, string, error) {
+	current = strings.TrimSpace(current)
+	target = strings.TrimSpace(target)
+	if current == target {
+		return nil, TransitionModeNoop, nil
+	}
+	if direct {
+		return []string{target}, TransitionModeDirectForced, nil
+	}
+	steps, err := TransitionSteps(current, target, edges, allStatuses)
+	if err != nil {
+		var np *NoPathError
+		if errors.As(err, &np) {
+			return []string{target}, TransitionModeBFSNoPathDirect, nil
+		}
+		return nil, "", err
+	}
+	// TransitionSteps silently single-hops when either node is off-graph: the cached
+	// edges contain no route for that hop either, so report it as a direct fallback
+	// instead of a graph-backed plan.
+	_, curOnGraph := edges[current]
+	_, tgtOnGraph := edges[target]
+	if !curOnGraph || !tgtOnGraph {
+		return steps, TransitionModeBFSNoPathDirect, nil
+	}
+	return steps, TransitionModeProfileBFS, nil
 }
 
 // RequiredFieldIDs unions bug_transition_required for each step status id (order preserved).
