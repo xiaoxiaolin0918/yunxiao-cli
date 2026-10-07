@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
+	"github.com/yunxiao-cli/yunxiao/internal/config"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/update"
@@ -20,9 +21,13 @@ var doctorCmd = &cobra.Command{
 	Short: "CLI health check: config, auth, and connectivity",
 	Long: `Risk: read
 
-Prints resolved executable path (os.Executable / argv0; Windows-friendly),
+	Prints resolved executable path (os.Executable / argv0; Windows-friendly),
 active profile summary (name, organization_id, space_id), config/token checks,
 and a connectivity probe.
+
+The token check reports browser OAuth expiry (expires_at_local / expires_in /
+expiring) and warns with the renew command when less than 24h remains and no
+refresh_token is stored (#122); still healthy while the token is valid.
 
 Optional: --check-update queries GitHub Releases once (no download).
 Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
@@ -38,6 +43,15 @@ Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
 			tokenCheck["hint"] = "Prefer: yunxiao auth login --browser — or PAT: " + patHintShort()
 			tokenCheck["console"] = yunxiaoPATConsoleURL
 			tokenCheck["browser"] = "yunxiao auth login --browser"
+		} else if r.TokenKind == config.TokenKindOAuth {
+			tokenCheck["auth_header"] = r.AuthHeader
+			// #122: surface oat- expiry (expires_at_local / expires_in /
+			// expiring / warning) so users renew before the token dies mid-task.
+			canRefresh := r.RefreshToken != "" && r.ClientID != ""
+			tokenCheck["can_refresh"] = canRefresh
+			for k, v := range oauthExpiryFields(r.ExpiresAt, canRefresh) {
+				tokenCheck[k] = v
+			}
 		} else if r.TokenKind != "" {
 			tokenCheck["auth_header"] = r.AuthHeader
 		}

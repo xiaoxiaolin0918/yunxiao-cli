@@ -37,6 +37,8 @@ CLI 二进制名：**`yunxiao`**。
    推荐：yunxiao auth login --browser
    注意：OAuth 同意 = 账号 API 全能力（平台不按模块限权，宽于细粒度 PAT）。
    登录后探测：yunxiao auth probe-oauth
+   提示：oat- 令牌约 1 天短效。登录成功会打印人类可读过期时间（expires_at_local）与续期命令；
+   `auth status` / `doctor` 在剩余 <24h 且无 refresh_token 时会提醒，重跑 yunxiao auth login --browser 续期（#122）。
    PAT 回落（CI/无浏览器）：
      控制台：https://account-devops.aliyun.com/settings/personalAccessToken
      帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token
