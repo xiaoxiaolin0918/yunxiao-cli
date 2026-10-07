@@ -147,6 +147,8 @@ Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Versio
 
 
 ## Update
+See also [docs/smoke-checklist.md](docs/smoke-checklist.md) for a post-release play-sandbox smoke list.
+
 
 Releases iterate quickly — use `yunxiao update` to upgrade. The CLI may also print a short **stderr** hint when a newer GitHub Release exists (at most one network check per 24h, cached under `~/.config/yunxiao/update_check.json`). Hints are skipped for `update` / `self-update` / `completion`, when `--format json` (the default), and when disabled via env. Check failures never block or fail your command; nothing is auto-downloaded.
 
