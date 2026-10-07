@@ -120,13 +120,13 @@ Download the archive for your OS/arch, extract it, and add the `yunxiao` binary 
 yunxiao --version   # should match GitHub latest Release
 ```
 
-This project is maintained on **GitHub only** (`sliverTwo/yunxiao-cli`).
+This project is maintained on **GitHub only** (`xiaoxiaolin0918/yunxiao-cli`; the old `sliverTwo/yunxiao-cli` name relies on GitHub's redirect).
 
 **From source (secondary):**
 
 ```bash
 make build                 # produces ./yunxiao (injects Version via -ldflags)
-# or (without ldflags, Version falls back to package default 0.16.13)
+# or (without ldflags, Version falls back to the package default in internal/version/version.go)
 go build -o yunxiao .
 # pin version explicitly:
 # go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=<release>" -o yunxiao .
@@ -135,7 +135,7 @@ make install               # installs to ~/.local/bin/yunxiao
 go install github.com/yunxiao-cli/yunxiao@latest   # when published
 ```
 
-Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or `0.16.13`).
+Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Version=$(VERSION)` (`VERSION` defaults to `git describe` or the `internal/version` package default).
 
 **Known limitation:** `go install` / a lone binary does **not** ship the repo `skills/` tree, so `yunxiao skills list|read|install` will not find skills unless you run from a source checkout (or an installer that extracts `skills/`), or copy/`npx skills add` the tree. Prefer `make build` from a checkout, then `yunxiao skills install`, for skills-aware workflows.
 
@@ -144,7 +144,7 @@ Requires Go 1.24.4+. `make build` / `make ci` set `-ldflags -X …version.Versio
 
 Releases iterate quickly — use `yunxiao update` to upgrade. The CLI may also print a short **stderr** hint when a newer GitHub Release exists (at most one network check per 24h, cached under `~/.config/yunxiao/update_check.json`). Hints are skipped for `update` / `self-update` / `completion`, when `--format json` (the default), and when disabled via env. Check failures never block or fail your command; nothing is auto-downloaded.
 
-The hint itself is printed in Chinese, for example: `发现新版本 yunxiao：0.16.6 → 0.16.13。运行：yunxiao update`.
+The hint itself is printed in Chinese, for example: `发现新版本 yunxiao：0.16.28 → 0.16.29。运行：yunxiao update`.
 
 **Binary (GitHub Releases) — recommended:**
 
@@ -248,7 +248,7 @@ yunxiao skills install --symlink --force
 npx skills add /path/to/yunxiao-cli -y -g
 
 # 3) From GitHub (URL must end in .git)
-npx skills add https://github.com/sliverTwo/yunxiao-cli.git -y -g
+npx skills add https://github.com/xiaoxiaolin0918/yunxiao-cli.git -y -g
 ```
 
 Then restart / reload your AI tool so skills are picked up.
