@@ -5,13 +5,16 @@ BINDIR ?= $(PREFIX)/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || sed -n 's/^var Version = "\(.*\)"/\1/p' internal/version/version.go)
 LDFLAGS := -X github.com/yunxiao-cli/yunxiao/internal/version.Version=$(VERSION)
 
-.PHONY: build test install clean tidy ci
+.PHONY: build test test-race install clean tidy ci
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
 
 test:
 	go test ./...
+
+test-race:
+	go test -race ./...
 
 install: build
 	mkdir -p $(BINDIR)
@@ -24,4 +27,4 @@ tidy:
 	go mod tidy
 
 ci:
-	go build -ldflags "$(LDFLAGS)" ./... && go test ./... && go vet ./...
+	go build -ldflags "$(LDFLAGS)" ./... && go test ./... && go test -race ./... && go vet ./...
