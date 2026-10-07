@@ -23,14 +23,87 @@ var profileCmd = &cobra.Command{
 
   yunxiao profile list
   yunxiao profile show [name]
+  yunxiao profile use <name> [--dry-run] | --unset
   yunxiao profile path [name]
   yunxiao profile doctor [name] [--all-workflows]
   yunxiao profile install-example zhiyi|play [--force]
 
-Select with --profile <name> or YUNXIAO_PROFILE=<name>.
+Select with --profile <name>, YUNXIAO_PROFILE=<name>, or once with
+yunxiao profile use <name> (writes "profile" into config.json as the default
+for every new shell session, #130). Precedence: --profile > YUNXIAO_PROFILE >
+config default; profile use --unset clears the default.
 Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).
 Examples are embedded in the binary, so install-example also works from npm / GitHub Release installs;
 an on-disk profiles/<name>.example.json (npm package / next to the binary) takes precedence when it is valid JSON with matching "name".`,
+}
+
+var profileUseCmd = &cobra.Command{
+	Use:   "use [name]",
+	Short: "Set the default profile in config.json (no per-shell export needed)",
+	Long: `Risk: write
+Writes "profile": "<name>" into ~/.config/yunxiao/config.json so new shells pick
+the profile without --profile / YUNXIAO_PROFILE (#130 item 2).
+The profile must already exist under ~/.config/yunxiao/profiles/<name>.json
+(checked before writing; install with profile install-example). Precedence stays
+--profile > YUNXIAO_PROFILE > this default, so one-off overrides still work.
+--unset clears the default (name optional then). --dry-run previews only.
+
+  yunxiao profile use zhiyi
+  yunxiao profile use play --dry-run
+  yunxiao profile use --unset`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		unset, _ := cmd.Flags().GetBool("unset")
+		name := ""
+		if len(args) > 0 {
+			name = args[0]
+		}
+		if unset {
+			name = ""
+		} else if name == "" {
+			handleErr(fmt.Errorf("pass a profile name (see: yunxiao profile list), or --unset to clear the default"))
+			return
+		}
+		f, cfgPath, err := config.LoadFile()
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		previous := f.Profile
+		if name != "" {
+			if name == "." || name == ".." || strings.ContainsAny(name, `/\:`) || strings.Contains(name, "..") {
+				handleErr(fmt.Errorf("invalid profile name %q", name))
+				return
+			}
+			if _, err := profile.Load(name); err != nil {
+				handleErr(fmt.Errorf("profile %q not usable: %w (hint: yunxiao profile list; install with: yunxiao profile install-example %s)", name, err, name))
+				return
+			}
+		}
+		preview := map[string]any{"name": name, "config_path": cfgPath, "previous": previous, "unset": unset}
+		if globalDryRun {
+			handleErr(output.DryRunResult(string(risk.Write), preview))
+			return
+		}
+		f.Profile = name
+		written, err := config.SaveFile(f)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		out := map[string]any{
+			"config_path": written,
+			"profile":     name,
+			"previous":    previous,
+		}
+		if unset {
+			out["unset"] = true
+			out["hint"] = "default profile cleared; --profile / YUNXIAO_PROFILE still work"
+		} else {
+			out["hint"] = "default set for new shells; precedence: --profile > YUNXIAO_PROFILE > config default"
+		}
+		handleErr(output.Success(out, map[string]any{"risk": risk.Write}))
+	},
 }
 
 var profileListCmd = &cobra.Command{
@@ -207,5 +280,6 @@ func findProfileExample(name string) (string, []byte, error) {
 
 func init() {
 	profileInstallExampleCmd.Flags().Bool("force", false, "overwrite existing profile")
-	profileCmd.AddCommand(profileListCmd, profileShowCmd, profilePathCmd, profileInstallExampleCmd)
+	profileUseCmd.Flags().Bool("unset", false, "clear the default profile instead of setting one")
+	profileCmd.AddCommand(profileListCmd, profileShowCmd, profilePathCmd, profileUseCmd, profileInstallExampleCmd)
 }

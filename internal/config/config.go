@@ -22,6 +22,9 @@ type File struct {
 	APIBaseURL     string `json:"api_base_url,omitempty"`
 	OrganizationID string `json:"organization_id,omitempty"`
 	Edition        string `json:"edition,omitempty"`
+	// Profile is the default tenant profile name set by `yunxiao profile use`
+	// (#130): used when --profile and YUNXIAO_PROFILE are both unset.
+	Profile string `json:"profile,omitempty"`
 }
 
 type Resolved struct {
