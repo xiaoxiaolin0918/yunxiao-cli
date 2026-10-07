@@ -1,0 +1,12 @@
+# Normalize all text files to LF in the repository and check them out with LF
+# even on Windows with core.autocrlf=true (#108). CRLF worktree bytes would end
+# up in `npm pack` tarballs: npm/checksums.txt would no longer verify and the
+# `#!/usr/bin/env node` shebang in npm/scripts/*.js would break on Unix.
+# Binary files are left untouched (text=auto detects them).
+* text=auto eol=lf
+
+# Shebang / checksum-sensitive files: force LF regardless of git's detection.
+*.sh              text eol=lf
+*.py              text eol=lf
+npm/scripts/*.js  text eol=lf
+npm/checksums.txt text eol=lf
