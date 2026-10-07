@@ -103,7 +103,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.create", Domain: "codeup", Description: "Create a merge request",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests", Risk: risk.HighRiskWrite,
 		Params: []Param{
-			{Name: "repo", Type: "string", Required: true, Desc: "repository id or alias"},
+			{Name: "repo", Type: "string", Required: true, Desc: "repository id, alias, org/repo path, or bare name (#125)"},
 			{Name: "source", Type: "string", Required: true, Desc: "source branch"},
 			{Name: "target", Type: "string", Required: true, Desc: "target branch"},
 			{Name: "title", Type: "string", Required: true, Desc: "MR title"},
@@ -269,7 +269,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.comments.create", Domain: "codeup", Description: "Create MR comment (GLOBAL_COMMENT defaults to latest MERGE_SOURCE patchset when --patchset-biz-id is omitted)",
 		HTTPMethod: "POST", Path: ".../changeRequests/{localId}/comments", Risk: risk.Write,
 		Params: []Param{
-			{Name: "repo", Type: "string", Required: true, Desc: "repository id or alias"},
+			{Name: "repo", Type: "string", Required: true, Desc: "repository id, alias, org/repo path, or bare name (#125)"},
 			{Name: "local-id", Type: "string", Required: true, Desc: "MR local id"},
 			{Name: "content", Type: "string", Required: true, Desc: "comment content"},
 			{Name: "comment-type", Type: "string", Required: false, Desc: "GLOBAL_COMMENT (default) | INLINE_COMMENT; case-insensitive, other values rejected"},
@@ -291,7 +291,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.reviewers.add", Domain: "codeup", Description: "Add/update reviewers on an existing MR",
 		HTTPMethod: "POST", Path: ".../changeRequests/{localId}/person/REVIEWER", Risk: risk.Write,
 		Params: []Param{
-			{Name: "repo", Type: "string", Required: true, Desc: "repository id or alias"},
+			{Name: "repo", Type: "string", Required: true, Desc: "repository id, alias, org/repo path, or bare name (#125)"},
 			{Name: "local-id", Type: "string", Required: true, Desc: "MR local id"},
 			{Name: "reviewer", Type: "string", Required: true, Desc: "comma-separated reviewer userIds → body userIds (person/REVIEWER)"},
 		},

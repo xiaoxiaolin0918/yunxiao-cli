@@ -27,7 +27,9 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 
   yunxiao codeup mrs +create --repo <repo-id> --source feat/x --title "fix" --yes
 
---repo accepts numeric id or profile.repositories alias. Profile optional when --repo is numeric.
+--repo accepts numeric id, profile.repositories alias, org[/group]/repo path (URL-encoded
+by the CLI — plain slashes work), or bare repo name resolved by one read-only search when
+unique in the organization (#125). Profile optional when --repo is numeric.
 --target defaults to master. --wip prefixes "WIP: " when target is master.
 --reviewer is comma-separated userIds (OpenAPI reviewerUserIds), same as typed mrs create.
 --work-item is prechecked via workitem get (abort if missing); after create, missing links warn.`,
@@ -141,7 +143,7 @@ Zhiyi-oriented wrapper around Codeup changeRequests. Does not replace typed
 }
 
 func init() {
-	codeupMrsPlusCreateCmd.Flags().String("repo", "", "numeric repositoryId or alias (required)")
+	codeupMrsPlusCreateCmd.Flags().String("repo", "", "repository id, alias, org/repo path, or bare name (required)")
 	codeupMrsPlusCreateCmd.Flags().String("source", "", "source branch (required)")
 	codeupMrsPlusCreateCmd.Flags().String("target", "master", "target branch (default master)")
 	codeupMrsPlusCreateCmd.Flags().String("title", "", "MR title (required)")
