@@ -56,6 +56,8 @@ When the API rejects the type itself (工作项类型未启用), the error carri
 space's enabled types as error.details.available_types (id/name/category) with
 subtype workitem_type_not_enabled (#99) — pick one of those ids, or enable the
 type in the Projex project settings UI (no OpenAPI for that).`,
+	Example: `  yunxiao workitem create --space-id <space-id> --type-id <type-id> --subject "…" --assigned-to self --dry-run
+  yunxiao workitem types list --space-id <space-id> --category Risk   # find --type-id`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
