@@ -316,4 +316,8 @@ func TestCodeupMrsPushReviewStatusSchema(t *testing.T) {
 	if !hasStatus {
 		t.Fatal("codeup.mrs.list missing status param")
 	}
+	merge := Find("codeup.mrs.merge")
+	if merge == nil || !strings.Contains(merge.Description, "details.mr") {
+		t.Fatalf("merge schema should document the #124 error enrichment: %+v", merge)
+	}
 }

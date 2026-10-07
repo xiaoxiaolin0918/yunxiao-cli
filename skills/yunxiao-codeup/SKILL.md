@@ -1,7 +1,7 @@
 ---
 name: yunxiao-codeup
-version: 1.1.7
-description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
+version: 1.2.0
+description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
     bins: ["yunxiao"]
@@ -18,21 +18,39 @@ metadata:
 
 | Shortcut | 说明 | Risk |
 |----------|------|------|
-| `+open-mrs` | 列出 opened 合并请求 | read |
+| `+open-mrs` | 列出 opened 合并请求（每条注入 `status` / `wip`） | read |
+| `mrs +push-review-status` | 某仓 open MR 的推送评审状态（status/wip/ahead/behind/mergeable/评审） | read |
 
 ```bash
 yunxiao codeup +open-mrs
 yunxiao codeup +open-mrs --repo <numericRepoId>
+yunxiao codeup mrs +push-review-status --repo <repoId>
+yunxiao codeup mrs +push-review-status --repo <repoId> --local-id 139   # 单查一条
 ```
+
+## 推送评审 WIP / 状态感知（#124 / #132）
+
+推送评审模式 push 自动建的 MR 初始状态为「开发中」（服务端状态 `UNDER_DEV`，非标题前缀）。
+此时 `mrs merge` 会 405 `SYSTEM_FORBIDDEN_ERROR`（评审 PASS 也无效）。**没有 OpenAPI 能取消
+WIP**（`UpdateChangeRequest` 仅 title/description）——需网页操作：MR 页「…」→ **取消 WIP**
+（转 `TO_BE_MERGED` 待合并），再 merge。
+
+- `mrs list` / `+open-mrs` 每条注入 `status`（`newVersionState` 优先：UNDER_DEV/
+  UNDER_REVIEW/TO_BE_MERGED/CLOSED/MERGED）与 `wip`；`mrs get`（含 `--brief`）也带 `wip`。
+- `mrs list --status UNDER_DEV`：**客户端过滤**（服务端可能忽略 status 参数），配 `--all` 才是全量。
+- `mrs merge` 失败时错误自动带 `error.details.mr`（status/wip/todo…）+ hint（UNDER_DEV → 网页
+  取消 WIP + 重试命令；`WIP: ` 标题前缀 → 提示改名，注意改名**不能**解除 UNDER_DEV）。
+- 典型闭环：push → `+push-review-status` 看到 `wip:true` → 网页取消 WIP → `mrs merge`。
 
 
 ## MR `url`（CLI 0.15.x）
 
-`codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`；`--brief` 只出 localId/title/status/state/url。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
+`codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）与 CLI 计算的 `status` / `wip`（#132）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`，并加 `wip`；`--brief` 只出 localId/title/status/state/wip/url。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
 
 ```bash
 yunxiao codeup mrs list --state opened
 yunxiao codeup mrs list --state opened --all
+yunxiao codeup mrs list --state opened --status UNDER_DEV   # 客户端过滤（#132）
 yunxiao codeup +open-mrs
 ```
 
@@ -133,6 +151,11 @@ yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run
 
 均为 **high-risk-write**（尤其 merge 会改写目标分支）。
 
+merge 被拒（405 `SYSTEM_FORBIDDEN_ERROR`「该状态下的评审不允许合并」）多为推送评审 MR 卡
+「开发中」(`UNDER_DEV`)：CLI 会自动在 `error.details.mr` 带出当前 status/wip/todo 并给
+hint。取消 WIP 需网页（MR 页「…」→ 取消 WIP）——没有 OpenAPI；改标题去 `WIP: ` 前缀对
+UNDER_DEV 无效（标题前缀是另一套 WIP 信号，见 #135）。
+
 ### write（`--dry-run` 即可预览；非 high-risk，一般不需 `--yes`）
 
 ```bash
@@ -149,7 +172,8 @@ yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-r
 ### read
 
 ```bash
-yunxiao codeup mrs get --repo <id> --local-id 1 --brief
+yunxiao codeup mrs get --repo <id> --local-id 1 --brief   # 含 wip（UNDER_DEV 时 true）
+yunxiao codeup mrs +push-review-status --repo <id>        # open MR 状态巡检（#132）
 yunxiao codeup mrs diffs --repo <id> --local-id 1   # 每项 latest:true|false + meta.latest_patchset_biz_id（0.16.32+）
 yunxiao codeup mrs diffs --repo <id> --local-id 1 --jq '.meta.latest_patchset_biz_id'
 yunxiao codeup compare --repo <id> --from master --to feature
