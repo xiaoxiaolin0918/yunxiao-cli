@@ -61,6 +61,8 @@ type Profile struct {
 	AccessToken           string                          `json:"access_token,omitempty"` // optional PAT; see config token precedence
 	SpaceID               string                          `json:"space_id,omitempty"`
 	BugTypeID             string                          `json:"bug_type_id,omitempty"`
+	RiskTypeID            string                          `json:"risk_type_id,omitempty"` // +risk-create (#128); empty → resolved from workitem_defaults/workflows category Risk
+	ReqTypeID             string                          `json:"req_type_id,omitempty"`  // +req-create (#128); empty → resolved from workitem_defaults/workflows category Req
 	BugStatuses           map[string]string               `json:"bug_statuses,omitempty"`
 	BugEdges              map[string][]string             `json:"bug_edges,omitempty"`
 	BugFields             map[string]string               `json:"bug_fields,omitempty"`
