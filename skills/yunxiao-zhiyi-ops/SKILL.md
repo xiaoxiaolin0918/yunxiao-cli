@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.3
+version: 1.3.4
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -24,9 +24,9 @@ yunxiao profile show
 
 示例已内嵌进二进制（0.16.30 起，#92），任何安装方式都能 `install-example`。查找顺序是**有效磁盘副本优先**（#104）：npm 包或二进制旁的 `profiles/zhiyi.example.json` 须为合法 JSON 且 `name` 匹配，否则跳过并回退内嵌；cwd / `runtime.Caller` 不再参与查找。有效磁盘副本时 `--dry-run` 的 `from` 为该路径；否则为 `embedded:profiles/zhiyi.example.json`（GitHub Release / `go install` 等）。
 
-装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --profile zhiyi --write-profile` 回填状态图，`yunxiao profile doctor` 校验。
+装好后示例只有占位符：用 `yunxiao profile path zhiyi` 找到文件，手动填 org/space/type id，再用 `workitem +explore-workflow --profile zhiyi --cleanup --write-profile --yes` 回填状态图（`--cleanup` 删除探测工作项，勿照抄漏掉），`yunxiao profile doctor` 校验。
 
-> ⚠️ `+explore-workflow` **会写数据**：创建探测工作项、流转状态，`--cleanup` 会删除它。`--dry-run` 只打印计划；真正写回需去掉 `--dry-run` 并加 `--yes`（且必须有 `--profile` / `YUNXIAO_PROFILE`，否则报 `--write-profile requires active --profile`）。先在沙箱（play）验证，**切勿对生产 ZYPT 自动执行**，需用户明确确认。
+> ⚠️ `+explore-workflow` **会写数据**：创建探测工作项、流转状态，`--cleanup` 会删除它。`--dry-run` 只打印计划（完全离线、零 API 请求，#110）；真正写回需去掉 `--dry-run` 并加 `--yes`（且必须有 `--profile` / `YUNXIAO_PROFILE`，否则报 `--write-profile requires active --profile`）。先在沙箱（play）验证，**切勿对生产 ZYPT 自动执行**，需用户明确确认。
 
 手动复制仅在**源码仓库**内可用：`cp profiles/zhiyi.example.json ~/.config/yunxiao/profiles/zhiyi.json`；其他环境可下载 https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/profiles/zhiyi.example.json。
 

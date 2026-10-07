@@ -38,6 +38,12 @@ probe work item and attempts PUT {"status": to} for each ordered pair to discove
 --write-profile writes into profile.workflows[<type-id>] (project-scoped profile via space_id;
 workflows are per type_id). For Bug category when type-id matches profile.bug_type_id (or
 bug_type_id is empty), also merges legacy bug_edges / bug_statuses for +bug-transition.
+--write-profile requires an active --profile / YUNXIAO_PROFILE; this is validated before any
+request is sent (exit 1, zero API calls) (#110).
+--dry-run is fully offline (#110): zero API requests (plan.network_reads is always 0).
+Category is resolved from the active profile only — pass --category explicitly when the
+profile has none for the type-id. Workflow statuses are not fetched and assignedTo "self"
+is not resolved; the real run performs the reads listed in plan.steps before any write.
 
 --category defaults to Bug for backward compatibility, but the command resolves the real
 category from --type-id (profile workitem_defaults/workflows, else types list API) and
@@ -82,6 +88,15 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 			putFields = map[string]any{}
 		}
 
+		// #110: validate --write-profile flag coherence BEFORE anything else
+		// (client creation, dry-run preview, reads, writes). A missing profile
+		// must fail fast with zero API calls, never after probes were created,
+		// transitioned, or cleaned up.
+		if writeProfile && pf == nil {
+			handleErr(fmt.Errorf("--write-profile requires active --profile / YUNXIAO_PROFILE"))
+			return
+		}
+
 		if strings.TrimSpace(typeID) == "" && pf != nil && strings.EqualFold(category, "Bug") {
 			typeID = pf.BugTypeID
 		}
@@ -104,21 +119,27 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 		}
 
 		categoryChanged := cmd.Flags().Changed("category")
-		resolvedCat, lookupErr := lookupExploreCategory(cmd.Context(), c, pf, spaceID, typeID)
-		category, categoryNote, err := resolveExploreCategory(category, categoryChanged, resolvedCat, lookupErr)
-		if err != nil {
-			handleErr(err)
-			return
-		}
 
-		wfPath, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes/"+typeID+"/workflows")
-		if err != nil {
-			handleErr(err)
-			return
-		}
-
-		// Dry-run: plan only (still may GET workflow to enrich the plan).
+		// Dry-run: plan only, fully offline (#110) — zero API requests.
 		if globalDryRun {
+			// Category comes from the active profile only; the types list API
+			// is a real-run read (pass --category when the profile has none).
+			resolvedCat := categoryFromProfile(pf, typeID)
+			var lookupErr error
+			if resolvedCat == "" {
+				lookupErr = fmt.Errorf("dry-run is offline; category resolved from the active profile only (the real run queries the types list API)")
+			}
+			category, categoryNote, err := resolveExploreCategory(category, categoryChanged, resolvedCat, lookupErr)
+			if err != nil {
+				handleErr(err)
+				return
+			}
+
+			wfSuffix := "/projects/" + spaceID + "/workitemTypes/" + typeID + "/workflows"
+			wfPreviewPath, wfOK := c.ProjexPathOffline(wfSuffix)
+			if !wfOK {
+				wfPreviewPath = "/oapi/v1/projex/organizations/<org-id>" + wfSuffix
+			}
 			plan := map[string]any{
 				"action":        "workitem +explore-workflow",
 				"space_id":      spaceID,
@@ -130,6 +151,7 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 				"from_status":   fromStatusFlag,
 				"custom_fields": customFields,
 				"put_fields":    putFields,
+				"network_reads": 0,
 				"steps": []string{
 					"GET type workflow statuses",
 					"obtain probe work item (reuse --id or POST create temp)",
@@ -137,31 +159,38 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 					"optional DELETE temp probe if --cleanup",
 					"optional merge workflows[type_id] (+ legacy bug_* for Bug) if --write-profile",
 				},
-				"get_workflow": c.Preview("GET", wfPath, nil, nil),
+				"get_workflow": c.Preview("GET", wfPreviewPath, nil, nil),
 			}
 			if categoryNote != "" {
 				plan["category_note"] = categoryNote
 			}
 			if existingID == "" {
-				createBody := buildExploreCreateBody(cmd.Context(), pf, c, spaceID, typeID, category, customFields)
-				createPath, _ := c.ProjexPath(cmd.Context(), "/workitems")
-				plan["create_probe"] = c.Preview("POST", createPath, nil, createBody)
+				createBody := buildExploreCreateBodyOffline(pf, spaceID, typeID, category, customFields)
+				createPreviewPath, createOK := c.ProjexPathOffline("/workitems")
+				if !createOK {
+					createPreviewPath = "/oapi/v1/projex/organizations/<org-id>/workitems"
+				}
+				plan["create_probe"] = c.Preview("POST", createPreviewPath, nil, createBody)
+				if assigned, _ := createBody["assignedTo"].(string); assigned == "self" {
+					plan["create_probe_note"] = `assignedTo "self" is resolved to the current user id only in the real run`
+				}
 			} else {
 				plan["reuse_id"] = existingID
 			}
-			var wfRaw any
-			if err := c.Get(cmd.Context(), wfPath, nil, &wfRaw); err == nil {
-				_, _, def, statuses, perr := workflow.ParseWorkflowResponse(wfRaw)
-				if perr == nil {
-					ids := workflow.StatusIDs(statuses)
-					n := len(ids)
-					plan["default_status_id"] = def
-					plan["status_count"] = n
-					plan["max_pair_attempts"] = n * (n - 1)
-					plan["statuses"] = statuses
-				}
-			}
 			handleErr(output.DryRunResult(string(risk.Write), plan))
+			return
+		}
+
+		resolvedCat, lookupErr := lookupExploreCategory(cmd.Context(), c, pf, spaceID, typeID)
+		category, categoryNote, err := resolveExploreCategory(category, categoryChanged, resolvedCat, lookupErr)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+
+		wfPath, err := c.ProjexPath(cmd.Context(), "/projects/"+spaceID+"/workitemTypes/"+typeID+"/workflows")
+		if err != nil {
+			handleErr(err)
 			return
 		}
 
@@ -242,7 +271,6 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 			startStatus = st
 			createdIDs = append(createdIDs, id)
 		}
-
 
 		if strings.TrimSpace(fromStatusFlag) != "" {
 			fromID, ferr := workflow.ResolveUniqueStatus(fromStatusFlag, statuses)
@@ -359,10 +387,7 @@ Do not run against production ZYPT without an explicit probe item and review.`,
 		})
 		profilePathWritten := ""
 		if writeProfile {
-			if pf == nil {
-				handleErr(fmt.Errorf("--write-profile requires active --profile / YUNXIAO_PROFILE"))
-				return
-			}
+			// pf != nil is guaranteed by the pre-flight check at the top (#110).
 			sw := snippet.Workflow
 			pf.MergeWorkflow(typeID, profile.WorkitemWorkflow{
 				TypeID:          sw.TypeID,
@@ -622,8 +647,8 @@ func resolveExploreCategory(flagCategory string, categoryChanged bool, resolved 
 	return "", "", fmt.Errorf("%s", msg)
 }
 
-func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.Client, spaceID, typeID, category string, customFields map[string]any) map[string]any {
-	subject := fmt.Sprintf("[cli-explore] workflow probe %s", time.Now().Format("20060102-150405"))
+// exploreDefaultAssignee returns the probe assignee before "self" resolution.
+func exploreDefaultAssignee(pf *profile.Profile) string {
 	assigned := ""
 	if pf != nil {
 		assigned = pf.DefaultAssignedTo
@@ -631,9 +656,26 @@ func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.
 	if assigned == "" {
 		assigned = "self"
 	}
+	return assigned
+}
+
+func buildExploreCreateBody(ctx context.Context, pf *profile.Profile, c *client.Client, spaceID, typeID, category string, customFields map[string]any) map[string]any {
+	assigned := exploreDefaultAssignee(pf)
 	if resolved, err := resolveSelfID(ctx, c, assigned); err == nil && resolved != "" {
 		assigned = resolved
 	}
+	return buildExploreCreateBodyFor(pf, spaceID, typeID, category, customFields, assigned)
+}
+
+// buildExploreCreateBodyOffline builds the dry-run probe-create preview without
+// any API request (#110): assignedTo stays "self" (the real run resolves it to
+// the current user id via GET /platform/user).
+func buildExploreCreateBodyOffline(pf *profile.Profile, spaceID, typeID, category string, customFields map[string]any) map[string]any {
+	return buildExploreCreateBodyFor(pf, spaceID, typeID, category, customFields, exploreDefaultAssignee(pf))
+}
+
+func buildExploreCreateBodyFor(pf *profile.Profile, spaceID, typeID, category string, customFields map[string]any, assigned string) map[string]any {
+	subject := fmt.Sprintf("[cli-explore] workflow probe %s", time.Now().Format("20060102-150405"))
 	body := map[string]any{
 		"spaceId":        spaceID,
 		"workitemTypeId": typeID,

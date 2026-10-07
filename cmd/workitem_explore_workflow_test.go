@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -158,27 +160,79 @@ func TestBuildExploreCreateBody_BugFieldsOnlyForBug(t *testing.T) {
 	}
 }
 
-func TestExploreWorkflowDryRunAutoOverridesCategory(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/workitemTypes") && !strings.Contains(r.URL.Path, "/workflows") && r.Method == http.MethodGet:
-			cat := r.URL.Query().Get("category")
-			if cat == "Req" {
-				_ = json.NewEncoder(w).Encode([]any{map[string]any{"id": "req-type-1", "name": "产品类需求"}})
-				return
-			}
-			_ = json.NewEncoder(w).Encode([]any{})
-		case strings.Contains(r.URL.Path, "/workflows") && r.Method == http.MethodGet:
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": "wf-1", "name": "req",
-				"statuses": []any{
-					map[string]any{"id": "s1", "name": "待处理", "displayName": "待处理"},
-				},
-			})
-		default:
-			w.WriteHeader(404)
-			_, _ = w.Write([]byte(`{"error":"unexpected"}`))
+// runExploreWorkflowCmd executes +explore-workflow with the given args and
+// global toggles; returns stdout, stderr and the captured processExit code
+// (0 when the command completed without exiting).
+func runExploreWorkflowCmd(t *testing.T, dryRun bool, args ...string) (string, string, int) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	prevOut, prevErr := output.Stdout, output.Stderr
+	prevJQ, prevFmt := output.JQ, output.Format
+	output.Stdout = &stdout
+	output.Stderr = &stderr
+	output.JQ = ""
+	output.Format = "json"
+	t.Cleanup(func() {
+		output.Stdout = prevOut
+		output.Stderr = prevErr
+		output.JQ = prevJQ
+		output.Format = prevFmt
+	})
+
+	prevYes, prevDry, prevProfile, prevOrg := globalYes, globalDryRun, globalProfile, globalOrg
+	globalYes = false
+	globalDryRun = dryRun
+	globalProfile = ""
+	globalOrg = ""
+	t.Cleanup(func() {
+		globalYes = prevYes
+		globalDryRun = prevDry
+		globalProfile = prevProfile
+		globalOrg = prevOrg
+	})
+
+	prevExit := processExit
+	code := 0
+	processExit = func(c int) {
+		code = c
+		panic(exitPanic{code: c})
+	}
+	t.Cleanup(func() { processExit = prevExit })
+
+	resetStringFlags(t, workitemExploreWorkflowCmd, "type-id", "space-id", "id", "category", "type-name", "custom-fields", "fields", "from")
+	for _, b := range []string{"cleanup", "write-profile"} {
+		if f := workitemExploreWorkflowCmd.Flags().Lookup(b); f != nil {
+			_ = workitemExploreWorkflowCmd.Flags().Set(b, f.DefValue)
+			f.Changed = false
 		}
+	}
+	rootCmd.SetArgs(args)
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(exitPanic); !ok {
+					panic(r)
+				}
+			}
+		}()
+		if err := rootCmd.Execute(); err != nil {
+			t.Fatalf("execute: %v\nstdout=%s\nstderr=%s", err, stdout.String(), stderr.String())
+		}
+	}()
+	return stdout.String(), stderr.String(), code
+}
+
+// TestExploreWorkflowDryRunIsFullyOffline locks #110: the --dry-run plan is
+// built with zero API requests — no types-list category lookup, no workflow
+// GET, no /platform/user self resolution. Category comes from the active
+// profile (workitem_defaults) and plan.network_reads is always 0.
+func TestExploreWorkflowDryRunIsFullyOffline(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"dry-run must not call the API"}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -188,34 +242,39 @@ func TestExploreWorkflowDryRunAutoOverridesCategory(t *testing.T) {
 	if err := os.MkdirAll(profDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	pf := &profile.Profile{Name: "play60", SpaceID: "space-1", OrganizationID: "org-60"}
-	if err := profile.SaveFile(filepath.Join(profDir, "play60.json"), pf); err != nil {
+	pf := &profile.Profile{
+		Name:           "play110",
+		SpaceID:        "space-110",
+		OrganizationID: "org-110",
+		WorkitemDefaults: map[string]profile.WorkitemTypeDefaults{
+			"req-type-110": {Category: "Req"},
+		},
+	}
+	if err := profile.SaveFile(filepath.Join(profDir, "play110.json"), pf); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Setenv(config.EnvAccessToken, "test-token-explore-60")
-	t.Setenv(config.EnvOrganizationID, "org-60")
+	t.Setenv(config.EnvAccessToken, "test-token-explore-110")
+	t.Setenv(config.EnvOrganizationID, "org-110")
 	t.Setenv(config.EnvEdition, "central")
 	t.Setenv(config.EnvAPIBaseURL, srv.URL)
-	t.Setenv(profile.EnvProfile, "play60")
+	t.Setenv(profile.EnvProfile, "play110")
 
-	stdout := withCmdJSONCapture(t)
-	globalDryRun = true
-	resetStringFlags(t, workitemExploreWorkflowCmd, "type-id", "space-id", "id", "category", "type-name")
-	rootCmd.SetArgs([]string{
+	stdout, stderr, code := runExploreWorkflowCmd(t, true,
 		"workitem", "+explore-workflow",
-		"--profile", "play60",
-		"--type-id", "req-type-1",
+		"--type-id", "req-type-110",
 		"--dry-run",
-	})
-	t.Cleanup(func() { rootCmd.SetArgs(nil) })
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("execute: %v\nstdout=%s", err, stdout.String())
+	)
+	if code != 0 {
+		t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
 	}
+	if n := requests.Load(); n != 0 {
+		t.Fatalf("dry-run sent %d API request(s), want 0", n)
+	}
+
 	var env output.Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		t.Fatalf("json: %v / %s", err, stdout.Bytes())
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		t.Fatalf("json: %v / %s", err, stdout)
 	}
 	if !env.OK || !env.DryRun {
 		t.Fatalf("envelope: %+v", env)
@@ -226,15 +285,98 @@ func TestExploreWorkflowDryRunAutoOverridesCategory(t *testing.T) {
 		t.Fatal(err)
 	}
 	if plan["category"] != "Req" {
-		t.Fatalf("expected auto-override category=Req, plan=%v", plan)
+		t.Fatalf("expected category=Req from profile workitem_defaults, plan=%v", plan)
+	}
+	if note, _ := plan["category_note"].(string); note == "" || !strings.Contains(note, "Req") {
+		t.Fatalf("expected auto-override note, got %q", note)
+	}
+	if nr, _ := plan["network_reads"].(float64); nr != 0 {
+		t.Fatalf("plan.network_reads=%v, want 0", plan["network_reads"])
 	}
 	cp, _ := plan["create_probe"].(map[string]any)
+	if cp == nil {
+		t.Fatalf("missing create_probe preview: %v", plan)
+	}
 	body, _ := cp["body"].(map[string]any)
 	if cf, ok := body["customFieldValues"]; ok {
 		t.Fatalf("Req probe must not have Bug customFieldValues: %v", cf)
 	}
+	if body["assignedTo"] != "self" {
+		t.Fatalf("offline preview must keep assignedTo=self (resolved only in the real run): %v", body["assignedTo"])
+	}
+	if _, ok := plan["statuses"]; ok {
+		t.Fatalf("offline plan must not carry fetched statuses: %v", plan["statuses"])
+	}
 }
 
+// TestExploreWorkflowWriteProfileWithoutProfileExitsBeforeRequests locks #110:
+// --write-profile (with or without --yes / --dry-run) and no active profile
+// must exit 1 before any API call — the mock server sees zero requests of any
+// method, so probes can never be created/transitioned/deleted before the error.
+func TestExploreWorkflowWriteProfileWithoutProfileExitsBeforeRequests(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("YUNXIAO_PROFILE", "")
+	t.Setenv(config.EnvAccessToken, "test-token-explore-110")
+	t.Setenv(config.EnvOrganizationID, "org-110")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+
+	for _, tc := range []struct {
+		name   string
+		dryRun bool
+		extra  []string
+	}{
+		{"real_run", false, []string{"--yes"}},
+		{"dry_run", true, []string{"--dry-run"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{
+				"workitem", "+explore-workflow",
+				"--type-id", "req-type-110",
+				"--space-id", "space-110",
+				"--category", "Req",
+				"--write-profile",
+			}, tc.extra...)
+			stdout, stderr, code := runExploreWorkflowCmd(t, tc.dryRun, args...)
+			if code != 1 {
+				t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
+			}
+			if n := requests.Load(); n != 0 {
+				t.Fatalf("sent %d API request(s) before failing on --write-profile, want 0", n)
+			}
+			if !strings.Contains(stderr, "--write-profile requires active --profile") {
+				t.Fatalf("stderr missing profile requirement: %s", stderr)
+			}
+			var env output.Envelope
+			if err := json.Unmarshal([]byte(stderr), &env); err != nil {
+				t.Fatalf("stderr not JSON envelope: %v / %s", err, stderr)
+			}
+			if env.OK {
+				t.Fatalf("expected ok=false envelope: %s", stderr)
+			}
+		})
+	}
+}
+
+func TestBuildExploreCreateBodyOfflineKeepsSelf(t *testing.T) {
+	pf := &profile.Profile{DefaultAssignedTo: "u1"}
+	if got := buildExploreCreateBodyOffline(pf, "sp", "t", "Bug", nil)["assignedTo"]; got != "u1" {
+		t.Fatalf("profile assignee must be kept: %v", got)
+	}
+	// No profile: "self" stays literal; no client is involved, so any network
+	// attempt would panic here (nil client) — proving the offline path.
+	if got := buildExploreCreateBodyOffline(nil, "sp", "t", "Req", nil)["assignedTo"]; got != "self" {
+		t.Fatalf("offline preview must keep assignedTo=self: %v", got)
+	}
+}
 
 func TestBuildExploreCreateBody_CustomFieldsAndDefaults(t *testing.T) {
 	pf := &profile.Profile{

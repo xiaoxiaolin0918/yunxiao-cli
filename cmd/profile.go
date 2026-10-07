@@ -132,7 +132,7 @@ var profileInstallExampleCmd = &cobra.Command{
 		}
 		handleErr(output.Success(map[string]any{
 			"installed": dst,
-			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, refresh graphs via workitem +explore-workflow --write-profile, verify with profile doctor; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
+			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, then refresh graphs via `workitem +explore-workflow --cleanup --write-profile --yes`. WARNING: that shortcut is a write operation (creates/moves/deletes a probe work item); run it in a sandbox project first and never auto-run it against production ZYPT (`--dry-run` previews the plan offline). Verify with `profile doctor`; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
 		}, map[string]any{"risk": risk.Write}))
 	},
 }

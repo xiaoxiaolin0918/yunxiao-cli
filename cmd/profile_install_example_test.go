@@ -295,6 +295,42 @@ func TestDefaultProfileExampleSearchDirsOmitsCwdAndCaller(t *testing.T) {
 	}
 }
 
+// #110: the install-example success hint must warn that the suggested
+// +explore-workflow refresh is a write operation (creates/moves/deletes a
+// probe work item), point at --cleanup, and forbid auto-running it on
+// production ZYPT before a sandbox pass.
+func TestProfileInstallExampleHintWarnsExploreWorkflowWrites(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	withNoDiskProfileExamples(t)
+
+	stdout, stderr, code := runProfileCmd(t, false, "profile", "install-example", "play")
+	if code != 0 {
+		t.Fatalf("exit %d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	var env struct {
+		OK   bool `json:"ok"`
+		Data struct {
+			Installed string `json:"installed"`
+			Hint      string `json:"hint"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil || !env.OK {
+		t.Fatalf("decode %q: %v", stdout, err)
+	}
+	for _, want := range []string{
+		"+explore-workflow --cleanup --write-profile --yes",
+		"write operation",
+		"sandbox",
+		"ZYPT",
+		"--dry-run",
+	} {
+		if !strings.Contains(env.Data.Hint, want) {
+			t.Fatalf("hint missing %q: %s", want, env.Data.Hint)
+		}
+	}
+}
+
 func TestValidProfileExample(t *testing.T) {
 	if validProfileExample("zhiyi", nil) || validProfileExample("zhiyi", []byte("")) {
 		t.Fatal("empty should be invalid")

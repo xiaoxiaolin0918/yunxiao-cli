@@ -40,7 +40,10 @@ var skillsInstallCmd = &cobra.Command{
 agent skills directory (default: ~/.agents/skills) so agents can discover them.
 
 Same layout as "npx skills add". Default mode is recursive copy; use --symlink
-to link instead. Existing target skill dirs are skipped unless --force.
+to link instead. Existing target skill dirs are skipped unless --force: every
+skip is reported in data.skipped (reason "exists"), counted in
+installed_count/skipped_count, and warned on stderr with a --force hint, so
+"installed 0" is never mistaken for a successful refresh (#119).
 
 Risk: write`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -167,7 +170,7 @@ func installOneSkill(src, dst string, symlink, force, dryRun bool) (installed *s
 				Name:   item.Name,
 				From:   src,
 				To:     dst,
-				Reason: "already exists (use --force to replace)",
+				Reason: "exists",
 			}, nil
 		}
 		if dryRun {
@@ -204,7 +207,6 @@ func installOneSkill(src, dst string, symlink, force, dryRun bool) (installed *s
 }
 
 func runSkillsInstall() error {
-	srcRoot := skillsRoot()
 	targetDir := skillsInstallDir
 	if targetDir == "" {
 		targetDir = defaultSkillsInstallDir()
@@ -213,9 +215,15 @@ func runSkillsInstall() error {
 	if err != nil {
 		return err
 	}
-	targetDir = absTarget
+	return installSkills(skillsRoot(), absTarget, skillsInstallNames, skillsInstallSymlink, skillsInstallForce, globalDryRun)
+}
 
-	names, err := discoverInstallableSkills(srcRoot, skillsInstallNames)
+// installSkills copies/links yunxiao-* skills from srcRoot into targetDir and
+// reports the result truthfully (#119): every existing target dir skipped
+// without --force lands in data.skipped (reason "exists") plus a stderr
+// warning with the --force remedy — never a silent installed:0/skipped:[].
+func installSkills(srcRoot, targetDir string, filter []string, symlink, force, dryRun bool) error {
+	names, err := discoverInstallableSkills(srcRoot, filter)
 	if err != nil {
 		return err
 	}
@@ -229,7 +237,7 @@ func runSkillsInstall() error {
 	for _, name := range names {
 		from := filepath.Join(srcRoot, name)
 		to := filepath.Join(targetDir, name)
-		ins, sk, err := installOneSkill(from, to, skillsInstallSymlink, skillsInstallForce, globalDryRun)
+		ins, sk, err := installOneSkill(from, to, symlink, force, dryRun)
 		if err != nil {
 			return err
 		}
@@ -241,12 +249,26 @@ func runSkillsInstall() error {
 		}
 	}
 
-	result := map[string]any{
-		"installed":  installed,
-		"skipped":    skipped,
-		"target_dir": targetDir,
+	if len(skipped) > 0 {
+		skippedNames := make([]string, 0, len(skipped))
+		for _, s := range skipped {
+			skippedNames = append(skippedNames, s.Name)
+		}
+		fmt.Fprintf(output.Stderr, "warning: skills install skipped %d existing skill(s) under %s: %s (rerun with --force to replace them)\n",
+			len(skipped), targetDir, strings.Join(skippedNames, ", "))
 	}
-	if globalDryRun {
+
+	result := map[string]any{
+		"installed":       installed,
+		"skipped":         skipped,
+		"installed_count": len(installed),
+		"skipped_count":   len(skipped),
+		"target_dir":      targetDir,
+	}
+	if len(skipped) > 0 {
+		result["hint"] = "skipped skills already exist at the target dir; rerun with --force to replace them"
+	}
+	if dryRun {
 		return output.DryRunResult("write", result)
 	}
 	return output.Success(result, nil)
