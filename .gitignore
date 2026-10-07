@@ -16,3 +16,7 @@ tmp*.yaml
 
 _patch*.py
 
+
+__pycache__/
+*.py[cod]
+
