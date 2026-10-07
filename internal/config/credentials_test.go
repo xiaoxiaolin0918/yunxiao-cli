@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -27,7 +28,15 @@ func TestCredentialsSaveLoadMode0600(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode().Perm() != 0o600 {
+	if runtime.GOOS == "windows" {
+		// Windows has no POSIX permission bits: os.Chmod only toggles the
+		// read-only attribute, so a 0600 (owner-writable) file is reported
+		// as 0666. Assert the owner-write bit instead — the Windows
+		// observable of mode 0600 (a read-only file would clear 0200).
+		if fi.Mode().Perm()&0o200 == 0 {
+			t.Fatalf("mode=%o (expected owner-writable)", fi.Mode().Perm())
+		}
+	} else if fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode=%o", fi.Mode().Perm())
 	}
 	f, _, err := LoadCredentials()
