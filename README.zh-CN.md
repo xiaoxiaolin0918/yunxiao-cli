@@ -561,7 +561,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 - **0.12.1** — profile 按 `type_id` 存 `workflows`；`--write-profile` 写入该映射（Bug 仍保留 `bug_*`）
 - **0.12.0** — `workitem +explore-workflow` 探测状态流转图；`--write-profile` 写回 profile
 - **0.11.0** — 智衣 `sprint +current`、`workitem +bug-create`、`codeup mrs +create`；profile 仓库/创建字段
-- **0.10.0** — 智衣 profile；ZYPT workitem get；`workitem +bug-transition`；skill `yunxiao-zhiyi-ops`
+- **0.10.0** — 智衣 profile；ZYPT workitem get；`workitem +bug-transition（BFS 无路时 direct_fallback / --direct，#123）`；skill `yunxiao-zhiyi-ops`
 - **0.9.1** — `yunxiao skills install`；AGENTS.md；README 技能安装说明
 - **0.9.0** — AppStack 发布流/部署主机；Flow VM 部署单与资源成员写；工时/项目集；Codeup 建库
 

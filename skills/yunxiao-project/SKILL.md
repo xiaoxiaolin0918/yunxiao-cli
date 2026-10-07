@@ -122,7 +122,7 @@ Risk: **write**（真发需 `--yes`）。缺图时先 `+explore-workflow --clean
 +explore-workflow：--category 默认 Bug；会按 type-id 自动覆盖（勿对 Req 硬塞 Bug）（#60）。
 +explore-workflow 边契约（#61 MVP）：`edges`/`verified_edges` = 实测成功；`hinted_edges`+`required_hints`/`missing_fields` = needs_fields 假阳性（勿当 verified 消费）。可用 `--custom-fields`（create）与 `--fields`（每次 PUT）补齐字段，`--from` 先定位再探。`--write-profile` 写入 `workflows[].edges`（verified）与 `hinted_edges`。逐状态必填表（通用化 bug_transition_required）仍待做。
 
-**成功输出默认 brief（#114，对齐 create/get）**：`data.item` 为简要投影（id/serialNumber/status`{id,displayName}`/subject，无 description），并新增 `from_status` / `to_status`（`{id,displayName}`）；`serial_number` / `steps` / `applied` / `refresh_ok` / `url` 保留。`--full` 输出刷新后的完整对象（旧版行为）；`YUNXIAO_WORKITEM_GET_VIEW=full|brief` 同 `workitem get` 的兼容开关（flag > env > 默认 brief；非法值在任何请求前报 `invalid_env`）。`+bug-transition` 同样适用。
+**成功输出默认 brief（#114，对齐 create/get）**：`data.item` 为简要投影（id/serialNumber/status`{id,displayName}`/subject，无 description），并新增 `from_status` / `to_status`（`{id,displayName}`）；`serial_number` / `steps` / `applied` / `refresh_ok` / `url` 保留。`--full` 输出刷新后的完整对象（旧版行为）；`YUNXIAO_WORKITEM_GET_VIEW=full|brief` 同 `workitem get` 的兼容开关（flag > env > 默认 brief；非法值在任何请求前报 `invalid_env`）。`+bug-transition（BFS 无路时 direct_fallback / --direct，#123）` 同样适用。
 
 **状态入场必填（#113）**：fields 端点只标类型级 `required`，状态入场必填**无 OpenAPI 配置**，dry-run 无法预判（`required_fields_note` 会提示）。真实 PUT 若 HTTP 400「xx必填」中文字段名列表，CLI 自动 GET 字段配置把名字映射回 fieldId：`error.subtype=transition_required_fields`，`error.details.fields[]`（field_id / name / current_value / 可枚举 options / pass_via / draft）+ `details.fields_draft`（可直接复制的 `--fields` 骨架；迭代等系统字段走具名根键 sprint ≠ customFields）；无匹配名字原文透出（`unmapped_names`，不猜测），映射失败降级（`mapping.source=fields_endpoint_error|empty`）。
 
