@@ -36,7 +36,7 @@ yunxiao profile use --unset           # 清除默认
 
 有 `organization_id` 时，若未设 `YUNXIAO_ORGANIZATION_ID` / `--organization-id`，会用 profile 的 org。
 
-Wave 2 profile 额外字段：`repositories`、`bug_create_fields`（priority/serious_level 别名 + module/environment/ExpCompletionTime）、`allowed_environments`、`allowed_modules`、`default_assigned_to`、`default_verifier`。
+Wave 2 profile 额外字段：`repositories`、`bug_create_fields`（priority/serious_level 别名 + module/environment/ExpCompletionTime）、`allowed_environments`、`allowed_modules`、`default_assigned_to`、`default_verifier`。`allowed_environments` / `allowed_modules` 是线上字段选项的**快照**（校验 `+bug-create --environment` / `--module`），租户改选项就会过期（#121）：`yunxiao profile doctor` 会与线上 options 比对并以 `enum_stale_in_profile` / `enum_missing_in_profile` findings 报漂移——保持同步，或清空列表停用该门禁。
 
 ## 产品主题与需求关联
 
