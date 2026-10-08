@@ -22,16 +22,19 @@ After changing the command surface or install docs, run `python scripts/check_co
 make build          # -> ./yunxiao (ldflags Version)
 go build -o yunxiao .  # fallback default Version without ldflags
 make test           # go test ./...
-./yunxiao --version # 0.15.3+
+./yunxiao --version # 0.16.40+
 ```
 
 Do **not** assume a published `go install` path works in every environment yet; local `make build` is the source of truth for this checkout. GitHub Releases is the only install channel (npm wrapper retired, #115).
 
-## Recent (0.15.3)
+## Recent (0.16.40 / #170)
 
-- Default `version.Version` bumped to `0.15.3`; platform archives rebuilt with matching ldflags.
+- **#170 auth refresh path**: `doctor` / `whoami` use the same silent OAuth refresh as business commands (`mustClient` / ~5min skew). Outcomes surface as `auth_refresh`: `not_needed` | `skipped` | `refreshed` | `refresh_failed`. New command: `yunxiao auth refresh` (optional `--dry-run`).
+- **0.16.40**: `yunxiao update` also refreshes sibling `skills/` + `profiles/` (#160); Windows one-line `install.ps1` (#161); `scripts/bump_release.py` for version + bilingual changelog + wiki stub (#162).
+- **0.16.37–0.16.39**: merge-reject diagnostics, CI/docs hardening, wiki changelog catch-up (see README / `docs/wiki/changelog/`).
+- Releases: GitHub Releases only (npm wrapper retired, #115). Default `version.Version` follows the bump script / ldflags on tagged builds.
 
-## Prior (0.15.2)
+## Prior (0.15.3 → 0.15.2)
 
 
 - Companion skills refresh (shared 1.1.0, pipeline 1.1.0, project 1.2.0, codeup 1.1.0, yunxiao-zhiyi-ops 1.3.0; light-touch appstack/organization/packages/testhub 1.0.1): document list `meta.has_more`/`total`/`page`/`pagination`, common `meta.url`, transition `refresh_ok`, Flow console URLs, pipeline run examples + `--yes` on trigger, MR per-item `url`, relations enrich, `--cancel-reason`.
