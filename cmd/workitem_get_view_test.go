@@ -80,6 +80,7 @@ func newWorkitemGetServer(t *testing.T) *workitemGetServer {
 		_, _ = io.WriteString(w, `{"errorCode":"NotFound","errorMessage":"workitem not found"}`)
 	}))
 	t.Cleanup(srv.Close)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // isolate default profile (else meta.url picks real space_id)
 	t.Setenv(config.EnvAccessToken, "test-token-workitem-get-not-real")
 	t.Setenv(config.EnvOrganizationID, "org-workitem-get-test")
 	t.Setenv(config.EnvEdition, "central")
