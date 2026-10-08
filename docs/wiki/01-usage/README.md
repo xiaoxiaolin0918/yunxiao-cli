@@ -1,5 +1,7 @@
 # 使用索引（人类）
 
+
+- 顶层命令对照表（CI 校验）：[command-tree.md](./command-tree.md)
 > Flag 以 `yunxiao <cmd> --help` / `yunxiao schema <id>` 为准；此处只给路径与风险提示。
 
 | 模块 | 入口 | 风险提示 |
