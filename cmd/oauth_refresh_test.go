@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"io"
+	"os"
+	"path/filepath"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -284,3 +286,47 @@ func TestAuthRefreshHelpDocuments(t *testing.T) {
 
 // silence unused import if json only needed transitively
 var _ = json.Marshal
+
+
+func TestTryOAuthRefreshSaveFailKeepsPending(t *testing.T) {
+	srv := newOAuthRefreshStack(t, true, true)
+	isolateOAuthConfig(t, srv.URL)
+	writeOAuthCred(t, config.Credential{
+		AccessToken: "oat-dead", RefreshToken: "ort-old", ClientID: "cid",
+		TokenKind: config.TokenKindOAuth, APIBase: srv.URL,
+		ExpiresAt: time.Now().Add(-time.Hour),
+	})
+	// Make credentials.json unwritable (directory where a file is expected).
+	p, err := config.CredentialsPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Make credentials.json read-only so SaveCredentials fails; LoadCredentials still works.
+	if err := os.Chmod(p, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
+
+	res, err := tryOAuthRefresh(t.Context(), nil, true)
+	if err == nil {
+		t.Fatal("want save error")
+	}
+	if res.Outcome != authRefreshFailed {
+		t.Fatalf("outcome=%q", res.Outcome)
+	}
+	if !strings.Contains(err.Error(), config.CredentialsPendingName) {
+		t.Fatalf("error should point at pending file: %v", err)
+	}
+	pending := filepath.Join(filepath.Dir(p), config.CredentialsPendingName)
+	b, readErr := os.ReadFile(pending)
+	if readErr != nil {
+		t.Fatalf("pending missing: %v", readErr)
+	}
+	var f config.CredentialsFile
+	if err := json.Unmarshal(b, &f); err != nil {
+		t.Fatal(err)
+	}
+	if f.Active == nil || f.Active.RefreshToken != "ort-rotated" || f.Active.AccessToken != "oat-refreshed" {
+		t.Fatalf("pending creds = %#v", f.Active)
+	}
+}

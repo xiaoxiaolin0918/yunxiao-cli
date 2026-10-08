@@ -98,6 +98,37 @@ func SaveCredentials(f CredentialsFile) (string, error) {
 	return p, nil
 }
 
+// CredentialsPendingName is the sibling file used when credentials.json cannot be written
+// after an OAuth refresh that may have rotated refresh_token.
+const CredentialsPendingName = "credentials.json.refresh-pending"
+
+// SaveCredentialsPending writes f to credentials.json.refresh-pending (mode 0600).
+// Used when SaveCredentials fails after the token endpoint already rotated tokens,
+// so the new refresh_token is not lost solely in process memory.
+func SaveCredentialsPending(f CredentialsFile) (string, error) {
+	d, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(d, 0o700); err != nil {
+		return "", err
+	}
+	p := filepath.Join(d, CredentialsPendingName)
+	if f.Clients == nil {
+		f.Clients = map[string]string{}
+	}
+	b, err := json.MarshalIndent(f, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	b = append(b, '\n')
+	if err := os.WriteFile(p, b, 0o600); err != nil {
+		return "", err
+	}
+	_ = os.Chmod(p, 0o600)
+	return p, nil
+}
+
 // ClearOAuthActive removes active credentials when they are oauth (e.g. refresh failure).
 // Leaves clients cache intact unless clearClients is true.
 func ClearOAuthActive(clearClients bool) (string, error) {

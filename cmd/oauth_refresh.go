@@ -87,8 +87,12 @@ func tryOAuthRefresh(ctx context.Context, c *client.Client, force bool) (oauthRe
 	cred.Active.ExpiresAt = oauth.ExpiresAt(tok.ExpiresIn, time.Now().UTC())
 	cred.Active.UpdatedAt = time.Now().UTC()
 	if _, err := config.SaveCredentials(cred); err != nil {
+		// Token endpoint may have rotated refresh_token; keep a sibling copy so it is not lost.
 		res.Outcome = authRefreshFailed
-		return res, err
+		if pending, pendErr := config.SaveCredentialsPending(cred); pendErr == nil {
+			return res, fmt.Errorf("oauth refreshed but could not write credentials.json (%w); new tokens saved to %s — move over credentials.json or re-run: yunxiao auth login --browser", err, pending)
+		}
+		return res, fmt.Errorf("oauth refreshed but failed to save credentials (new refresh_token may be lost; re-run: yunxiao auth login --browser): %w", err)
 	}
 	if c != nil {
 		c.Token = tok.AccessToken
