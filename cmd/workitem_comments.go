@@ -22,16 +22,17 @@ var workitemCommentsCmd = &cobra.Command{
 Personal-token OAPI (this CLI): list + create only
   (create: yunxiao workitem comment). Raw DELETE .../comments/{id} → 404.
 
-Delete / update use Aliyun OpenAPI RPC with AccessKey ACS3 signing
+Delete / update / delete-all use Aliyun OpenAPI RPC with AccessKey ACS3 signing
 (same ALIBABA_CLOUD_ACCESS_KEY_* path as organization members --include-aliyun-uid):
   - delete: POST .../workitems/deleteComent (official typo; DeleteWorkitemComment)
-  - update: POST .../workitems/commentUpdate (UpdateWorkitemComment)`,
+  - update: POST .../workitems/commentUpdate (UpdateWorkitemComment)
+  - delete-all: DELETE .../workitems/deleteAllComment (DeleteWorkitemAllComment)`,
 }
 
 var workitemCommentsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List comments on a work item",
-	Long:  "Risk: read\nHTTP: GET .../workitems/{id}/comments (OAPI personal-token)\n\nDefault order: newest first by create time (gmtCreate/createTime). Use --sort asc for oldest first.\n\nClient-side --sort applies within the current page when page/per-page are used.\n\nDelete/update are AccessKey RPC: see yunxiao workitem comments delete|update --help.",
+	Long:  "Risk: read\nHTTP: GET .../workitems/{id}/comments (OAPI personal-token)\n\nDefault order: newest first by create time (gmtCreate/createTime). Use --sort asc for oldest first.\n\nClient-side --sort applies within the current page when page/per-page are used.\n\nDelete/update/delete-all are AccessKey RPC: see yunxiao workitem comments delete|update|delete-all --help.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		id, _ := cmd.Flags().GetString("id")
@@ -199,6 +200,65 @@ Use --content or --content-file (UTF-8, BOM stripped). Default --format-type MAR
 	},
 }
 
+
+var workitemCommentsDeleteAllCmd = &cobra.Command{
+	Use:   "delete-all",
+	Short: "Delete all comments on a work item (AccessKey RPC)",
+	Long: `Risk: high-risk-write (requires --yes for real run; prefer --dry-run first)
+Auth: Alibaba Cloud AccessKey (ACS3) — NOT personal-token OAPI.
+HTTP: DELETE https://devops.{region}.aliyuncs.com/organization/{org}/workitems/deleteAllComment?identifier=...
+OpenAPI: DeleteWorkitemAllComment
+
+Requires ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET
+(same as organization members --include-aliyun-uid). Organization id comes from
+YUNXIAO_ORGANIZATION_ID / profile (via personal-token client ResolveOrgID).
+
+--id accepts work item identifier or serial (serial resolved via OAPI GET when needed).
+This removes every comment on the work item; use comments delete for a single comment.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		flagOrg(globalOrg)
+		id, _ := cmd.Flags().GetString("id")
+		if err := requireFlags("id", id); err != nil {
+			handleErr(err)
+			return
+		}
+		ak, ok := orguid.LoadAKEnv()
+		if !ok {
+			handleErr(fmt.Errorf("%s", orguid.MissingAKMessageComments()))
+			return
+		}
+		c, _, err := mustClient()
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		orgID, err := c.ResolveOrgID(cmd.Context())
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		identifier, err := resolveWorkitemIdentifierForRPC(cmd.Context(), c, id)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		cli := &orguid.DevOpsMembersClient{AK: ak}
+		preview := cli.PreviewDeleteWorkitemAllComment(orgID, identifier)
+		handleErr(runMutating("workitem comments delete-all", risk.HighRiskWrite, globalDryRun, globalYes, preview, func() error {
+			out, err := cli.DeleteWorkitemAllComment(cmd.Context(), orgID, identifier)
+			if err != nil {
+				return err
+			}
+			return output.Success(out, map[string]any{
+				"risk":   risk.HighRiskWrite,
+				"auth":   "alibaba_cloud_access_key",
+				"action": "DeleteWorkitemAllComment",
+				"url":    preview["url"],
+			})
+		}))
+	},
+}
+
 var workitemCommentCmd = &cobra.Command{
 	Use:   "comment",
 	Short: "Add a comment to a work item",
@@ -209,9 +269,10 @@ OpenAPI: CreateWorkitemComment (OAPI personal-token surface).
 Prefer --content-file for UTF-8 text (BOM stripped) when Windows PowerShell mangles
 Chinese in --content. Use only one of --content or --content-file.
 
-OAPI has no comment delete/update. Use:
+OAPI has no comment delete/update/delete-all. Use:
   yunxiao workitem comments delete --id ... --comment-id ... --yes
   yunxiao workitem comments update --id ... --comment-id ... --content|--content-file
+  yunxiao workitem comments delete-all --id ... --yes
 (AccessKey RPC; see those --help texts).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)

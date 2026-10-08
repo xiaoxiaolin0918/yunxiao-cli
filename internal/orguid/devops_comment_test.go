@@ -146,3 +146,85 @@ func TestPreviewDeleteWorkitemComment(t *testing.T) {
 		t.Fatalf("url=%q", url)
 	}
 }
+
+func TestDeleteWorkitemAllComment_RPCPathAndSigning(t *testing.T) {
+	var gotMethod, gotPath, gotAction, gotQuery string
+	var signed bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotQuery = r.URL.RawQuery
+		gotAction = r.Header.Get("x-acs-action")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":"true","deleteFlag":true,"requestId":"r-all"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	u, _ := url.Parse(srv.URL)
+	cli := &DevOpsMembersClient{
+		AK:     AKEnv{AccessKeyID: "id", AccessKeySecret: "sec", Region: "cn-hangzhou"},
+		HTTP:   srv.Client(),
+		Host:   u.Host,
+		Scheme: "http",
+		Signer: func(method, host, path, action string, query url.Values, body []byte, ak AKEnv, now time.Time) (http.Header, error) {
+			signed = true
+			if action != "DeleteWorkitemAllComment" {
+				t.Fatalf("action=%q", action)
+			}
+			if method != http.MethodDelete {
+				t.Fatalf("sign method=%q", method)
+			}
+			if query.Get("identifier") != "wi-hex" {
+				t.Fatalf("query=%v", query)
+			}
+			if len(body) != 0 {
+				t.Fatalf("body should be empty for DELETE, got %q", body)
+			}
+			h := http.Header{}
+			h.Set("Authorization", "ACS3-HMAC-SHA256 Credential=id,SignedHeaders=host,Signature=test")
+			h.Set("x-acs-action", action)
+			h.Set("x-acs-version", "2021-06-25")
+			return h, nil
+		},
+	}
+	out, err := cli.DeleteWorkitemAllComment(context.Background(), "org-1", "wi-hex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !signed {
+		t.Fatal("signer not called")
+	}
+	if gotMethod != http.MethodDelete {
+		t.Fatalf("method=%s", gotMethod)
+	}
+	if gotPath != "/organization/org-1/workitems/deleteAllComment" {
+		t.Fatalf("path=%s", gotPath)
+	}
+	if gotAction != "DeleteWorkitemAllComment" {
+		t.Fatalf("header action=%s", gotAction)
+	}
+	if !strings.Contains(gotQuery, "identifier=wi-hex") {
+		t.Fatalf("query=%s", gotQuery)
+	}
+	if out["deleteFlag"] != true {
+		t.Fatalf("out=%v", out)
+	}
+}
+
+func TestPreviewDeleteWorkitemAllComment(t *testing.T) {
+	cli := &DevOpsMembersClient{AK: AKEnv{Region: "cn-hangzhou"}}
+	p := cli.PreviewDeleteWorkitemAllComment("org", "wi")
+	urlStr, _ := p["url"].(string)
+	if !strings.Contains(urlStr, "deleteAllComment") {
+		t.Fatalf("url=%v", p["url"])
+	}
+	if !strings.Contains(urlStr, "identifier=wi") {
+		t.Fatalf("url missing identifier: %v", p["url"])
+	}
+	if p["action"] != "DeleteWorkitemAllComment" {
+		t.Fatalf("action=%v", p["action"])
+	}
+	if p["method"] != http.MethodDelete {
+		t.Fatalf("method=%v", p["method"])
+	}
+}
