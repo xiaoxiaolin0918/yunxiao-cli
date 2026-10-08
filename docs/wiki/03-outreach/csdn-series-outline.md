@@ -6,6 +6,23 @@
 
 ---
 
+
+## 0. 正文草稿（仓库内，未发布）
+
+七篇完整草稿已写入 [drafts/](./drafts/)，每篇页首标注 **草稿 / 未发布**。发 CSDN 前请人工改标题/配图/截图，勿直接外发本目录原文当作「已发布」。
+
+| # | 草稿 | 对应下方大纲标题 |
+|---|------|------------------|
+| 1 | [drafts/01-yunxiao-cli-30s.md](./drafts/01-yunxiao-cli-30s.md) | 云效终于有「像 gh 一样」的 CLI 了 |
+| 2 | [drafts/02-windows-install-update.md](./drafts/02-windows-install-update.md) | Windows 一行装上云效 CLI |
+| 3 | [drafts/03-codeup-mr.md](./drafts/03-codeup-mr.md) | 别再网页里翻 MR |
+| 4 | [drafts/04-workitem-projex.md](./drafts/04-workitem-projex.md) | 用命令行管 Projex 工作项 |
+| 5 | [drafts/05-pipeline-flow.md](./drafts/05-pipeline-flow.md) | 流水线不用盯控制台 |
+| 6 | [drafts/06-agent-skills-profile.md](./drafts/06-agent-skills-profile.md) | 给 AI Agent 用的云效 |
+| 7 | [drafts/07-cli-vs-mcp.md](./drafts/07-cli-vs-mcp.md) | 云效 CLI vs 官方 MCP |
+
+---
+
 ## 1. 目标读者与 SEO 关键词
 
 ### 目标读者
