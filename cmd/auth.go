@@ -35,8 +35,10 @@ PAT (required for CI / headless):
 WARNING: OAuth consent grants full account API capability (platform has no module scopes).
 
 Token lifetime: oat- tokens are short-lived (~1 day). Login success prints the
-human-readable expiry (expires_at_local) and the renew command; "auth status" /
-"doctor" warn when less than 24h remains and no refresh_token is stored.
+human-readable expiry (expires_at_local). Business commands and doctor/whoami
+silent-refresh when a refresh_token is stored; use "yunxiao auth refresh" to
+force refresh, or "yunxiao auth login --browser" when refresh is unavailable.
+"auth status" / "doctor" warn when less than 24h remains.
 
 Token precedence: YUNXIAO_ACCESS_TOKEN env > ~/.config/yunxiao/credentials.json (last successful login) > profile > config.json.
 
@@ -52,8 +54,9 @@ var authStatusCmd = &cobra.Command{
 	Long: `Risk: read
 
 For browser OAuth tokens also reports expiry: expires_at / expires_at_local /
-expires_in, plus a warning + renew hint when less than 24h remains (or the token
-already expired) and the credential cannot silently refresh (#122).`,
+expires_in, plus a warning when less than 24h remains (or already expired). When
+can_refresh, hint prefers "yunxiao auth refresh"; otherwise
+"yunxiao auth login --browser" (#122).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		r, pf, err := resolveEffectiveConfig()

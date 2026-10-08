@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -26,8 +27,10 @@ active profile summary (name, organization_id, space_id), config/token checks,
 and a connectivity probe.
 
 The token check reports browser OAuth expiry (expires_at_local / expires_in /
-expiring) and warns with the renew command when less than 24h remains and no
-refresh_token is stored (#122); still healthy while the token is valid.
+expiring) and warns when less than 24h remains (#122). When a refresh_token is
+stored, doctor silently refreshes before probing and reports auth_refresh as
+not_needed | skipped | refreshed | refresh_failed; prefer
+"yunxiao auth refresh" over browser re-login when can_refresh.
 
 Optional: --check-update queries GitHub Releases once (no download).
 Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
@@ -38,17 +41,21 @@ Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
 			handleErr(err)
 			return
 		}
-		tokenCheck := map[string]any{"name": "token", "ok": r.AccessToken != "", "source": r.TokenSource, "token_kind": string(r.TokenKind)}
+		tokenCheck := map[string]any{
+			"name": "token", "ok": r.AccessToken != "",
+			"source": r.TokenSource, "token_kind": string(r.TokenKind),
+			"auth_refresh": authRefreshSkipped,
+		}
 		if r.AccessToken == "" {
 			tokenCheck["hint"] = "Prefer: yunxiao auth login --browser — or PAT: " + patHintShort()
 			tokenCheck["console"] = yunxiaoPATConsoleURL
 			tokenCheck["browser"] = "yunxiao auth login --browser"
 		} else if r.TokenKind == config.TokenKindOAuth {
 			tokenCheck["auth_header"] = r.AuthHeader
-			// #122: surface oat- expiry (expires_at_local / expires_in /
-			// expiring / warning) so users renew before the token dies mid-task.
 			canRefresh := r.RefreshToken != "" && r.ClientID != ""
 			tokenCheck["can_refresh"] = canRefresh
+			accessExpired := !r.ExpiresAt.IsZero() && !time.Now().Before(r.ExpiresAt)
+			tokenCheck["access_expired"] = accessExpired
 			for k, v := range oauthExpiryFields(r.ExpiresAt, canRefresh) {
 				tokenCheck[k] = v
 			}
@@ -66,7 +73,48 @@ Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
 		connectivity := map[string]any{"name": "connectivity", "ok": false}
 		if r.AccessToken != "" {
 			c, err := client.New(r)
-			if err == nil {
+			if err != nil {
+				connectivity["error"] = err.Error()
+			} else if r.TokenKind == config.TokenKindOAuth {
+				c.OnRefresh = oauthRefreshHook
+				attempt, refreshErr := tryOAuthRefresh(cmd.Context(), c, false)
+				tokenCheck["auth_refresh"] = attempt.Outcome
+				tokenCheck["access_expired"] = attempt.AccessExpired
+				if refreshErr != nil {
+					connectivity["ok"] = false
+					connectivity["error"] = refreshErr.Error()
+					connectivity["auth_refresh"] = authRefreshFailed
+					tokenCheck["hint"] = oauthRenewCommand
+					tokenCheck["warning"] = refreshErr.Error()
+					tokenCheck["can_refresh"] = false
+				} else {
+					if attempt.Outcome == authRefreshRefreshed {
+						if r2, _, err2 := resolveEffectiveConfig(); err2 == nil {
+							r = r2
+							canRefresh := r.RefreshToken != "" && r.ClientID != ""
+							tokenCheck["can_refresh"] = canRefresh
+							tokenCheck["auth_header"] = r.AuthHeader
+							tokenCheck["ok"] = r.AccessToken != ""
+							tokenCheck["source"] = r.TokenSource
+							delete(tokenCheck, "warning")
+							delete(tokenCheck, "hint")
+							for k, v := range oauthExpiryFields(r.ExpiresAt, canRefresh) {
+								tokenCheck[k] = v
+							}
+						}
+					}
+					var user map[string]any
+					if err := c.Get(cmd.Context(), "/oapi/v1/platform/user", nil, &user); err != nil {
+						connectivity["ok"] = false
+						connectivity["error"] = err.Error()
+					} else {
+						connectivity["ok"] = true
+						connectivity["user_id"] = user["id"]
+						connectivity["user_name"] = user["name"]
+						connectivity["last_organization"] = user["lastOrganization"]
+					}
+				}
+			} else {
 				var user map[string]any
 				if err := c.Get(cmd.Context(), "/oapi/v1/platform/user", nil, &user); err != nil {
 					connectivity["ok"] = false
@@ -77,8 +125,6 @@ Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
 					connectivity["user_name"] = user["name"]
 					connectivity["last_organization"] = user["lastOrganization"]
 				}
-			} else {
-				connectivity["error"] = err.Error()
 			}
 		} else {
 			connectivity["error"] = "no token — run: yunxiao auth login --browser (or --token / YUNXIAO_ACCESS_TOKEN)"
