@@ -10,7 +10,7 @@
   and prepends that directory to the user PATH when missing.
 
 .PARAMETER Version
-  Release version without leading v (e.g. 0.16.39). Default: latest.
+  Release version without leading v (e.g. 0.16.40). Default: latest.
 
 .PARAMETER Dir
   Install directory. Default: $env:USERPROFILE\.local\bin

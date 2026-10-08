@@ -15,7 +15,7 @@ CLI 二进制名：**`yunxiao`**。
 ```powershell
 irm https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/install.ps1 | iex
 # 或指定版本：
-# .\install.ps1 -Version 0.16.39
+# .\install.ps1 -Version 0.16.40
 ```
 
 默认安装到 `%USERPROFILE%\.local\bin`（归档含 `skills/` / `profiles/` 时一并放下），并把该目录前置到用户 `PATH`。之后升级：`yunxiao update --yes`。

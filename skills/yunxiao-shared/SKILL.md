@@ -1,7 +1,7 @@
 ---
 name: yunxiao-shared
-version: 1.1.4
-description: "Use for yunxiao CLI setup/auth: auth login/status/logout, config, doctor, whoami, self-update (yunxiao update), JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
+version: 1.1.5
+description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
     bins: ["yunxiao"]
@@ -37,6 +37,7 @@ yunxiao auth login --token "<PAT>"           # 写入 ~/.config/yunxiao/config.j
 yunxiao auth status
 yunxiao whoami
 yunxiao doctor
+yunxiao auth refresh [--dry-run]   # #170：主动刷新 oat-；dry-run 不写盘
 yunxiao status          # open workitems + open MRs; optional pending gates
 ```
 
@@ -45,7 +46,7 @@ yunxiao status          # open workitems + open MRs; optional pending gates
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token
 
-**OAuth 令牌临期（#122）**：`auth login --browser` 的 oat- 令牌约 1 天短效。登录成功输出含 `expires_at_local`（人类可读过期时间）与续期命令；`auth status` / `doctor` 在剩余 **<24h** 且无 refresh_token（`can_refresh:false`）时输出 `warning` + `hint`（重跑 `yunxiao auth login --browser`）。有 refresh_token 时临期由 CLI 自动刷新，不会打扰。Agent 看到 `expiring:true` / `warning` 时应提醒用户续期。
+**OAuth 短票与刷新（#122 / #170）：**`auth login --browser` 拿到的 oat- 大约 1 天有效；登录成功响应含 `expires_at_local`（本地可读过期时间）。业务命令经 `mustClient` 在到期前约 5 分钟会**静默刷新**（有 `refresh_token` + `client_id` 时）。`doctor` / `whoami` 同样走静默刷新，并在结果里给出 `auth_refresh`：`not_needed` | `skipped` | `refreshed` | `refresh_failed`。也可主动执行 `yunxiao auth refresh`（`--dry-run` 只预览、不写盘、不打 token 端点）。`auth status` / `doctor` 在剩余 **<24h** 且无法刷新（`can_refresh:false`）时打 `warning` + `hint`，指向 `yunxiao auth login --browser`。Agent 看到 `expiring:true` / `warning` / `auth_refresh:refresh_failed` 时应提示用户续期，而不是假装仍已登录。
 
 推荐模块权限：组织/成员读；Projex/Codeup/Flow 读+写（试用可只读）；Packages/Testhub/AppStack 按需。令牌名建议 `yunxiao-cli`。无飞书式一键 OAuth（`CreateOAuthToken` 仍内测）。
 
