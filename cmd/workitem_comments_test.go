@@ -32,17 +32,25 @@ func TestWorkitemCommentsHelpDocumentsRPCDeleteUpdate(t *testing.T) {
 	if workitemCommentCmd.Flags().Lookup("content-file") == nil {
 		t.Fatal("missing --content-file flag")
 	}
-	var hasDelete, hasUpdate bool
+	var hasDelete, hasUpdate, hasDeleteAll bool
 	for _, c := range workitemCommentsCmd.Commands() {
 		switch c.Name() {
 		case "delete":
 			hasDelete = true
 		case "update":
 			hasUpdate = true
+		case "delete-all":
+			hasDeleteAll = true
 		}
 	}
-	if !hasDelete || !hasUpdate {
-		t.Fatalf("expected comments delete+update subcommands, got delete=%v update=%v", hasDelete, hasUpdate)
+	if !hasDelete || !hasUpdate || !hasDeleteAll {
+		t.Fatalf("expected comments delete+update+delete-all, got delete=%v update=%v delete-all=%v", hasDelete, hasUpdate, hasDeleteAll)
+	}
+	if !strings.Contains(workitemCommentsDeleteAllCmd.Long, "DeleteWorkitemAllComment") {
+		t.Fatalf("delete-all Long should mention DeleteWorkitemAllComment: %s", workitemCommentsDeleteAllCmd.Long)
+	}
+	if !strings.Contains(workitemCommentsDeleteAllCmd.Long, "high-risk") && !strings.Contains(workitemCommentsDeleteAllCmd.Long, "--yes") {
+		t.Fatalf("delete-all Long should mention high-risk / --yes: %s", workitemCommentsDeleteAllCmd.Long)
 	}
 	if !strings.Contains(workitemCommentsDeleteCmd.Long, "high-risk") && !strings.Contains(workitemCommentsDeleteCmd.Long, "--yes") {
 		t.Fatalf("delete Long should mention high-risk / --yes: %s", workitemCommentsDeleteCmd.Long)
@@ -280,5 +288,72 @@ func TestWorkitemCommentsUpdateDryRunRPC(t *testing.T) {
 	body, _ := req["body"].(map[string]any)
 	if body["content"] != "修订后的评论" {
 		t.Fatalf("body=%v", body)
+	}
+}
+
+func TestWorkitemCommentsDeleteAllDryRunRPC(t *testing.T) {
+	var oapiHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		oapiHits++
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`should not be called on dry-run hex id`))
+	}))
+	t.Cleanup(srv.Close)
+
+	t.Setenv(config.EnvAccessToken, "test-token-wi-comment-delall-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-wi-comment-delall")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+	t.Setenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "LTAI_test_not_real")
+	t.Setenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "secret_test_not_real")
+	t.Setenv("ALIBABA_CLOUD_REGION_ID", "cn-hangzhou")
+
+	prevYes := globalYes
+	prevDry := globalDryRun
+	globalYes = false
+	globalDryRun = false
+	t.Cleanup(func() { globalYes = prevYes; globalDryRun = prevDry })
+
+	stdout := withCmdJSONCapture(t)
+	resetStringFlags(t, workitemCommentsDeleteAllCmd, "id")
+	rootCmd.SetArgs([]string{
+		"workitem", "comments", "delete-all",
+		"--id", "wi-hex-all",
+		"--dry-run",
+	})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstdout=%s", err, stdout.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("stdout JSON: %v / %s", err, stdout.Bytes())
+	}
+	if !env.OK || !env.DryRun {
+		t.Fatalf("envelope: %+v", env)
+	}
+	if env.Risk != string(risk.HighRiskWrite) && env.Risk != "high-risk-write" {
+		t.Fatalf("risk=%q", env.Risk)
+	}
+	raw, _ := json.Marshal(env.Request)
+	var req map[string]any
+	_ = json.Unmarshal(raw, &req)
+	url, _ := req["url"].(string)
+	if !strings.Contains(url, "/workitems/deleteAllComment") {
+		t.Fatalf("url=%q", url)
+	}
+	if !strings.Contains(url, "identifier=wi-hex-all") {
+		t.Fatalf("url missing identifier: %q", url)
+	}
+	if req["action"] != "DeleteWorkitemAllComment" {
+		t.Fatalf("action=%v", req["action"])
+	}
+	if req["method"] != "DELETE" {
+		t.Fatalf("method=%v", req["method"])
+	}
+	if oapiHits != 0 {
+		t.Fatalf("OAPI should not be hit for non-serial dry-run, hits=%d", oapiHits)
 	}
 }

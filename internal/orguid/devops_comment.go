@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -11,6 +12,7 @@ import (
 // Official path typo: deleteComent (missing 'm'). Do not "fix" the spelling.
 const pathDeleteWorkitemComment = "/workitems/deleteComent"
 const pathUpdateWorkitemComment = "/workitems/commentUpdate"
+const pathDeleteAllWorkitemComment = "/workitems/deleteAllComment"
 
 // DeleteWorkitemComment calls POST /organization/{org}/workitems/deleteComent
 // (DeleteWorkitemComment). identifier is the work item unique id (not serial).
@@ -66,6 +68,38 @@ func (c *DevOpsMembersClient) UpdateWorkitemComment(ctx context.Context, orgID s
 		"commentId":          in.CommentID,
 	}
 	return c.DoROA(ctx, http.MethodPost, path, "UpdateWorkitemComment", nil, body)
+}
+
+
+// DeleteWorkitemAllComment calls DELETE /organization/{org}/workitems/deleteAllComment
+// (OpenAPI DeleteWorkitemAllComment). identifier is the work item unique id (not serial).
+func (c *DevOpsMembersClient) DeleteWorkitemAllComment(ctx context.Context, orgID, identifier string) (map[string]any, error) {
+	if orgID == "" {
+		return nil, fmt.Errorf("organizationId required")
+	}
+	if strings.TrimSpace(identifier) == "" {
+		return nil, fmt.Errorf("identifier required")
+	}
+	path := "/organization/" + orgID + pathDeleteAllWorkitemComment
+	q := url.Values{}
+	q.Set("identifier", strings.TrimSpace(identifier))
+	return c.DoROA(ctx, http.MethodDelete, path, "DeleteWorkitemAllComment", q, nil)
+}
+
+// PreviewDeleteWorkitemAllComment builds a dry-run request map (no network).
+func (c *DevOpsMembersClient) PreviewDeleteWorkitemAllComment(orgID, identifier string) map[string]any {
+	path := "/organization/" + orgID + pathDeleteAllWorkitemComment
+	q := url.Values{}
+	q.Set("identifier", strings.TrimSpace(identifier))
+	return map[string]any{
+		"method": http.MethodDelete,
+		"url":    c.EndpointURL(path, q),
+		"action": "DeleteWorkitemAllComment",
+		"auth":   "alibaba_cloud_access_key (ACS3-HMAC-SHA256)",
+		"query": map[string]string{
+			"identifier": strings.TrimSpace(identifier),
+		},
+	}
 }
 
 // ParseCommentID parses a CLI --comment-id value (decimal string).

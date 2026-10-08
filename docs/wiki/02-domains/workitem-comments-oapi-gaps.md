@@ -19,11 +19,12 @@
 |------|-----|-----|
 | 删除单条 | `POST /organization/{organizationId}/workitems/deleteComent`（官方路径拼写缺 `m`） | `workitem comments delete --id … --comment-id … --yes`（`--dry-run` 可预览） |
 | 更新 | `POST /organization/{organizationId}/workitems/commentUpdate` | `workitem comments update --id … --comment-id … --content\|--content-file` |
-| 删除全部 | `DELETE .../workitems/deleteAllComment` | **未封装** |
+| 删除全部 | `DELETE .../workitems/deleteAllComment?identifier=…` | `workitem comments delete-all --id … --yes`（`--dry-run` 可预览） |
 
 OpenAPI：
 - [DeleteWorkitemComment](https://help.aliyun.com/zh/yunxiao/developer-reference/api-devops-2021-06-25-deleteworkitemcomment) body: `identifier`, `commentId`
 - [UpdateWorkitemComment](https://help.aliyun.com/zh/yunxiao/developer-reference/api-devops-2021-06-25-updateworkitemcomment) body: `content`, `formatType`, `workitemIdentifier`, `commentId`
+- [DeleteWorkitemAllComment](https://help.aliyun.com/zh/yunxiao/developer-reference/api-devops-2021-06-25-deleteworkitemallcomment) query: `identifier`
 
 ### 凭证
 
@@ -39,7 +40,7 @@ export ALIBABA_CLOUD_ACCESS_KEY_SECRET=...
 
 ### 风险
 
-- `comments delete`：`high-risk-write`（实跑需 `--yes`）
+- `comments delete` / `comments delete-all`：`high-risk-write`（实跑需 `--yes`）
 - `comments update`：`write`
 
 ## Windows PowerShell 中文乱码
