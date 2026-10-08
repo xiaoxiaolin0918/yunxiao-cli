@@ -32,9 +32,9 @@ func TestOAuthExpiryFields(t *testing.T) {
 		{name: "just-over-24h", offset: 25 * time.Hour, wantWarn: ""},
 		{name: "boundary-24h-inclusive", offset: 24 * time.Hour, expiring: true, wantWarn: "将于"},
 		{name: "near-no-refresh", offset: 2 * time.Hour, expiring: true, wantWarn: "auth login --browser"},
-		{name: "near-can-refresh-silent", offset: 2 * time.Hour, canRefresh: true, expiring: true, wantWarn: ""},
+		{name: "near-can-refresh-hint", offset: 2 * time.Hour, canRefresh: true, expiring: true, wantWarn: "auth refresh"},
 		{name: "expired-no-refresh", offset: -1 * time.Hour, expired: true, wantWarn: "已于"},
-		{name: "expired-can-refresh-silent", offset: -1 * time.Hour, canRefresh: true, expired: true, wantWarn: ""},
+		{name: "expired-can-refresh-hint", offset: -1 * time.Hour, canRefresh: true, expired: true, wantWarn: "auth refresh"},
 		{name: "zero-expiry-no-fields", zeroAt: true, wantNil: true},
 	}
 	for _, tc := range cases {
@@ -76,8 +76,12 @@ func TestOAuthExpiryFields(t *testing.T) {
 			if !hasWarn || !strings.Contains(warn, tc.wantWarn) {
 				t.Fatalf("warning=%q want substring %q (fields=%#v)", warn, tc.wantWarn, got)
 			}
-			if h, _ := got["hint"].(string); !strings.Contains(h, oauthRenewCommand) {
-				t.Fatalf("hint=%q want %q", h, oauthRenewCommand)
+			wantCmd := oauthRenewCommand
+			if tc.canRefresh {
+				wantCmd = oauthRefreshCommand
+			}
+			if h, _ := got["hint"].(string); !strings.Contains(h, wantCmd) {
+				t.Fatalf("hint=%q want %q", h, wantCmd)
 			}
 		})
 	}
@@ -96,7 +100,7 @@ func TestOAuthLoginHint(t *testing.T) {
 		wantEmpty  bool
 	}{
 		{name: "no-refresh-token", offset: 24 * time.Hour, want: []string{"2026-10-08", "auth login --browser", "refresh_token"}},
-		{name: "can-refresh", offset: 24 * time.Hour, canRefresh: true, want: []string{"自动刷新", "auth login --browser"}},
+		{name: "can-refresh", offset: 24 * time.Hour, canRefresh: true, want: []string{"自动刷新", "auth refresh", "auth login --browser"}},
 		{name: "zero-expiry-empty", zeroAt: true, wantEmpty: true},
 	}
 	for _, tc := range cases {
@@ -143,6 +147,8 @@ func isolateOAuthConfig(t *testing.T, apiBase string) {
 // (pattern from cmd/codeup_mrs_comments_create_test.go).
 func runRootForOAuthExpiry(t *testing.T, args ...string) (string, string, int) {
 	t.Helper()
+	// Cobra sticky bool flags: reset auth refresh --dry-run between Execute calls.
+	_ = authRefreshCmd.Flags().Set("dry-run", "false")
 	stdout := withCmdJSONCapture(t)
 	var stderr bytes.Buffer
 	prevErr := output.Stderr
@@ -205,10 +211,9 @@ func TestAuthStatusOAuthExpiry(t *testing.T) {
 			wantWarn: "已于",
 		},
 		{
-			name:     "near-expiry-can-refresh-silent",
+			name:     "near-expiry-can-refresh-hint",
 			cred:     config.Credential{AccessToken: "oat-r", RefreshToken: "rt", ClientID: "cid", TokenKind: config.TokenKindOAuth, APIBase: "https://openapi-rdc.aliyuncs.com", ExpiresAt: time.Now().Add(2 * time.Hour)},
-			noWarn:   true,
-			wantWarn: "",
+			wantWarn: "auth refresh",
 		},
 		{
 			name:     "far-from-expiry",
@@ -257,8 +262,12 @@ func TestAuthStatusOAuthExpiry(t *testing.T) {
 			if !hasWarn || !strings.Contains(warn, tc.wantWarn) {
 				t.Fatalf("warning=%q want substring %q (data=%#v)", warn, tc.wantWarn, data)
 			}
-			if h, _ := data["hint"].(string); !strings.Contains(h, oauthRenewCommand) {
-				t.Fatalf("hint=%q", h)
+			wantCmd := oauthRenewCommand
+			if strings.Contains(tc.wantWarn, "auth refresh") {
+				wantCmd = oauthRefreshCommand
+			}
+			if h, _ := data["hint"].(string); !strings.Contains(h, wantCmd) {
+				t.Fatalf("hint=%q want %q", h, wantCmd)
 			}
 		})
 	}

@@ -10,15 +10,21 @@ import (
 // expire mid-task with no notice). 24h per the issue.
 const oauthExpiryWarnWindow = 24 * time.Hour
 
-// oauthRenewCommand is the renewal command shown in expiry warnings / login hint.
+// oauthRenewCommand is the renewal command when silent refresh is unavailable.
 const oauthRenewCommand = "yunxiao auth login --browser"
+
+// oauthRefreshCommand is the preferred renew path when refresh_token is stored.
+const oauthRefreshCommand = "yunxiao auth refresh"
 
 // oauthExpiryFieldsAt describes an oauth credential's expiry for `auth status`
 // and `doctor` (#122): human-readable local time, seconds remaining, and
-// expired/expiring flags. A Chinese `warning` asks for a re-login only when the
-// silent refresh path (cmd/oauth_refresh.go) cannot save the credential
-// (no refresh_token/client_id, i.e. canRefresh == false). Returns nil when
-// expiresAt is zero (no expiry recorded).
+// expired/expiring flags.
+//
+// Warnings:
+//   - canRefresh + (expired|expiring) → prefer `yunxiao auth refresh`
+//   - !canRefresh + (expired|expiring) → `yunxiao auth login --browser`
+//
+// Returns nil when expiresAt is zero (no expiry recorded).
 func oauthExpiryFieldsAt(expiresAt, now time.Time, canRefresh bool) map[string]any {
 	if expiresAt.IsZero() {
 		return nil
@@ -36,9 +42,14 @@ func oauthExpiryFieldsAt(expiresAt, now time.Time, canRefresh bool) map[string]a
 	switch {
 	case !expired && !expiring:
 		// Plenty of time left; nothing to surface.
-	case canRefresh:
-		// cmd/oauth_refresh.go refreshes near expiry and clears credentials with
-		// an actionable error on failure; do not ask for a re-login here.
+	case canRefresh && expired:
+		fields["warning"] = fmt.Sprintf("OAuth 令牌已于 %s 过期；可先运行: %s（失败再 %s）",
+			fields["expires_at_local"], oauthRefreshCommand, oauthRenewCommand)
+		fields["hint"] = oauthRefreshCommand
+	case canRefresh && expiring:
+		fields["warning"] = fmt.Sprintf("OAuth 令牌将于 %s（约 %s后）过期；建议先: %s（业务命令也会静默刷新）",
+			fields["expires_at_local"], oauthHumanDuration(secs), oauthRefreshCommand)
+		fields["hint"] = oauthRefreshCommand
 	case expired:
 		fields["warning"] = fmt.Sprintf("OAuth 令牌已于 %s 过期，请重跑: %s", fields["expires_at_local"], oauthRenewCommand)
 		fields["hint"] = oauthRenewCommand
@@ -64,8 +75,8 @@ func oauthLoginHint(expiresAt, now time.Time, canRefresh bool) string {
 		return ""
 	}
 	if canRefresh {
-		return fmt.Sprintf("OAuth 令牌将于 %s（约 %s后）过期；临期会自动刷新，失败时重跑: %s",
-			local, oauthHumanDuration(expiresAt.Unix()-now.Unix()), oauthRenewCommand)
+		return fmt.Sprintf("OAuth 令牌将于 %s（约 %s后）过期；临期业务命令会自动刷新，也可手动: %s；失败时重跑: %s",
+			local, oauthHumanDuration(expiresAt.Unix()-now.Unix()), oauthRefreshCommand, oauthRenewCommand)
 	}
 	return fmt.Sprintf("OAuth 令牌将于 %s（约 %s后）过期；平台未返回 refresh_token，过期后重跑: %s",
 		local, oauthHumanDuration(expiresAt.Unix()-now.Unix()), oauthRenewCommand)

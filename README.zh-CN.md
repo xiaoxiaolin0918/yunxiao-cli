@@ -51,6 +51,7 @@ GitHub Releases 是唯一安装渠道。npm 薄包装（`sanzhi-yunxiao-cli`）�
    登录后探测：yunxiao auth probe-oauth
    提示：oat- 令牌约 1 天短效。登录成功会打印人类可读过期时间（expires_at_local）与续期命令；
    `auth status` / `doctor` 在剩余 <24h 且无 refresh_token 时会提醒，重跑 yunxiao auth login --browser 续期（#122）。
+业务命令与 `doctor` / `whoami` 在存有 `refresh_token` 时会静默刷新；也可手动 `yunxiao auth refresh`（`--dry-run` 仅预览）；刷新失败再 `yunxiao auth login --browser`。长驻自动化建议 PAT。
    PAT 回落（CI/无浏览器）：
      控制台：https://account-devops.aliyun.com/settings/personalAccessToken
      帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token
