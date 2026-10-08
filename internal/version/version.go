@@ -5,4 +5,4 @@ package version
 //	go build -ldflags "-X github.com/yunxiao-cli/yunxiao/internal/version.Version=0.16.39"
 //
 // Default matches the release when built without ldflags.
-var Version = "0.16.40"
+var Version = "0.16.41"

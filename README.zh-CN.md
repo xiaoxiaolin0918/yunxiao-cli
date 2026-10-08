@@ -542,6 +542,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.41** — doctor/whoami 在 /platform/user 前静默 OAuth 刷新，输出 auth_refresh + access_expired；新增 `yunxiao auth refresh [--dry-run]`；临近过期提示在有 refresh_token 时优先 auth refresh（#170）；CSDN 系列外宣 wiki 大纲（#169）
 - **0.16.40** — `yunxiao update` 同步刷新二进制旁 `skills/` 与 `profiles/`（#160）；Windows 一键安装 `install.ps1`（#161）；`scripts/bump_release.py` 版本 + 双语 Changelog + wiki stub（#162）；play 沙箱冒烟清单（#163）；Linux CI `go test -race` 与 `make test-race` / `make ci`（#164）；只读 `yunxiao status` 聚合工作项 / 开放 MR / 可选流水线门禁（#165）；`profile doctor --write` 同步 `allowed_modules` / `allowed_environments` 漂移（#166）；退役 npm OIDC 发布文档精简（#167）
 - **0.16.39** — `codeup mrs merge`：API 拒绝后 best-effort GET 当前 MR，信封增加 `subtype:"merge_rejected"` 与 `details.current_status` / `state_gap` / `suggested_actions` / `diagnose.source` / `mr`（状态表对齐 #127）；保留 #124/#130 门控与诊断失败透传（#157）
 - **0.16.38** — 自 v0.16.37 起本批：`+bug-create` 复用 MissingRequired 预检（`--no-precheck` 跳过）（#107）；create 选项字段接受显示值并解析为 option id（#126）；`+bug-transition` BFS 无路回退直试 + `--direct`，区分无边与平台拒绝（#123）；`+risk-create` / `+req-create` 快捷命令对齐 `+bug-create`（#128）；`--repo` 支持 org/repo 路径与裸名自动发现 + `profile repo-add`（#125）；`project labels list|create` 与 `workitem search --labels`（#141）；OAuth 临期提醒（#122）；doctor 比对 `allowed_*` 与线上枚举漂移（#121）；findings 附带 live displayName/nameEn/fieldName + 默认 `--fix-suggest` / `--write` 回填（#120）；Release 归档像 skills/ 一样打包 profiles/ 示例（#116）
