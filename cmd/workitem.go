@@ -16,9 +16,9 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem search --assigned-to self --category Req
   yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59" --all --as-items
   yunxiao workitem search --category Bug --status 100005 --status-stage 1,2
-  yunxiao workitem get --id <id|ZYPT-xxxx>   # or positional: workitem get ZYPT-xxxx
+  yunxiao workitem get --id <id|<SERIAL>>   # or positional: workitem get YXCLI-1
   yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
-  yunxiao workitem +bug-transition --id ZYPT-xxxx --to processing --dry-run
+  yunxiao workitem +bug-transition --id YXCLI-1 --to processing --dry-run
   yunxiao workitem +bug-create --title "…" --description "…" --expected-completion YYYY-MM-DD --sprint <id> --dry-run
   yunxiao workitem +risk-create --title "…" --description "…" --dry-run   # profile risk_type_id (#128)
   yunxiao workitem +req-create --assignee 崔健 --title "…" --dry-run      # profile req_type_id (#128)

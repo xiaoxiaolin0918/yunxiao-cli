@@ -266,7 +266,7 @@ yunxiao doctor
 | `yunxiao-packages` | 制品仓库与制品 |
 | `yunxiao-testhub` | 测试计划、结果、计划用例评论 |
 | `yunxiao-appstack` | 应用、变更单、编排、标签、变量组 |
-| `yunxiao-zhiyi-ops` | 智衣/ZYPT 迭代建议、开缺陷、流转、建 MR 与租户 profile（可选） |
+| `yunxiao-zhiyi-ops` | 智衣租户专用：迭代建议、开缺陷、流转、建 MR 与 profile（可选） |
 
 **安装**（默认目录 `~/.agents/skills`，供 AI 工具发现）：
 
@@ -473,11 +473,11 @@ yunxiao status --pipeline-id <id>
 
 | Profile | 用途 |
 |---------|------|
-| **zhiyi** | 智衣/ZYPT 全字段（module/environment/ExpCompletionTime + 完整流转必填） |
-| **play** | 沙箱/YXCLI 回归 — 精简 `bug_create_fields`（仅 priority + seriousLevel）；`bug_transition_required` 仅 `{"100010":["80"]}` |
+| **zhiyi** | 智衣选用：全字段（module/environment/ExpCompletionTime + 完整流转必填） |
+| **play** | **通用首选** / 沙箱回归 — 精简 `bug_create_fields`（仅 priority + seriousLevel）；`bug_transition_required` 仅 `{"100010":["80"]}` |
 
 ```bash
-yunxiao profile install-example zhiyi   # 或 play
+yunxiao profile install-example play    # 通用先装 play；智衣再装 zhiyi
 # 示例只有占位符：编辑安装后的文件填 org/space/type id，再回填状态图
 yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
 export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --profile zhiyi）
@@ -485,7 +485,7 @@ export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --pro
 yunxiao profile use zhiyi               # 写 config.json 的 "profile"；--unset 清除
 yunxiao profile show
 # 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
-# 先在沙箱（play）验证；切勿对生产 ZYPT 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
+# 先在沙箱（play）验证；切勿对生产空间 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
 yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow 及 allowed_* 枚举（只读）
                                        # findings 带 displayName/nameEn/fieldName，默认 --fix-suggest（#120）
@@ -503,7 +503,7 @@ yunxiao workitem relations create --id <id> --related-id <rid> --relation-type A
 # `yunxiao profile repo-add <别名> <repo-id|org/repo路径|仓库名>` 注册（#125）
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制，GitHub Release 归档也随二进制携带，任何安装方式下 `install-example` 都可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产 ZYPT 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制，GitHub Release 归档也随二进制携带，任何安装方式下 `install-example` 都可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产空间 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 
@@ -542,6 +542,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami 在 /platform/user 前静默 OAuth 刷新，输出 auth_refresh + access_expired；新增 `yunxiao auth refresh [--dry-run]`；临近过期提示在有 refresh_token 时优先 auth refresh（#170）；CSDN 系列外宣 wiki 大纲（#169）
 - **0.16.40** — `yunxiao update` 同步刷新二进制旁 `skills/` 与 `profiles/`（#160）；Windows 一键安装 `install.ps1`（#161）；`scripts/bump_release.py` 版本 + 双语 Changelog + wiki stub（#162）；play 沙箱冒烟清单（#163）；Linux CI `go test -race` 与 `make test-race` / `make ci`（#164）；只读 `yunxiao status` 聚合工作项 / 开放 MR / 可选流水线门禁（#165）；`profile doctor --write` 同步 `allowed_modules` / `allowed_environments` 漂移（#166）；退役 npm OIDC 发布文档精简（#167）
 - **0.16.39** — `codeup mrs merge`：API 拒绝后 best-effort GET 当前 MR，信封增加 `subtype:"merge_rejected"` 与 `details.current_status` / `state_gap` / `suggested_actions` / `diagnose.source` / `mr`（状态表对齐 #127）；保留 #124/#130 门控与诊断失败透传（#157）

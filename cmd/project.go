@@ -16,7 +16,7 @@ var projectCmd = &cobra.Command{
 +shortcuts:
   yunxiao project +my-open-items [--category Req|Task|Bug|Risk] [--space-id <id>]
   yunxiao project +created-by-me
-  yunxiao workitem +bug-transition --id ZYPT-xxxx --to processing --dry-run  (needs --profile)
+  yunxiao workitem +bug-transition --id YXCLI-1 --to processing --dry-run  (needs --profile)
 
 Typed (also under workitem):
   yunxiao project list

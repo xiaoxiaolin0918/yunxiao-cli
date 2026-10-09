@@ -16,11 +16,11 @@ HTTP: POST .../workitems/{id}/extRelationRecords (category=codeupMergeRequest)
 Links one or more work items to an existing Codeup MR via Projex extRelationRecords
 (not UpdateChangeRequest). Idempotent: already-linked items are skipped.
 
-Prefer --dry-run first. Work item refs may be serials (ZYPT-…) or internal ids;
+Prefer --dry-run first. Work item refs may be serials (e.g. YXCLI-1) or internal ids;
 each is resolved via workitem get before linking.
 
-  yunxiao codeup mrs link --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run
-  yunxiao codeup mrs link --repo <alias|id> --local-id 125 ZYPT-5573 ZYPT-5574`,
+  yunxiao codeup mrs link --repo <alias|id> --local-id 125 --work-item YXCLI-1 --dry-run
+  yunxiao codeup mrs link --repo <alias|id> --local-id 125 YXCLI-1 YXCLI-2`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runMrsWorkItemLinkUnlink(cmd, args, false)
 	},
@@ -37,7 +37,7 @@ already-unlinked items are skipped.
 
 Prefer --dry-run first.
 
-  yunxiao codeup mrs unlink --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run`,
+  yunxiao codeup mrs unlink --repo <alias|id> --local-id 125 --work-item YXCLI-1 --dry-run`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runMrsWorkItemLinkUnlink(cmd, args, true)
 	},

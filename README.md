@@ -249,7 +249,7 @@ Companion skills live under `skills/yunxiao-*` (each has `SKILL.md`):
 | `yunxiao-packages` | Artifact repositories & artifacts |
 | `yunxiao-testhub` | Test plans, results, plan comments |
 | `yunxiao-appstack` | Apps, change-orders, orchestrations, tags, variable groups |
-| `yunxiao-zhiyi-ops` | Zhiyi/ZYPT sprint/bug-create/transition/MR + tenant profile (optional) |
+| `yunxiao-zhiyi-ops` | Zhiyi-tenant ops: sprint/bug-create/transition/MR + profile (optional) |
 
 **Install** (so AI tools can discover them; default dir `~/.agents/skills`):
 
@@ -466,11 +466,11 @@ Profiles are **project-scoped** (`space_id`); discovered workitem graphs live un
 
 | Profile | Purpose |
 |---------|---------|
-| **zhiyi** | Full Zhiyi/ZYPT field set (`module` / `environment` / `ExpCompletionTime` + rich `bug_transition_required`) |
-| **play** | Sandbox/YXCLI regression — minimal `bug_create_fields` (priority + seriousLevel only); `bug_transition_required` = `{"100010":["80"]}` only; sandbox bug statuses |
+| **zhiyi** | Zhiyi-oriented full field set (`module` / `environment` / `ExpCompletionTime` + rich `bug_transition_required`); optional |
+| **play** | **Generic first** / sandbox·YXCLI regression — minimal `bug_create_fields` (priority + seriousLevel only); `bug_transition_required` = `{"100010":["80"]}` only; sandbox bug statuses |
 
 ```bash
-yunxiao profile install-example zhiyi   # or: play
+yunxiao profile install-example play   # generic first; optional: install-example zhiyi
 # placeholders only: edit org/space/type ids in the installed file, then refresh graphs
 yunxiao profile path zhiyi              # -> ~/.config/yunxiao/profiles/zhiyi.json
 export YUNXIAO_PROFILE=zhiyi            # or play (or pass --profile zhiyi per command)
@@ -478,14 +478,14 @@ export YUNXIAO_PROFILE=zhiyi            # or play (or pass --profile zhiyi per c
 yunxiao profile use zhiyi               # writes "profile" into ~/.config/yunxiao/config.json; --unset clears
 yunxiao profile show
 # Refresh the state graph. WRITES data: creates a probe workitem, moves it through states,
-# and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on production ZYPT.
+# and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on a production space.
 # --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
 yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
 yunxiao profile doctor                 # diff profile vs live fields/workflow + allowed_* enums (read);
                                        # findings carry live displayName/nameEn/fieldName + --fix-suggest (#120)
 yunxiao profile doctor --write --dry-run  # preview backfilling suggested status ids into the profile
 yunxiao profile doctor --write         # backfill bug_statuses[alias] + workflows[type].statuses (edges untouched)
-yunxiao workitem get ZYPT-5768         # zhiyi serials; play uses YXCLI-…
+yunxiao workitem get YXCLI-1         # zhiyi serials; play uses YXCLI-…
 yunxiao sprint +current --dry-run
 # Zhiyi full create:
 yunxiao workitem +bug-create --title "title" --description "description" \
@@ -499,8 +499,8 @@ yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprin
 # by default; --assignee resolves an organization member display name:
 yunxiao workitem +risk-create --title "risk" --description "impact" --priority high --dry-run
 yunxiao workitem +req-create --assignee "displayName" --title "req" --description "…" --dry-run
-yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
-yunxiao workitem +bug-transition（BFS 无路时 direct_fallback / --direct，#123） --id ZYPT-5768 --to processing \
+yunxiao workitem +bug-transition --id YXCLI-1 --to processing \
+yunxiao workitem +bug-transition（BFS 无路时 direct_fallback / --direct，#123） --id YXCLI-1 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
 yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
@@ -510,10 +510,10 @@ yunxiao workitem relations create --id <id> --related-id <rid> --relation-type A
 yunxiao codeup files update --repo sandbox --path README.md --branch x \
   --message "…" --content-file /tmp/note.md --dry-run
 yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
-  --title "fix" --work-item ZYPT-5768 --wip --dry-run
+  --title "fix" --work-item YXCLI-1 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on production ZYPT; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on a production space; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
 
 **Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 
@@ -568,6 +568,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami silent OAuth refresh before /platform/user with auth_refresh + access_expired fields; new `yunxiao auth refresh [--dry-run]`; near-expiry hints prefer auth refresh when refresh_token present (#170); CSDN series outreach wiki outline (#169)
 - **0.16.40** — `yunxiao update` also refreshes `skills/` and `profiles/` beside the binary (#160); Windows one-line install via `install.ps1` (#161); `scripts/bump_release.py` for version + bilingual Changelog + wiki stub (#162); play-sandbox smoke checklist (#163); Linux CI `go test -race` + `make test-race` / `make ci` (#164); read-only `yunxiao status` aggregating workitems / open MRs / optional pipeline gates (#165); `profile doctor --write` syncs `allowed_modules` / `allowed_environments` drift (#166); retired npm OIDC publish docs trimmed (#167)
 - **0.16.39** — `codeup mrs merge`: when the API rejects a merge, best-effort GET of current MR attaches `subtype:"merge_rejected"` with `details.current_status` / `state_gap` / `suggested_actions` / `diagnose.source` / `mr` (status table aligned with #127); keeps #124/#130 gates and diagnose-failure pass-through (#157)

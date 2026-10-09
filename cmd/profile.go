@@ -26,14 +26,14 @@ var profileCmd = &cobra.Command{
   yunxiao profile use <name> [--dry-run] | --unset
   yunxiao profile path [name]
   yunxiao profile doctor [name] [--all-workflows]
-  yunxiao profile install-example zhiyi|play [--force]
+  yunxiao profile install-example play|zhiyi [--force]
   yunxiao profile repo-add <alias> <repo> [--force]   # register codeup --repo alias (#125)
 
 Select with --profile <name>, YUNXIAO_PROFILE=<name>, or once with
 yunxiao profile use <name> (writes "profile" into config.json as the default
 for every new shell session, #130). Precedence: --profile > YUNXIAO_PROFILE >
 config default; profile use --unset clears the default.
-Ship examples: profiles/zhiyi.example.json (full Zhiyi fields), profiles/play.example.json (sandbox-minimal).
+Ship examples: profiles/play.example.json (generic/sandbox first), profiles/zhiyi.example.json (Zhiyi-oriented full fields; optional).
 Examples are embedded in the binary (#92) and also ship in GitHub Release archives
 as on-disk profiles/ next to the binary (#116); install-example works from any install.
 A valid on-disk copy takes precedence; empty/truncated/name-mismatched copies are skipped (#104).`,
@@ -50,8 +50,8 @@ The profile must already exist under ~/.config/yunxiao/profiles/<name>.json
 --profile > YUNXIAO_PROFILE > this default, so one-off overrides still work.
 --unset clears the default (name optional then). --dry-run previews only.
 
-  yunxiao profile use zhiyi
-  yunxiao profile use play --dry-run
+  yunxiao profile use play
+  yunxiao profile use zhiyi --dry-run
   yunxiao profile use --unset`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -207,7 +207,7 @@ var profileInstallExampleCmd = &cobra.Command{
 		}
 		handleErr(output.Success(map[string]any{
 			"installed": dst,
-			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, then refresh graphs via `workitem +explore-workflow --cleanup --write-profile --yes`. WARNING: that shortcut is a write operation (creates/moves/deletes a probe work item); run it in a sandbox project first and never auto-run it against production ZYPT (`--dry-run` previews the plan offline). Verify with `profile doctor`; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
+			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, then refresh graphs via `workitem +explore-workflow --cleanup --write-profile --yes`. WARNING: that shortcut is a write operation (creates/moves/deletes a probe work item); run it in a sandbox project first and never auto-run it against a production space (`--dry-run` previews the plan offline). Verify with `profile doctor`; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
 		}, map[string]any{"risk": risk.Write}))
 	},
 }

@@ -282,8 +282,10 @@ type CreateBugInput struct {
 }
 
 // BuildCreateBugArgs ports domain.ts buildCreateBugArgs using profile space/type/field maps.
-// Module, environment, and ExpCompletionTime are included only when the profile configures
-// their field ids (and Minimal is false). Priority + seriousLevel are always sent when mapped.
+// Module and environment are included only when the profile configures their field ids,
+// Minimal is false, and the value is non-empty (empty CLI defaults must not send or gate).
+// ExpCompletionTime is included when configured and Minimal is false. Priority + seriousLevel
+// are always sent when mapped.
 func BuildCreateBugArgs(input CreateBugInput, pf *profile.Profile) (map[string]any, error) {
 	if pf == nil {
 		return nil, fmt.Errorf("profile required to build create-bug body")
@@ -307,10 +309,10 @@ func BuildCreateBugArgs(input CreateBugInput, pf *profile.Profile) (map[string]a
 		"seriousLevel": serious,
 	}
 	if !input.Minimal {
-		if moduleFID := pf.ModuleFieldID(); moduleFID != "" {
+		if moduleFID := pf.ModuleFieldID(); moduleFID != "" && strings.TrimSpace(input.Module) != "" {
 			cf[moduleFID] = input.Module
 		}
-		if envFID := pf.EnvironmentFieldID(); envFID != "" {
+		if envFID := pf.EnvironmentFieldID(); envFID != "" && strings.TrimSpace(input.Environment) != "" {
 			cf[envFID] = input.Environment
 		}
 		if expKey := pf.ExpCompletionTimeKey(); expKey != "" {
