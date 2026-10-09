@@ -95,7 +95,7 @@ func TestCodeupBranchesListSearchOnlyDryRun(t *testing.T) {
 	})
 }
 
-func TestCodeupBranchesListPageDryRun(t *testing.T) {
+func TestCodeupBranchesListPageOnlyBatchDryRun(t *testing.T) {
 	stdout, hits := brListQSetup(t, "page")
 	rootCmd.SetArgs([]string{"codeup", "branches", "list", "--repo", "4952001", "--page", "4", "--dry-run"})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
