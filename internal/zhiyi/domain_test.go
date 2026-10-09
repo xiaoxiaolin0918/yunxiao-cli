@@ -319,17 +319,17 @@ func TestProfileRepoAddHint(t *testing.T) {
 
 func TestIsBareRepoName(t *testing.T) {
 	cases := map[string]bool{
-		"zhiyi_doc":                true,
-		"my-repo":                  true,
-		"  padded  ":               true, // trims first
-		"4951320":                  false, // numeric id
-		"7287010":                  false,
-		"org/repo":                 false, // slash path
-		"sanzhi/zhiyi/zhiyi_doc":   false,
-		"org%2Frepo":               false, // pre-encoded (uppercase)
-		"org%2frepo":               false, // pre-encoded (lowercase)
-		"":                         false,
-		"   ":                      false,
+		"zhiyi_doc":              true,
+		"my-repo":                true,
+		"  padded  ":             true,  // trims first
+		"4951320":                false, // numeric id
+		"7287010":                false,
+		"org/repo":               false, // slash path
+		"sanzhi/zhiyi/zhiyi_doc": false,
+		"org%2Frepo":             false, // pre-encoded (uppercase)
+		"org%2frepo":             false, // pre-encoded (lowercase)
+		"":                       false,
+		"   ":                    false,
 	}
 	for in, want := range cases {
 		if got := IsBareRepoName(in); got != want {
@@ -343,13 +343,13 @@ func TestNormalizeRepositoryID(t *testing.T) {
 		in   any
 		want string
 	}{
-		"float64":  {4951320.0, "4951320"},
-		"string":   {"4951320", "4951320"},
-		"spaced":   {" 4951320 ", "4951320"},
-		"int":      {7, "7"},
-		"int64":    {int64(8), "8"},
-		"nil":      {nil, ""},
-		"nilword":  {"<nil>", ""}, // filtered like the old AddRepositoryIDsFromListItems logic
+		"float64": {4951320.0, "4951320"},
+		"string":  {"4951320", "4951320"},
+		"spaced":  {" 4951320 ", "4951320"},
+		"int":     {7, "7"},
+		"int64":   {int64(8), "8"},
+		"nil":     {nil, ""},
+		"nilword": {"<nil>", ""}, // filtered like the old AddRepositoryIDsFromListItems logic
 	}
 	for name, c := range cases {
 		if got := NormalizeRepositoryID(c.in); got != c.want {
@@ -367,8 +367,8 @@ func TestMatchRepoCandidates(t *testing.T) {
 		map[string]any{"id": 4951320.0, "name": "zhiyi_doc", "pathWithNamespace": "sanzhi/zhiyi/zhiyi_doc"},
 		map[string]any{"id": "7287010", "name": "other", "pathWithNamespace": "sanzhi/zhiyi/other"},
 		map[string]any{"id": 111.0, "name": "doc", "path": "team/doc"}, // path fallback + suffix match
-		map[string]any{"name": "no-id"},                                // skipped: no id
-		"not-a-map",                                                    // skipped
+		map[string]any{"name": "no-id"}, // skipped: no id
+		"not-a-map",                     // skipped
 	}
 	// Unique name match.
 	got := MatchRepoCandidates("zhiyi_doc", items)
@@ -487,6 +487,44 @@ func TestBuildCreateBugArgsOmitsOptionalFields(t *testing.T) {
 	}
 	if cf["priority"] != "prio-high" || cf["seriousLevel"] != "sev-normal" {
 		t.Fatalf("%v", cf)
+	}
+}
+
+func TestBuildCreateBugArgsOmitsEmptyModuleEnv(t *testing.T) {
+	pf := &profile.Profile{
+		SpaceID:   "space-1",
+		BugTypeID: "bug-type-1",
+		BugCreateFields: profile.BugCreateFields{
+			Priority:          map[string]string{"high": "prio-high"},
+			SeriousLevel:      map[string]string{"normal": "sev-normal"},
+			Module:            "mod-fid",
+			Environment:       "env-fid",
+			ExpCompletionTime: "ExpCompletionTime",
+		},
+	}
+	body, err := BuildCreateBugArgs(CreateBugInput{
+		Title:              "t",
+		Description:        "d",
+		Environment:        "",
+		Priority:           "high",
+		SeriousLevel:       "normal",
+		Module:             "",
+		ExpectedCompletion: "2026-09-20",
+		Sprint:             "sprint-1",
+		AssignedTo:         "user-1",
+	}, pf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cf := body["customFieldValues"].(map[string]any)
+	if _, ok := cf["mod-fid"]; ok {
+		t.Fatalf("empty module must be omitted: %v", cf)
+	}
+	if _, ok := cf["env-fid"]; ok {
+		t.Fatalf("empty environment must be omitted: %v", cf)
+	}
+	if cf["ExpCompletionTime"] != "2026-09-20" {
+		t.Fatalf("exp still required when set: %v", cf)
 	}
 }
 

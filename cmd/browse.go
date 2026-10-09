@@ -23,7 +23,7 @@ Use --print-only or global --dry-run to print the URL without opening.
 Examples:
   yunxiao browse pipeline --pipeline-id 5272454
   yunxiao browse pipeline --pipeline-id 5272454 --run-id 4
-  yunxiao browse workitem --space-id <id> --serial ZYPT-1
+  yunxiao browse workitem --space-id <id> --serial YXCLI-1
   yunxiao browse mr --repo-url https://codeup.aliyun.com/org/repo --local-id 3
   yunxiao browse repo --repo-url https://codeup.aliyun.com/org/repo
   yunxiao browse url https://flow.aliyun.com/pipelines/5272454
@@ -108,7 +108,7 @@ var browseWorkitemCmd = &cobra.Command{
 func init() {
 	browseWorkitemCmd.Flags().StringVar(&browseSpaceID, "space-id", "", "Projex space/project id (required)")
 	browseWorkitemCmd.Flags().StringVar(&browseWorkItemID, "id", "", "internal work item id")
-	browseWorkitemCmd.Flags().StringVar(&browseSerial, "serial", "", "serial number e.g. ZYPT-1")
+	browseWorkitemCmd.Flags().StringVar(&browseSerial, "serial", "", "serial number e.g. YXCLI-1")
 	browseWorkitemCmd.Flags().StringVar(&browseCategory, "category", "", "Bug|Req|Task (optional)")
 	_ = browseWorkitemCmd.MarkFlagRequired("space-id")
 }

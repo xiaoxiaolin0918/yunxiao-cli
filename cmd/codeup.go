@@ -22,7 +22,7 @@ var codeupCmd = &cobra.Command{
 +shortcuts:
   yunxiao codeup +open-mrs [--repo <id|alias>]
   yunxiao codeup mrs +push-review-status --repo <id|alias> [--local-id <n>] [--all]
-  yunxiao codeup mrs +create --repo <alias|id> --source <br> --title "…" [--work-item ZYPT-…] [--wip] [--reviewer <ids>]
+  yunxiao codeup mrs +create --repo <alias|id> --source <br> --title "…" [--work-item <SERIAL>] [--wip] [--reviewer <ids>]
 
 Typed:
   yunxiao codeup repos list|get --repo <id|alias>
@@ -220,7 +220,7 @@ Success prints a brief summary (localId/title/status/url); pass --full for the r
 HTTP: POST .../repositories/{repo}/changeRequests
 
 --reviewer accepts comma-separated userIds (OpenAPI reviewerUserIds), same as mrs +create.
---work-item accepts comma-separated ZYPT serials or internal ids; each is GETed before
+--work-item accepts comma-separated serials (e.g. YXCLI-1) or internal ids; each is GETed before
 create (abort if missing). Body workItemIds is a comma-separated string (OpenAPI). After create the CLI
 verifies via workitem extRelationRecords, attempts repair if needed, and fails
 (ok=false) if links remain missing.
@@ -1100,8 +1100,8 @@ GET of the MR first (also under --dry-run, like #93 patchset resolution):
     combined (PUT body then carries the resolved title too).
 
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --dry-run
-  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item ZYPT-5573 --dry-run
-  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item ZYPT-5573
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item YXCLI-1 --dry-run
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item YXCLI-1
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --wip --dry-run
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --unwip`,
 	Run: func(cmd *cobra.Command, args []string) {

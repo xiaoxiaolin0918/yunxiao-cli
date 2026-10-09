@@ -26,9 +26,9 @@ Failures distinguish cause: no path in profile edges (dry-run note / profile_edg
 platform rejected transition (error.subtype=platform_rejected_transition).
 
 
-  yunxiao workitem +bug-transition --id ZYPT-5768 --to processing \
+  yunxiao workitem +bug-transition --id YXCLI-1 --to processing \
     --plan-due-date 2026-09-20 --developer <uid> --dry-run
-  yunxiao workitem +bug-transition --id ZYPT-5768 --to testing \
+  yunxiao workitem +bug-transition --id YXCLI-1 --to testing \
     --plan-due-date 2026-09-20 --developer <uid> \
     --responsible-person <uid> --bug-reason "代码缺陷：简述根因" --bug-impact-scope "影响模块/范围简述" --yes
 

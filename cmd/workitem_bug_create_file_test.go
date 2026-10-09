@@ -34,6 +34,17 @@ func TestBugCreateFileFlagsHelp(t *testing.T) {
 	if tff == nil || !strings.Contains(strings.ToLower(tff.Usage), "windows") {
 		t.Fatalf("--title-file usage should mention Windows: %q", tff.Usage)
 	}
+	mod := workitemBugCreateCmd.Flags().Lookup("module")
+	if mod == nil || mod.DefValue != "" {
+		t.Fatalf("--module default must be empty (no Zhiyi hard default), got %#v", mod.DefValue)
+	}
+	env := workitemBugCreateCmd.Flags().Lookup("environment")
+	if env == nil || env.DefValue != "" {
+		t.Fatalf("--environment default must be empty (no Zhiyi hard default), got %#v", env.DefValue)
+	}
+	if strings.Contains(long, "--module MES") || strings.Contains(long, "Defaults: --environment") {
+		t.Fatalf("+bug-create Long still documents Zhiyi hard defaults: %s", long)
+	}
 	df := workitemBugCreateCmd.Flags().Lookup("description")
 	if df == nil || !strings.Contains(df.Usage, "description-file") {
 		t.Fatalf("--description usage should point at --description-file: %q", df.Usage)

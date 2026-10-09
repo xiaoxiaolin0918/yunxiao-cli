@@ -32,14 +32,15 @@ Windows / PowerShell: for Chinese title or description, prefer --title-file /
 --description-file (UTF-8, BOM stripped) over inline flags. Use only one of each
 pair (--title vs --title-file, --description vs --description-file).
 
-  # Zhiyi (full fields); Windows Chinese prefer *-file
+  # Generic / sandbox first (play); module/env omitted unless you pass them
+  yunxiao workitem +bug-create --profile play \
+    --title "fix" --description "steps" --sprint <id> --dry-run
+
+  # Tenant with module/env fields (e.g. zhiyi): pass explicitly
   yunxiao workitem +bug-create --profile zhiyi \
     --title-file ./title.txt --description-file ./desc.md \
+    --module <module> --environment <env> \
     --expected-completion 2026-09-20 --sprint <id> --dry-run
-
-  # Sandbox / non-Zhiyi (play)
-  yunxiao workitem +bug-create --profile play \
-    --title "标题" --description "描述" --sprint <id> --dry-run
 
   yunxiao workitem +bug-create --minimal --title "…" --description "…" --sprint <id> --yes
 
@@ -47,7 +48,9 @@ Required-field precheck (same as workitem create / #95 / #107): before POST (als
 
 If --sprint is omitted, searches recent Bug sprints and errors with a suggestion (does not create).
 
-Defaults: --environment 测试环境, --module MES, --priority high, --serious-level normal,
+Defaults: --priority high, --serious-level normal;
+--module / --environment default empty and are sent only when explicitly set (or non-empty)
+and the profile configures those fields (allowed_* gates apply only then);
 --assigned-to from profile.default_assigned_to (or self),
 --verifier from flag → profile.default_verifier → workitem_defaults[bug_type_id].verifier
 (warn on stderr if still unset — SOP expects a verifier at create time).
@@ -120,17 +123,33 @@ workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 			}
 		}
 
-		if wantEnv {
+		// Empty CLI defaults must not trip allowed_* gates or send blank custom fields.
+		// Send/gate only when the flag was explicitly set or the value is non-empty.
+		sendEnv := wantEnv && (cmd.Flags().Changed("environment") || strings.TrimSpace(environment) != "")
+		sendModule := wantModule && (cmd.Flags().Changed("module") || strings.TrimSpace(module) != "")
+		if sendEnv {
+			if strings.TrimSpace(environment) == "" {
+				handleErr(fmt.Errorf("--environment requires a non-empty value when set"))
+				return
+			}
 			if !profile.AllowedContains(pf.AllowedEnvironments, environment) {
 				handleErr(fmt.Errorf("--environment 仅支持 %s", strings.Join(pf.AllowedEnvironments, "/")))
 				return
 			}
+		} else {
+			environment = ""
 		}
-		if wantModule {
+		if sendModule {
+			if strings.TrimSpace(module) == "" {
+				handleErr(fmt.Errorf("--module requires a non-empty value when set"))
+				return
+			}
 			if !profile.AllowedContains(pf.AllowedModules, module) {
 				handleErr(fmt.Errorf("--module 仅支持 %s", strings.Join(pf.AllowedModules, "/")))
 				return
 			}
+		} else {
+			module = ""
 		}
 
 		c, _, err := mustClient()
@@ -300,8 +319,8 @@ func init() {
 	workitemBugCreateCmd.Flags().String("title-file", "", "UTF-8 file for title (BOM stripped; preferred on Windows for Chinese)")
 	workitemBugCreateCmd.Flags().String("description", "", "Markdown description (required unless --description-file)")
 	workitemBugCreateCmd.Flags().String("description-file", "", "UTF-8 Markdown file (BOM stripped; preferred on Windows for Chinese)")
-	workitemBugCreateCmd.Flags().String("environment", "测试环境", "生产环境 / 测试环境 (only if profile configures environment field)")
-	workitemBugCreateCmd.Flags().String("module", "MES", "MES / OMS / PDM / 系统服务 (only if profile configures module field)")
+	workitemBugCreateCmd.Flags().String("environment", "", "optional; sent only when set and profile configures environment field")
+	workitemBugCreateCmd.Flags().String("module", "", "optional; sent only when set and profile configures module field")
 	workitemBugCreateCmd.Flags().String("priority", "high", "urgent/high/medium/low (needs bug_create_fields.priority map) or option id")
 	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal/severe/normal/slight (synonyms: serious→severe, minor→slight; needs bug_create_fields.serious_level map) or option id")
 	workitemBugCreateCmd.Flags().String("expected-completion", "", "YYYY-MM-DD (required only if profile configures ExpCompletionTime)")
