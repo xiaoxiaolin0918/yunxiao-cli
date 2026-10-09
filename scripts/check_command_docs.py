@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 """Fail CI if docs drift from core CLI surface or README pins stale patch tags outside changelog.
 
-Wave3: parse rootCmd.AddCommand (and selected parent.AddCommand children) from cmd/*.go;
+Wave3/Wave4: parse rootCmd.AddCommand (and selected parent.AddCommand children) from cmd/*.go;
 require each Use token under docs/wiki/ or AGENTS.md; keep command-tree.md in sync.
 """
 from __future__ import annotations
@@ -40,6 +40,16 @@ CHILD_PARENTS = {
     "pipelineCmd": "pipeline",
     "aliasCmd": "alias",
     "skillsCmd": "skills",
+    # Wave4: more top-level parents whose direct children are inventory-checked.
+    "packagesCmd": "packages",
+    "organizationCmd": "organization",
+    "versionsCmd": "versions",
+    "sprintCmd": "sprint",
+    "programsCmd": "programs",
+    "browseCmd": "browse",
+    "testhubCmd": "testhub",
+    "configCmd": "config",
+    "projectCmd": "project",
 }
 
 PINNED_TAG = re.compile(r"releases/tag/v\d+\.\d+\.\d+")
