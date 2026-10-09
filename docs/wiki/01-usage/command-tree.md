@@ -50,6 +50,16 @@
 | `auth probe-oauth` | `authProbeCmd` |
 | `auth refresh` | `authRefreshCmd` |
 
+## `browse` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `browse pipeline` | `browsePipelineCmd` |
+| `browse workitem` | `browseWorkitemCmd` |
+| `browse mr` | `browseMRCmd` |
+| `browse repo` | `browseRepoCmd` |
+| `browse url` | `browseURLCmd` |
+
 ## `codeup` 子命令
 
 | 命令 | Go 变量 |
@@ -62,6 +72,31 @@
 | `codeup mrs` | `codeupMrsCmd` |
 | `codeup protected-branches` | `codeupProtectedBranchesCmd` |
 | `codeup tags` | `codeupTagsCmd` |
+
+## `config` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `config show` | `configShowCmd` |
+| `config set` | `configSetCmd` |
+| `config path` | `configPathCmd` |
+
+## `organization` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `organization user` | `orgUserCmd` |
+| `organization list` | `orgListCmd` |
+| `organization members` | `orgMembersCmd` |
+| `organization departments` | `orgDepartmentsCmd` |
+| `organization roles` | `orgRolesCmd` |
+
+## `packages` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `packages repos` | `packagesReposCmd` |
+| `packages artifacts` | `packagesArtifactsCmd` |
 
 ## `pipeline` 子命令
 
@@ -81,6 +116,22 @@
 | `pipeline runner-groups` | `pipelineRunnerGroupsCmd` |
 | `pipeline vm-deploy` | `pipelineVMDeployCmd` |
 
+## `programs` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `programs search` | `programsSearchCmd` |
+
+## `project` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `project list` | `projectListCmd` |
+| `project get` | `projectGetCmd` |
+| `project my-open-items` | `projectMyOpenItemsCmd` |
+| `project created-by-me` | `projectCreatedByMeCmd` |
+| `project labels` | `projectLabelsCmd` |
+
 ## `skills` 子命令
 
 | 命令 | Go 变量 |
@@ -89,6 +140,37 @@
 | `skills read` | `skillsReadCmd` |
 | `skills path` | `skillsPathCmd` |
 | `skills install` | `skillsInstallCmd` |
+
+## `sprint` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `sprint current` | `sprintCurrentCmd` |
+| `sprint list` | `sprintListCmd` |
+| `sprint get` | `sprintGetCmd` |
+| `sprint create` | `sprintCreateCmd` |
+| `sprint update` | `sprintUpdateCmd` |
+
+## `testhub` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `testhub plans` | `testhubPlansCmd` |
+| `testhub directories` | `testhubDirectoriesCmd` |
+| `testhub cases` | `testhubCasesCmd` |
+| `testhub case-comments` | `testhubCaseCommentsCmd` |
+| `testhub results` | `testhubResultsCmd` |
+| `testhub plan-comments` | `testhubPlanCommentsCmd` |
+| `testhub repos` | `testhubReposCmd` |
+
+## `versions` 子命令
+
+| 命令 | Go 变量 |
+|------|---------|
+| `versions list` | `versionsListCmd` |
+| `versions create` | `versionsCreateCmd` |
+| `versions update` | `versionsUpdateCmd` |
+| `versions delete` | `versionsDeleteCmd` |
 
 ## `workitem` 子命令
 
