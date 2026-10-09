@@ -64,7 +64,7 @@ func pkgReposListAssert(t *testing.T, stdout *bytes.Buffer, hits *int, checkURL 
 	}
 }
 
-func TestPackagesReposListRepoTypesDryRun(t *testing.T) {
+func TestPackagesReposListRepoTypesOnlyBatchDryRun(t *testing.T) {
 	stdout, hits := pkgReposListSetup(t, "types")
 	rootCmd.SetArgs([]string{
 		"packages", "repos", "list",
@@ -85,7 +85,7 @@ func TestPackagesReposListRepoTypesDryRun(t *testing.T) {
 	})
 }
 
-func TestPackagesReposListRepoCategoriesDryRun(t *testing.T) {
+func TestPackagesReposListRepoCategoriesOnlyBatchDryRun(t *testing.T) {
 	stdout, hits := pkgReposListSetup(t, "cats")
 	rootCmd.SetArgs([]string{
 		"packages", "repos", "list",
