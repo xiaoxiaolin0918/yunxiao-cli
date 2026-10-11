@@ -304,6 +304,7 @@ yunxiao project list --name demo
 yunxiao project labels list --space-id <id>   # id/name/color (#141)
 yunxiao project +my-open-items
 yunxiao project +created-by-me --status-stage 1,2
+yunxiao search workitem --q login --category Bug   # #352 薄路由；等同 workitem search --subject
 yunxiao workitem search --assigned-to self --category Req --priority <id>
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
 yunxiao workitem search --category Bug --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59"
@@ -542,6 +543,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.43** — `yunxiao search <type>` 显式类型路由薄门面（#352）：workitem/issue、mr/mrs、repo/repos、case/cases、app-tag、pipeline；`--q`/`--query` 映射各域关键词旗标；同步 wiki 与 yx 迁移表
 - **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami 在 /platform/user 前静默 OAuth 刷新，输出 auth_refresh + access_expired；新增 `yunxiao auth refresh [--dry-run]`；临近过期提示在有 refresh_token 时优先 auth refresh（#170）；CSDN 系列外宣 wiki 大纲（#169）
 - **0.16.40** — `yunxiao update` 同步刷新二进制旁 `skills/` 与 `profiles/`（#160）；Windows 一键安装 `install.ps1`（#161）；`scripts/bump_release.py` 版本 + 双语 Changelog + wiki stub（#162）；play 沙箱冒烟清单（#163）；Linux CI `go test -race` 与 `make test-race` / `make ci`（#164）；只读 `yunxiao status` 聚合工作项 / 开放 MR / 可选流水线门禁（#165）；`profile doctor --write` 同步 `allowed_modules` / `allowed_environments` 漂移（#166）；退役 npm OIDC 发布文档精简（#167）
