@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/yunxiao-cli/yunxiao/internal/output"
 )
 
 // unifiedSearchRoute describes one type alias group for `yunxiao search`.
@@ -96,12 +98,14 @@ func resolveUnifiedSearchRoute(typeName string) (unifiedSearchRoute, error) {
 func unifiedSearchTypeHelpTable() string {
 	var b strings.Builder
 	b.WriteString("Supported types (explicit router; no multi-domain merge):\n")
-	b.WriteString("  workitem | issue     -> workitem search           (--q/--query -> --subject)\n")
-	b.WriteString("  mr | mrs             -> codeup mrs list           (--q/--query -> --search)\n")
-	b.WriteString("  repo | repos         -> codeup repos list         (--q/--query -> --search)\n")
-	b.WriteString("  case | cases         -> testhub cases search      (no keyword; --q errors)\n")
-	b.WriteString("  app-tag              -> appstack tags search      (--q/--query -> --search)\n")
-	b.WriteString("  pipeline             -> pipeline list             (--q/--query -> --name)\n")
+	for _, r := range unifiedSearchRoutes() {
+		aliases := strings.Join(r.Aliases, " | ")
+		qNote := "(no keyword; --q errors)"
+		if r.QueryFlag != "" {
+			qNote = fmt.Sprintf("(--q/--query -> --%s)", r.QueryFlag)
+		}
+		b.WriteString(fmt.Sprintf("  %-20s -> %-25s %s\n", aliases, r.TargetPath, qNote))
+	}
 	b.WriteString("Not in v1: packages, appstack change-requests, default/all-domain search.\n")
 	b.WriteString("Authoritative schemas stay on the target command (this is only a router).")
 	return b.String()
@@ -182,6 +186,11 @@ func runUnifiedSearch(cmd *cobra.Command, args []string) {
 		handleErr(fmt.Errorf("%s flag parse: %w (see: %s)", route.TargetPath, err, route.SchemaHint))
 		return
 	}
+	// DisableFlagParsing skips root PersistentPreRun's snapshot of late --format/--jq.
+	// Target.ParseFlags updates globalFormat/globalJQ via inherited persistent flags;
+	// re-apply so output.* matches what the user passed after `search`.
+	output.Format = globalFormat
+	output.JQ = globalJQ
 	pos := route.Target.Flags().Args()
 	switch {
 	case route.Target.Run != nil:
