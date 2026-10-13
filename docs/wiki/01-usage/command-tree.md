@@ -29,6 +29,7 @@
 | `packages` | `packagesCmd` |
 | `testhub` | `testhubCmd` |
 | `appstack` | `appstackCmd` |
+| `search` | `searchCmd` |
 | `status` | `statusCmd` |
 | `update` | `updateCmd` |
 

@@ -295,6 +295,7 @@ yunxiao project list --name demo
 yunxiao project labels list --space-id <id>   # id/name/color (#141)
 yunxiao project +my-open-items
 yunxiao project +created-by-me --status-stage 1,2
+yunxiao search workitem --q login --category Bug   # #352 thin router; same as workitem search --subject
 yunxiao workitem search --assigned-to self --category Req --priority <id>
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
 yunxiao workitem search --category Bug --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59"
@@ -568,6 +569,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.43** — `yunxiao search <type>` thin router (#352): workitem/issue, mr/mrs, repo/repos, case/cases, app-tag, pipeline; `--q`/`--query` maps to domain keyword flags; wiki + yx migration updated
 - **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami silent OAuth refresh before /platform/user with auth_refresh + access_expired fields; new `yunxiao auth refresh [--dry-run]`; near-expiry hints prefer auth refresh when refresh_token present (#170); CSDN series outreach wiki outline (#169)
 - **0.16.40** — `yunxiao update` also refreshes `skills/` and `profiles/` beside the binary (#160); Windows one-line install via `install.ps1` (#161); `scripts/bump_release.py` for version + bilingual Changelog + wiki stub (#162); play-sandbox smoke checklist (#163); Linux CI `go test -race` + `make test-race` / `make ci` (#164); read-only `yunxiao status` aggregating workitems / open MRs / optional pipeline gates (#165); `profile doctor --write` syncs `allowed_modules` / `allowed_environments` drift (#166); retired npm OIDC publish docs trimmed (#167)

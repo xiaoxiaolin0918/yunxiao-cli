@@ -10,6 +10,7 @@
 | 健康检查 | `yunxiao doctor` / `whoami` | read；含 OAuth 临期提醒 |
 | 打开控制台 | `yunxiao browse` | read；`--print-only` / `--dry-run` 只打印 URL |
 | 本地别名 | `yunxiao alias` | set/list/delete；禁止别名内嵌 `--yes`/`-y` |
+| 统一搜索 | `yunxiao search <type>` | read；类型路由薄门面，权威 schema 仍看原命令；见 [unified-search.md](./unified-search.md) |
 | 组织/项目 | `organization` / `project` / `+onboard` | 读多写少；删项目高风险 |
 | 工作项 | `workitem` | 创建/更新/流转多为 write；高风险看 help |
 | Codeup | `codeup`（`mrs` / `link`/`unlink` / `+open-mrs` / `+create`） | 合并 MR/删除分支等高危需 `--yes`；`link`/`unlink`/`update` 为 write |

@@ -10,7 +10,7 @@
 | `yx workflow` / `yx run` | `yunxiao pipeline` · `pipeline run` · `+pending` / `+approve` | 本仓库流水线更深 |
 | `yx browse` | `yunxiao browse` | pipeline / workitem / mr / repo / url；`--print-only` |
 | `yx status` | `yunxiao status`（聚合 open workitems / open MRs；`--pipeline-id`/`--all-pipelines` 时含 pending gates） | 关闭原 Known gaps 条目 | 见 Known gaps |
-| `yx search` | 各域 `list` / `workitem search` | 无统一 search 入口 |
+| `yx search` | `yunxiao search <type>`（薄路由）→ `workitem search` / `codeup mrs|repos list` / `testhub cases search` / `appstack tags search` / `pipeline list` | 显式类型；见 [unified-search.md](../01-usage/unified-search.md)；不做多域混搜 |
 | `yx alias` | `yunxiao alias set|list|delete` | 别名不得内嵌 `--yes`/`-y`；存 `~/.config/yunxiao/aliases.json` |
 | `yx auth login --token` | `yunxiao auth login --browser` 或 `--token` | 推荐 OAuth |
 | 配置 `~/.yx` | `~/.config/yunxiao/` + profiles | 多租户用 `--profile` |
