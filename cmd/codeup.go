@@ -940,15 +940,27 @@ Output views (#130; exactly one of):
                        plus the "can it merge?" set: mergeable, conflictCheckStatus,
                        checkList (incl. requirementRuleItems), supportMergeFastForwardOnly,
                        allRequirementsPass, ahead, behind, and reviewers as
-                       [{name, opinion}] (reviewOpinionStatus). Fields the API does
-                       not return are omitted. meta.projection = "summary".
+                       [{name, opinion}] (reviewOpinionStatus). When GetChangeRequest
+                       actually returns related work items, a compact relatedWorkItems
+                       digest is included; null/absent relatedWorkItems are omitted.
+                       Fields the API does not return are omitted. meta.projection = "summary".
   --brief              localId/title/status/state/wip/detailUrl/url only.
-  --full               the raw object, identical to the pre-#130 default output.
+  --full               the raw object, identical to the pre-#130 default output
+                       (null relatedWorkItems / workItemIds stripped — see below).
 Compatibility switch: YUNXIAO_MRS_GET_VIEW=full|summary|brief picks the view when
 no view flag is given (flag > env > default summary), so scripts that must run on
 CLIs before and after #130 can set YUNXIAO_MRS_GET_VIEW=full instead of --full.
 Other values fail before any request. --dry-run shows the chosen view under
 request.projection.
+
+Related work items (#354): GetChangeRequest does NOT document relatedWorkItems and
+often returns null/omits it even when the MR is linked via Projex
+extRelationRecords (category=codeupMergeRequest). Do NOT treat missing/null
+relatedWorkItems as "unlinked"; title/branch containing ZYPT-xxxx is also not a
+formal link. meta.related_work_items always notes this (reliable=false) and gives
+a verify command. Reliable checks:
+  yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial> --dry-run
+  GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest
 
   yunxiao codeup mrs get --repo <id> --local-id 9
   yunxiao codeup mrs get --repo <id> --local-id 9 --full --jq '.data.description'

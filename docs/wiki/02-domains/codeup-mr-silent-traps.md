@@ -12,7 +12,19 @@ CLI 0.16.12+：
 - 创建后通过 `workitems/{id}/extRelationRecords?category=codeupMergeRequest` 核对；缺失则尝试 `CreateWorkitemExtRelationRecord` 补挂。
 - 仍缺失则 **ok=false / 非 0 退出**（不假装成功）。MR 可能已存在：关单重建，或在网页补挂。
 
-`mrs get` 的详情响应通常不含工作项字段；核对请用工作项侧 `extRelationRecords`，或创建路径返回的 `meta.work_item_linked`。
+`mrs get` / GetChangeRequest **勿依赖** `relatedWorkItems`（#354）：官方文档未列该字段，实测常为 `null` 或省略，即使 MR 已通过 Projex `extRelationRecords`（`category=codeupMergeRequest`）正式关联。标题或分支含 `ZYPT-xxxx` 也不等于正式关联。CLI 会：
+
+- 去掉误导性的 `relatedWorkItems: null` / `workItemIds: null`（summary / `--full` 皆然）；
+- 若 API **确实**返回了非空关联，summary 回显精简 `relatedWorkItems` 摘要；
+- 在 `meta.related_work_items` 标明 `reliable:false`，并给出核对命令。
+
+可靠核对：
+
+```bash
+yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial> --dry-run
+# 或：GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest
+# 创建路径还可看 meta.work_item_linked
+```
 
 ## list 端点忽略过滤参数
 

@@ -49,7 +49,7 @@ WIP**（`UpdateChangeRequest` 仅 title/description）——需网页操作：MR
 `codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）与 CLI 计算的 `status` / `wip`（#132）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`，并加 `wip`；`--brief` 只出 localId/title/status/state/wip/url。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
 `codeup mrs list` / `+open-mrs` 会为每条 MR 注入可点击 `url`（优先 API `detailUrl`，否则拼控制台链接）。`mrs get` / `create` / `+create` / `update` 写入 `meta.url`。`get` 将 OpenAPI `status` 同步为脚本友好的 `state`。
 
-`mrs get` 输出三档（#130）：默认 **summary**（brief 字段 + `mergeable` / `conflictCheckStatus` / `checkList`(含 `requirementRuleItems`) / `supportMergeFastForwardOnly` / `allRequirementsPass` / `ahead` / `behind` / `reviewers` 摘要 `[{name, opinion}]`；API 未返回的键省略，`meta.projection="summary"`）；`--brief` 只出 localId/title/status/state/detailUrl/url；`--full` 为完整原始对象（#130 之前的默认输出）。兼容开关 `YUNXIAO_MRS_GET_VIEW=full|summary|brief`（flag > env > 默认 summary，非法值在发请求前报错；`--dry-run` 在 `request.projection` 显示所选档位）——新旧 CLI 通吃的脚本设 `YUNXIAO_MRS_GET_VIEW=full` 即可。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
+`mrs get` 输出三档（#130）：默认 **summary**（brief 字段 + `mergeable` / `conflictCheckStatus` / `checkList`(含 `requirementRuleItems`) / `supportMergeFastForwardOnly` / `allRequirementsPass` / `ahead` / `behind` / `reviewers` 摘要 `[{name, opinion}]`；若 API 真有关联工作项则含精简 `relatedWorkItems`；API 未返回的键省略，`meta.projection="summary"`）；`--brief` 只出 localId/title/status/state/detailUrl/url；`--full` 为完整原始对象（#130 之前的默认输出；会剥掉误导性的 `relatedWorkItems:null`）。**勿依赖** `relatedWorkItems` 判是否挂单（#354）；看 `meta.related_work_items` 与 `mrs link --dry-run`。兼容开关 `YUNXIAO_MRS_GET_VIEW=full|summary|brief`（flag > env > 默认 summary，非法值在发请求前报错；`--dry-run` 在 `request.projection` 显示所选档位）——新旧 CLI 通吃的脚本设 `YUNXIAO_MRS_GET_VIEW=full` 即可。`create` / `+create` / `update` **默认 brief 摘要**（破坏性：依赖完整 MR JSON 的脚本请加 `--full`）。
 
 ```bash
 yunxiao codeup mrs list --state opened
@@ -262,6 +262,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 - --work-item on mrs create / mrs +create: body sends comma-separated workItemIds string.
 - After create: verify via workitem extRelationRecords (category codeupMergeRequest); repair once if missing; **fail** if still missing.
 - Remediation when failed (0.16.17+): `yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial>` (or `mrs update --work-item`); older: close/recreate or Codeup web UI.
+- **Do not rely on `mrs get` `relatedWorkItems`** (#354): GetChangeRequest does not document it and often returns null/absent even when Projex links exist. CLI strips null keys, surfaces a digest in summary only when the API returns real items, and sets `meta.related_work_items.reliable=false` with a verify hint. Title/branch `ZYPT-xxxx` ≠ formal link. Verify with `mrs link --dry-run` or workitem `extRelationRecords?category=codeupMergeRequest`.
 
 ## Link / unlink existing MR (0.16.17+ / #54)
 
