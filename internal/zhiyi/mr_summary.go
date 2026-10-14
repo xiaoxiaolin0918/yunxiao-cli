@@ -3,8 +3,11 @@ package zhiyi
 // SummaryMergeRequest is the mid-tier `mrs get` view between --brief and --full
 // (#130 item 3): the script-stable brief fields plus the "can it merge?" facts
 // (mergeable, conflictCheckStatus, checkList with requirementRuleItems, a
-// reviewers digest, and the documented gating booleans). Fields the API does
-// not return are omitted; null/"" brief keys stay (same as BriefMergeRequest).
+// reviewers digest, and the documented gating booleans). When GetChangeRequest
+// actually returns related work items, a compact relatedWorkItems digest is
+// included (#354); null/absent relatedWorkItems are omitted — do not treat that
+// as "unlinked" (see meta.related_work_items). Fields the API does not return
+// are omitted; null/"" brief keys stay (same as BriefMergeRequest).
 func SummaryMergeRequest(mr map[string]any) map[string]any {
 	s := StabilizeMergeRequest(mr)
 	out := map[string]any{
@@ -25,6 +28,10 @@ func SummaryMergeRequest(mr map[string]any) map[string]any {
 	copyMRFieldIfPresent(out, mr, "behind", "behind")
 	if rs := ReviewersSummary(mr); len(rs) > 0 {
 		out["reviewers"] = rs
+	}
+	// #354: surface related work items when GetChangeRequest actually returned them.
+	if wi := RelatedWorkItemsSummary(mr); len(wi) > 0 {
+		out["relatedWorkItems"] = wi
 	}
 	return out
 }

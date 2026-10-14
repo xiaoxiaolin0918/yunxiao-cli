@@ -208,6 +208,8 @@ func MRStatus(mr map[string]any) string {
 // "state" is an alias of "status" for consumers that expect GitLab-like naming (issue #46).
 // "wip" (0.16.x, #132) is true when the push-review status is UNDER_DEV (开发中) or
 // workInProgress is true; omitted when the object carries no WIP signal.
+// Null relatedWorkItems / workItemIds are stripped (#354): GetChangeRequest often
+// returns them as null even when Projex extRelationRecords already link the MR.
 func StabilizeMergeRequest(mr map[string]any) map[string]any {
 	if mr == nil {
 		return map[string]any{}
@@ -234,6 +236,8 @@ func StabilizeMergeRequest(mr map[string]any) map[string]any {
 		out["detailUrl"] = u
 		out["url"] = u
 	}
+	// #354: drop misleading null relatedWorkItems / workItemIds (often null while Projex links exist).
+	StripNullRelatedWorkItems(out)
 	return out
 }
 
@@ -254,7 +258,8 @@ func BriefMergeRequest(mr map[string]any) map[string]any {
 	return brief
 }
 
-// EnrichMergeRequestMeta sets meta.url from MergeRequestURL when available.
+// EnrichMergeRequestMeta sets meta.url from MergeRequestURL when available and
+// annotates related_work_items reliability (#354).
 func EnrichMergeRequestMeta(meta map[string]any, mr map[string]any) map[string]any {
 	if meta == nil {
 		meta = map[string]any{}
@@ -262,7 +267,7 @@ func EnrichMergeRequestMeta(meta map[string]any, mr map[string]any) map[string]a
 	if u := MergeRequestURL(mr); u != "" {
 		meta["url"] = u
 	}
-	return meta
+	return AnnotateRelatedWorkItemsMeta(meta, mr)
 }
 
 // AttachMergeRequestURLs injects a clickable "url" onto each MR object in list

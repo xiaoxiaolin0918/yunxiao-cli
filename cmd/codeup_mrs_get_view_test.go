@@ -27,6 +27,7 @@ const mrsGetFixture = `{
   "behind": 0,
   "description": "a very long description",
   "targetProjectPathWithNamespace": "org/repo",
+  "relatedWorkItems": null,
   "reviewers": [
     {"name": "alice", "reviewOpinionStatus": "PASS", "state": "active"},
     {"name": "bob", "hasReviewed": false}
@@ -273,4 +274,50 @@ func mrsGetDryRunProjection(t *testing.T, env output.Envelope) map[string]any {
 		t.Fatalf("request.projection missing: %s", raw)
 	}
 	return proj
+}
+
+
+// TestMrsGetRelatedWorkItemsNull (#354): GetChangeRequest often returns
+// relatedWorkItems:null even when Projex links exist. CLI must strip the null
+// key and annotate meta.related_work_items as unreliable.
+func TestMrsGetRelatedWorkItemsNull(t *testing.T) {
+	_, hits := newMrsGetServer(t)
+	env, _, code, raw, _ := runMrsGet(t, false, "", "--full")
+	if code != 0 || !env.OK {
+		t.Fatalf("code=%d ok=%v raw=%s", code, env.OK, raw)
+	}
+	if *hits != 1 {
+		t.Fatalf("hits=%d", *hits)
+	}
+	payload, _ := json.Marshal(env.Data)
+	s := string(payload)
+	if strings.Contains(s, `"relatedWorkItems"`) {
+		t.Fatalf("--full must strip null relatedWorkItems: %s", s)
+	}
+	if env.Meta == nil {
+		t.Fatal("meta missing")
+	}
+	note, _ := env.Meta["related_work_items"].(map[string]any)
+	if note == nil {
+		t.Fatalf("meta.related_work_items missing: %#v", env.Meta)
+	}
+	if note["reliable"] != false {
+		t.Fatalf("reliable=%v", note["reliable"])
+	}
+	if note["from_get"] != false {
+		t.Fatalf("from_get=%v", note["from_get"])
+	}
+	verify, _ := note["verify"].(string)
+	if !strings.Contains(verify, "mrs link") {
+		t.Fatalf("verify=%q", verify)
+	}
+
+	env2, _, code2, raw2, _ := runMrsGet(t, false, "", "--summary")
+	if code2 != 0 || !env2.OK {
+		t.Fatalf("summary code=%d raw=%s", code2, raw2)
+	}
+	payload2, _ := json.Marshal(env2.Data)
+	if strings.Contains(string(payload2), "relatedWorkItems") {
+		t.Fatalf("summary must omit null relatedWorkItems: %s", payload2)
+	}
 }
