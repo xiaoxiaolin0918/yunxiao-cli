@@ -17,6 +17,8 @@ func mrSummaryFixture() map[string]any {
 		"conflictCheckStatus":            "NO_CONFLICT",
 		"supportMergeFastForwardOnly":    true,
 		"allRequirementsPass":            true,
+		"sourceBranch":                   "feat/x",
+		"targetBranch":                   "master",
 		"targetProjectPathWithNamespace": "org/repo",
 		"reviewers": []any{
 			map[string]any{"name": "alice", "reviewOpinionStatus": "PASS", "state": "active"},
@@ -48,6 +50,8 @@ func TestSummaryMergeRequest(t *testing.T) {
 				`"checkList":{"requirementRuleItems":[`,
 				`"supportMergeFastForwardOnly":true`,
 				`"allRequirementsPass":true`,
+				`"sourceBranch":"feat/x"`,
+				`"targetBranch":"master"`,
 			},
 			wantNot: []string{"description", "subscribers"},
 		},
@@ -77,6 +81,15 @@ func TestSummaryMergeRequest(t *testing.T) {
 				mr["mergeable"] = nil
 			},
 			wantNot: []string{`"mergeable"`},
+		},
+		{
+			name: "null comment counts omitted; non-null kept",
+			mutate: func(mr map[string]any) {
+				mr["totalCommentCount"] = nil
+				mr["unResolvedCommentCount"] = float64(1)
+			},
+			wantHas: []string{`"unResolvedCommentCount":1`},
+			wantNot: []string{`"totalCommentCount"`},
 		},
 	}
 	for _, tc := range cases {

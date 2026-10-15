@@ -100,6 +100,25 @@ func runIDForRun(m map[string]any) string {
 	return mapFieldID(m, "id")
 }
 
+// EnsurePipelineRunID sets runId on a run map when missing/null, using pipelineRunId /
+// buildId / bare id (#359). Also backfills pipelineRunId when only runId/id exists.
+// Mutates m in place.
+func EnsurePipelineRunID(m map[string]any) {
+	if m == nil {
+		return
+	}
+	rid := runIDForRun(m)
+	if rid == "" {
+		return
+	}
+	if v, ok := m["runId"]; !ok || v == nil || strings.TrimSpace(fmt.Sprint(v)) == "" || fmt.Sprint(v) == "<nil>" {
+		m["runId"] = rid
+	}
+	if v, ok := m["pipelineRunId"]; !ok || v == nil {
+		m["pipelineRunId"] = rid
+	}
+}
+
 // EnrichPipelineMeta sets meta.url from PipelineURL when the pipeline id is resolvable.
 func EnrichPipelineMeta(meta map[string]any, pipeline map[string]any) map[string]any {
 	if meta == nil {

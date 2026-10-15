@@ -26,6 +26,12 @@ func SummaryMergeRequest(mr map[string]any) map[string]any {
 	copyMRFieldIfPresent(out, mr, "allRequirementsPass", "allRequirementsPass", "all_requirements_pass")
 	copyMRFieldIfPresent(out, mr, "ahead", "ahead")
 	copyMRFieldIfPresent(out, mr, "behind", "behind")
+	// #358: source/target branches are short and needed for dual-target / WIP checks.
+	copyMRFieldIfPresent(out, mr, "sourceBranch", "sourceBranch", "source_branch")
+	copyMRFieldIfPresent(out, mr, "targetBranch", "targetBranch", "target_branch")
+	// #358: surface comment counts only when GetChangeRequest returns non-null numbers.
+	copyMRFieldIfPresent(out, mr, "totalCommentCount", "totalCommentCount", "total_comment_count")
+	copyMRFieldIfPresent(out, mr, "unResolvedCommentCount", "unResolvedCommentCount", "unresolvedCommentCount", "un_resolved_comment_count")
 	if rs := ReviewersSummary(mr); len(rs) > 0 {
 		out["reviewers"] = rs
 	}

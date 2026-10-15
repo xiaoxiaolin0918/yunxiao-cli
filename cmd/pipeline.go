@@ -432,10 +432,18 @@ var pipelineFailedShortcut = &cobra.Command{
 var pipelineStatusShortcut = &cobra.Command{
 	Use:   "+status",
 	Short: "Shortcut: latest run status summary for a pipeline",
-	Long:  "Risk: read",
+	Long: `Risk: read
+HTTP: GET .../pipelines/{id}/runs/latestPipelineRun
+
+Default output is a compact projection (#359): pipeline_id, top-level status /
+resultStatus / runId, and latest_run with runId (normalized from pipelineRunId),
+timing, url, and stages/jobs status digest. Omits globalParams and other bulky
+config that often carries plaintext credentials/paths. Use --full for the raw
+latestPipelineRun object (pre-#359 shape).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pid, _ := cmd.Flags().GetString("pipeline-id")
+		full, _ := cmd.Flags().GetBool("full")
 		if err := requireFlags("pipeline-id", pid); err != nil {
 			handleErr(err)
 			return
@@ -451,7 +459,14 @@ var pipelineStatusShortcut = &cobra.Command{
 			return
 		}
 		if globalDryRun {
-			handleErr(output.DryRunResult(string(risk.Read), c.Preview("GET", path, nil, nil)))
+			preview := any(c.Preview("GET", path, nil, nil))
+			if !full {
+				preview = requestPreviewWithProjection{
+					RequestPreview: c.Preview("GET", path, nil, nil),
+					Projection:     map[string]any{"mode": "summary", "source": "default"},
+				}
+			}
+			handleErr(output.DryRunResult(string(risk.Read), preview))
 			return
 		}
 		var latest map[string]any
@@ -459,19 +474,43 @@ var pipelineStatusShortcut = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		latestAny := zhiyi.AttachPipelineRunURLs(latest, pid)
+		meta := map[string]any{"risk": risk.Read}
+		zhiyi.EnrichPipelineRunMeta(meta, latest, pid)
+		if full {
+			latestAny := zhiyi.AttachPipelineRunURLs(latest, pid)
+			// #359: API returns pipelineRunId; agents often read runId — normalize both ways.
+			if m, ok := latestAny.(map[string]any); ok {
+				zhiyi.EnsurePipelineRunID(m)
+			}
+			summary := map[string]any{
+				"pipeline_id": pid,
+				"latest_run":  latestAny,
+			}
+			for _, k := range []string{"status", "resultStatus", "pipelineRunId", "runId", "startTime", "endTime"} {
+				if m, ok := latestAny.(map[string]any); ok {
+					if v, ok := m[k]; ok {
+						summary[k] = v
+						continue
+					}
+				}
+				if v, ok := latest[k]; ok {
+					summary[k] = v
+				}
+			}
+			handleErr(output.Success(summary, meta))
+			return
+		}
+		runSummary := zhiyi.SummaryPipelineRun(latest, pid)
 		summary := map[string]any{
 			"pipeline_id": pid,
-			"latest_run":  latestAny,
+			"latest_run":  runSummary,
 		}
-		// extract common status fields if present
-		for _, k := range []string{"status", "resultStatus", "pipelineRunId", "startTime", "endTime"} {
-			if v, ok := latest[k]; ok {
+		meta["projection"] = "summary"
+		for _, k := range []string{"status", "resultStatus", "runId", "pipelineRunId", "startTime", "endTime"} {
+			if v, ok := runSummary[k]; ok {
 				summary[k] = v
 			}
 		}
-		meta := map[string]any{"risk": risk.Read}
-		zhiyi.EnrichPipelineRunMeta(meta, latest, pid)
 		handleErr(output.Success(summary, meta))
 	},
 }
@@ -1085,6 +1124,7 @@ func init() {
 	pipelineFailedShortcut.Flags().String("pipeline-id", "", "pipeline id (required)")
 	pipelineFailedShortcut.Flags().Int("per-page", 5, "how many failed runs")
 	pipelineStatusShortcut.Flags().String("pipeline-id", "", "pipeline id (required)")
+	pipelineStatusShortcut.Flags().Bool("full", false, "return raw latestPipelineRun (includes globalParams); default is compact summary (#359)")
 
 	pipelinePendingShortcut.Flags().String("pipeline-id", "", "pipeline id (optional with --all-pipelines)")
 	pipelinePendingShortcut.Flags().Bool("all-pipelines", false, "ListAll pipelines when --pipeline-id empty (page budget ~50 pages; hard-cap 50 pipelines)")

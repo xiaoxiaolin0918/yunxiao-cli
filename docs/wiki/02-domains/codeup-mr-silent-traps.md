@@ -66,6 +66,11 @@ CLI 现对 **数字 id** 校验是否在当前 organization/profile 可达仓清
 
 不匹配 → **直接报错**（不提供 `--yes` 绕过）。别名路径仍走 #49（未注册即失败）。
 
+## mrs get：summary 缺分支 / 评论计数恒 null（#358）
+
+- summary 现含 `sourceBranch` / `targetBranch`（双目标 MR、WIP 约定不必再 `--full`）。
+- `totalCommentCount` / `unResolvedCommentCount` 常为 API 返回的 null；CLI 剥离误导性 null，非 null 数字保留。核对未解决评论用 `mrs comments list`。
+
 ## comments create 缺省 patchset（0.16.31+ / #93）
 
 `GLOBAL_COMMENT` 省略 `--patchset-biz-id` 时，CLI 发一次只读 `GET .../changeRequests/{localId}/diffs/patches`（`--dry-run` 也会发，需凭证与网络；失败直接报错 `resolve latest patchset for MR <n>: …`、不回退；HTTP 错误仍是 `type:"api"` 并带状态码，hint 提示显式传 `--patchset-biz-id`），按以下规则选版本：

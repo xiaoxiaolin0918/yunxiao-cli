@@ -210,6 +210,7 @@ func MRStatus(mr map[string]any) string {
 // workInProgress is true; omitted when the object carries no WIP signal.
 // Null relatedWorkItems / workItemIds are stripped (#354): GetChangeRequest often
 // returns them as null even when Projex extRelationRecords already link the MR.
+// Null totalCommentCount / unResolvedCommentCount are stripped (#358) for the same reason.
 func StabilizeMergeRequest(mr map[string]any) map[string]any {
 	if mr == nil {
 		return map[string]any{}
@@ -238,6 +239,8 @@ func StabilizeMergeRequest(mr map[string]any) map[string]any {
 	}
 	// #354: drop misleading null relatedWorkItems / workItemIds (often null while Projex links exist).
 	StripNullRelatedWorkItems(out)
+	// #358: drop misleading null comment counts (often null while unresolved threads exist).
+	StripNullCommentCounts(out)
 	return out
 }
 
