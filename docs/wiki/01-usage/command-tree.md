@@ -106,6 +106,7 @@
 | `pipeline list` | `pipelineListCmd` |
 | `pipeline get` | `pipelineGetCmd` |
 | `pipeline create` | `pipelineCreateCmd` |
+| `pipeline copy` | `pipelineCopyCmd` |
 | `pipeline update` | `pipelineUpdateCmd` |
 | `pipeline diff` | `pipelineDiffCmd` |
 | `pipeline run` | `pipelineRunCmd` |

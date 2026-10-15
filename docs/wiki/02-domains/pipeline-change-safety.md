@@ -27,3 +27,18 @@
 
 - 仅当结构 diff 为空、全文 YAML 等价（含 sources/triggers）、且 `--name` 与线上一致时跳过 PUT（`mode=validate_noop`）；只改名或只改非结构字段仍会 PUT。
 - `--validate` 仍表示 diff-then-write；只读请用 `--validate --dry-run` 或 `--check`。
+
+## 复制流水线（0.16.44+ / #356）
+
+官方 OpenAPI **没有** `CopyPipeline`。CLI 提供：
+
+```bash
+yunxiao pipeline copy --id <src> --name <new> --dry-run
+yunxiao pipeline copy --id <src> --name <new> --yes
+# 同义：pipeline clone
+```
+
+实现：同企业内 GET 源流水线 YAML → POST 创建。--dry-run 仍会 GET 源配置以便预览 content_bytes / source_name，但不会 POST。
+
+**引用原样带走**：YAML 里的变量组、服务连接、代码源、主机组等 ID **不改写**；须在当前企业存在。跨企业复制不支持。
+

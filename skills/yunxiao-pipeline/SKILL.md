@@ -80,9 +80,14 @@ yunxiao pipeline +refuse --pipeline-id <id> --run-id <rid> --job-id <jid> --yes
 
 ```bash
 yunxiao pipeline create --name ci --file ./pipeline.yaml --dry-run
+yunxiao pipeline copy --id <src> --name <new> --dry-run
 yunxiao pipeline update --id <id> --name ci --file ./pipeline.yaml --dry-run
 # 用户确认后加 --yes
 ```
+
+`copy` / `clone`：同企业 get YAML + create（无官方 CopyPipeline）；变量组/服务连接等引用原样带 ID。
+
+`copy` / `clone`：同企业 get YAML + create（无官方 CopyPipeline）；变量组/服务连接等引用原样带 ID。
 
 `--file` 必须是 cwd 下相对路径。
 
