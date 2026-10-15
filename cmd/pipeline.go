@@ -35,9 +35,10 @@ Risk: reads are read; trigger/cancel/job mutations/gates are high-risk-write.
 Typed pipeline lifecycle:
   yunxiao pipeline get --id <id>
   yunxiao pipeline create --name <n> --file pipeline.yaml|--content '...'
+  yunxiao pipeline copy --id <src> --name <new>
   yunxiao pipeline update --id <id> --name <n> --file pipeline.yaml|--content '...'
 
-Risk: get/list=read; create/update=high-risk-write (YAML replaces pipeline definition).`,
+Risk: get/list=read; create/copy/update=high-risk-write (YAML replaces pipeline definition).`,
 }
 
 var pipelineListCmd = &cobra.Command{
@@ -589,6 +590,70 @@ Provide YAML via --file (relative) or --content.`,
 	},
 }
 
+var pipelineCopyCmd = &cobra.Command{
+	Use:     "copy",
+	Aliases: []string{"clone"},
+	Short:   "Copy a pipeline (get YAML + create; high-risk-write)",
+	Long: `Risk: high-risk-write
+HTTP: GET .../pipelines/{id} then POST .../pipelines  body {name, content}
+No official CopyPipeline OpenAPI; client-side get+create in the same organization.
+
+YAML references (variable groups, service connections, code sources, host groups)
+are reused by ID as-is — they must exist in the current org. Cross-org copy is
+not supported.
+
+  yunxiao pipeline copy --id <src> --name <new> --dry-run
+  yunxiao pipeline copy --id <src> --name <new> --yes
+  yunxiao pipeline clone --id <src> --name <new> --yes`,
+	Run: func(cmd *cobra.Command, args []string) {
+		flagOrg(globalOrg)
+		id, _ := cmd.Flags().GetString("id")
+		name, _ := cmd.Flags().GetString("name")
+		if err := requireFlags("id", id, "name", name); err != nil {
+			handleErr(err)
+			return
+		}
+		c, _, err := mustClient()
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		srcName, content, err := fetchPipelineNameAndFlow(cmd.Context(), c, id)
+		if err != nil {
+			handleErr(fmt.Errorf("pipeline copy: get source %s: %w", id, err))
+			return
+		}
+		path, err := c.FlowPath(cmd.Context(), "/pipelines")
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		body := map[string]any{"name": name, "content": content}
+		preview := c.Preview("POST", path, nil, map[string]any{
+			"name":               name,
+			"content_bytes":      len(content),
+			"content_preview":    truncateStr(content, 200),
+			"source_pipeline_id": id,
+			"source_name":        srcName,
+		})
+		handleErr(runMutating("pipeline copy", risk.HighRiskWrite, globalDryRun, globalYes, preview, func() error {
+			var out any
+			if err := c.Post(cmd.Context(), path, body, &out); err != nil {
+				return err
+			}
+			meta := map[string]any{
+				"risk":               risk.HighRiskWrite,
+				"source_pipeline_id": id,
+				"source_name":        srcName,
+				"content_bytes":      len(content),
+				"refs_note":          "YAML refs (variable groups / service connections / host groups / sources) reused by ID; same org only",
+			}
+			zhiyi.EnrichPipelineMeta(meta, asStringMap(out))
+			return output.Success(out, meta)
+		}))
+	},
+}
+
 var pipelineUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update pipeline name + YAML content (high-risk-write)",
@@ -991,6 +1056,8 @@ func init() {
 	pipelineCreateCmd.Flags().String("name", "", "pipeline name (required, max 60)")
 	pipelineCreateCmd.Flags().String("content", "", "pipeline YAML content")
 	pipelineCreateCmd.Flags().String("file", "", "relative path to YAML file")
+	pipelineCopyCmd.Flags().String("id", "", "source pipeline id (required)")
+	pipelineCopyCmd.Flags().String("name", "", "new pipeline name (required, max 60)")
 	pipelineUpdateCmd.Flags().String("id", "", "pipeline id (required)")
 	pipelineUpdateCmd.Flags().String("name", "", "pipeline name (required)")
 	pipelineUpdateCmd.Flags().String("content", "", "pipeline YAML content")
@@ -1074,5 +1141,5 @@ func init() {
 	pipelineHGCmd.AddCommand(pipelineHGListCmd)
 	pipelineFlowVGCmd.AddCommand(pipelineFlowVGListCmd, pipelineFlowVGGetCmd, pipelineFlowVGCreateCmd, pipelineFlowVGUpdateCmd, pipelineFlowVGDeleteCmd)
 	pipelineRMCmd.AddCommand(pipelineRMListCmd)
-	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineUpdateCmd, pipelineDiffCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineRunnerGroupsCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineQueueShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
+	pipelineCmd.AddCommand(pipelineListCmd, pipelineGetCmd, pipelineCreateCmd, pipelineCopyCmd, pipelineUpdateCmd, pipelineDiffCmd, pipelineRunCmd, pipelineJobCmd, pipelineSCCmd, pipelineHGCmd, pipelineFlowVGCmd, pipelineRMCmd, pipelineRunnerGroupsCmd, pipelineFailedShortcut, pipelineStatusShortcut, pipelinePendingShortcut, pipelineQueueShortcut, pipelineApproveShortcut, pipelineRefuseShortcut)
 }

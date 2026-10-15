@@ -405,6 +405,7 @@ yunxiao appstack orchestrations list --app my-app
 # v0.7
 yunxiao pipeline get --id <id>
 yunxiao pipeline create --name ci --file ./pipeline.yaml --dry-run
+yunxiao pipeline copy --id <src> --name <new> --dry-run
 yunxiao pipeline update --id <id> --name ci --file ./pipeline.yaml --dry-run
 yunxiao workitem attachments list --id <id>
 yunxiao workitem attachments create --id <id> --file ./shot.png --dry-run
@@ -569,6 +570,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — same-org get YAML + create; no CopyPipeline API; high-risk-write + `--dry-run` GET preview; YAML refs reused by ID (#356)
 - **0.16.43** — `yunxiao search <type>` thin router (#352): workitem/issue, mr/mrs, repo/repos, case/cases, app-tag, pipeline; `--q`/`--query` maps to domain keyword flags; wiki + yx migration updated
 - **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami silent OAuth refresh before /platform/user with auth_refresh + access_expired fields; new `yunxiao auth refresh [--dry-run]`; near-expiry hints prefer auth refresh when refresh_token present (#170); CSDN series outreach wiki outline (#169)

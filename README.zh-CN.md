@@ -414,6 +414,7 @@ yunxiao appstack orchestrations list --app my-app
 # v0.7
 yunxiao pipeline get --id <id>
 yunxiao pipeline create --name ci --file ./pipeline.yaml --dry-run
+yunxiao pipeline copy --id <src> --name <new> --dry-run
 yunxiao pipeline update --id <id> --name ci --file ./pipeline.yaml --dry-run
 yunxiao workitem attachments list --id <id>
 yunxiao workitem attachments create --id <id> --file ./shot.png --dry-run
@@ -543,6 +544,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — 同企业 get YAML + create；无官方 CopyPipeline；high-risk-write；`--dry-run` 会 GET 预览；YAML 引用按 ID 原样带走 (#356)
 - **0.16.43** — `yunxiao search <type>` 显式类型路由薄门面（#352）：workitem/issue、mr/mrs、repo/repos、case/cases、app-tag、pipeline；`--q`/`--query` 映射各域关键词旗标；同步 wiki 与 yx 迁移表
 - **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
 - **0.16.41** — doctor/whoami 在 /platform/user 前静默 OAuth 刷新，输出 auth_refresh + access_expired；新增 `yunxiao auth refresh [--dry-run]`；临近过期提示在有 refresh_token 时优先 auth refresh（#170）；CSDN 系列外宣 wiki 大纲（#169）
