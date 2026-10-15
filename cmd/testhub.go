@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
+	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
 var testhubCmd = &cobra.Command{
@@ -65,7 +67,10 @@ var testhubPlansListCmd = &cobra.Command{
 		if status != "" {
 			body["status"] = status
 		}
-		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			out = zhiyi.AttachTestPlanIDsAndURLs(out)
+			return out, meta
+		}))
 	},
 }
 
@@ -92,7 +97,12 @@ var testhubReposListCmd = &cobra.Command{
 		if name != "" {
 			q["name"] = name
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			space := profileSpaceID()
+			out = zhiyi.AttachTestRepoIDsAndURLs(out, space)
+			zhiyi.EnrichTestRepoMeta(meta, space, "")
+			return out, meta
+		}))
 	},
 }
 
@@ -333,7 +343,12 @@ var testhubDirectoriesListCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			space := profileSpaceID()
+			out = zhiyi.AttachTestDirectoryURLs(out, space, repoID)
+			zhiyi.EnrichTestRepoMeta(meta, space, repoID)
+			return out, meta
+		}))
 	},
 }
 
@@ -396,7 +411,12 @@ var testhubCasesSearchCmd = &cobra.Command{
 		if dirID != "" {
 			body["directoryId"] = dirID
 		}
-		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			space := profileSpaceID()
+			out = zhiyi.AttachTestCaseURLs(out, space)
+			zhiyi.EnrichTestRepoMeta(meta, space, repoID)
+			return out, meta
+		}))
 	},
 }
 
@@ -422,19 +442,39 @@ var testhubCasesGetCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			space := profileSpaceID()
+			if m, ok := out.(map[string]any); ok {
+				if u := zhiyi.TestCaseURL(space, id); u != "" {
+					m["url"] = u
+				}
+			}
+			zhiyi.EnrichTestCaseMeta(meta, space, id)
+			return out, meta
+		}))
 	},
 }
 
 var testhubCasesCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a testcase (write)",
-	Long:  "Risk: write\nHTTP: POST .../testRepos/{repo}/testcases\nOr --data JSON for full body.",
+	Long: `Risk: write
+HTTP: POST .../testRepos/{repo}/testcases
+Or --data/--data-file JSON for full body.
+
+Required in practice (#357): assignedTo (owner). Official docs mark it optional, but the API returns HTTP 400 when omitted. Pass --assigned-to <userId> or include assignedTo in --data.
+
+Body tips (from live GetTestCase shapes):
+  - testSteps: {"contentType":"TABLE","content":[{"step":"...","expected":"..."}]}
+  - preCondition: prefer RICHTEXT (article wrapper) or TEXT + preConditionFormat
+
+Success: platform create only returns {id}; CLI refreshes with GET to include customCode/subject when possible.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoID, _ := cmd.Flags().GetString("repo-id")
 		subject, _ := cmd.Flags().GetString("subject")
 		dirID, _ := cmd.Flags().GetString("directory-id")
+		assignedTo, _ := cmd.Flags().GetString("assigned-to")
 		dataStr, _ := cmd.Flags().GetString("data")
 		dataFile, _ := cmd.Flags().GetString("data-file")
 		if err := requireFlags("repo-id", repoID); err != nil {
@@ -473,11 +513,50 @@ var testhubCasesCreateCmd = &cobra.Command{
 		if dirID != "" {
 			body["directoryId"] = dirID
 		}
+		if strings.TrimSpace(assignedTo) != "" {
+			body["assignedTo"] = strings.TrimSpace(assignedTo)
+		}
 		if len(body) == 0 {
 			handleErr(fmt.Errorf("provide --subject and/or --data/--data-file"))
 			return
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "testhub cases create", risk.Write, "POST", path, nil, body, nil))
+		if !zhiyi.AssignedToPresent(body) {
+			handleErr(fmt.Errorf("assignedTo is required (platform returns HTTP 400 owner empty); pass --assigned-to <userId> or include assignedTo in --data/--data-file"))
+			return
+		}
+		after := func(out any, meta map[string]any) (any, map[string]any) {
+			// #357: create API only returns {id}; refresh GET for customCode/subject.
+			id := ""
+			if m, ok := out.(map[string]any); ok {
+				id = strings.TrimSpace(fmt.Sprint(m["id"]))
+				if id == "<nil>" {
+					id = ""
+				}
+			}
+			if id == "" {
+				return out, meta
+			}
+			getPath, gerr := c.TesthubPath(cmd.Context(), "/testRepos/"+repoID+"/testcases/"+id)
+			if gerr != nil {
+				meta["refresh_ok"] = false
+				meta["refresh_error"] = gerr.Error()
+				return out, meta
+			}
+			var full map[string]any
+			if err := c.Get(cmd.Context(), getPath, nil, &full); err != nil {
+				meta["refresh_ok"] = false
+				meta["refresh_error"] = err.Error()
+				return out, meta
+			}
+			meta["refresh_ok"] = true
+			space := profileSpaceID()
+			if u := zhiyi.TestCaseURL(space, id); u != "" {
+				full["url"] = u
+			}
+			zhiyi.EnrichTestCaseMeta(meta, space, id)
+			return full, meta
+		}
+		handleErr(runJSONMutating(cmd.Context(), c, "testhub cases create", risk.Write, "POST", path, nil, body, after))
 	},
 }
 
@@ -609,7 +688,8 @@ func init() {
 	testhubCasesCreateCmd.Flags().String("repo-id", "", "test repo id (required)")
 	testhubCasesCreateCmd.Flags().String("subject", "", "title")
 	testhubCasesCreateCmd.Flags().String("directory-id", "", "directory id")
-	testhubCasesCreateCmd.Flags().String("data", "", "full JSON body (or @file)")
+	testhubCasesCreateCmd.Flags().String("assigned-to", "", "owner user id (required in practice; 负责人)")
+	testhubCasesCreateCmd.Flags().String("data", "", "full JSON body (or @file); must include assignedTo unless --assigned-to")
 	testhubCasesCreateCmd.Flags().String("data-file", "", "read JSON body from file (alternative to --data)")
 	testhubCasesDeleteCmd.Flags().String("repo-id", "", "test repo id (required)")
 	testhubCasesDeleteCmd.Flags().String("id", "", "testcase id (required)")

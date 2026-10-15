@@ -84,12 +84,13 @@ func TestTesthubCasesCreateDryRun(t *testing.T) {
 	t.Setenv("YUNXIAO_PROFILE", "")
 
 	stdout := withCmdJSONCapture(t)
-	resetStringFlags(t, testhubCasesCreateCmd, "repo-id", "subject", "directory-id", "data", "data-file")
+	resetStringFlags(t, testhubCasesCreateCmd, "repo-id", "subject", "directory-id", "assigned-to", "data", "data-file")
 	rootCmd.SetArgs([]string{
 		"testhub", "cases", "create",
 		"--repo-id", "repo-th2",
 		"--subject", "case-title",
 		"--directory-id", "dir-9",
+		"--assigned-to", "user-owner-1",
 		"--dry-run",
 	})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
@@ -118,7 +119,7 @@ func TestTesthubCasesCreateDryRun(t *testing.T) {
 		t.Fatalf("method=%v", req["method"])
 	}
 	body, _ := req["body"].(map[string]any)
-	if body == nil || body["subject"] != "case-title" || body["directoryId"] != "dir-9" {
+	if body == nil || body["subject"] != "case-title" || body["directoryId"] != "dir-9" || body["assignedTo"] != "user-owner-1" {
 		t.Fatalf("body=%v", body)
 	}
 	if hits != 0 {

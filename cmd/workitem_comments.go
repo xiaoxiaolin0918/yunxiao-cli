@@ -12,6 +12,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/orguid"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
+	"github.com/yunxiao-cli/yunxiao/internal/zhiyi"
 )
 
 var workitemCommentsCmd = &cobra.Command{
@@ -32,7 +33,7 @@ Delete / update / delete-all use Aliyun OpenAPI RPC with AccessKey ACS3 signing
 var workitemCommentsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List comments on a work item",
-	Long:  "Risk: read\nHTTP: GET .../workitems/{id}/comments (OAPI personal-token)\n\nDefault order: newest first by create time (gmtCreate/createTime). Use --sort asc for oldest first.\n\nClient-side --sort applies within the current page when page/per-page are used.\n\nDelete/update/delete-all are AccessKey RPC: see yunxiao workitem comments delete|update|delete-all --help.",
+	Long:  "Risk: read\nHTTP: GET .../workitems/{id}/comments (OAPI personal-token)\n\nDefault order: newest first by create time (gmtCreate/createTime). Use --sort asc for oldest first.\n\nClient-side --sort applies within the current page when page/per-page are used.\n\nAuthor schema (#360): each comment is normalized so user has both name and displayName (list OAPI returns name; update RPC returns displayName), creator mirrors user when missing/null, and modifiedTime is aliased from gmtModified.\n\nDelete/update/delete-all are AccessKey RPC: see yunxiao workitem comments delete|update|delete-all --help.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		id, _ := cmd.Flags().GetString("id")
@@ -43,7 +44,10 @@ var workitemCommentsListCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		after, err := afterSortByCreateTime(sortFlag, nil)
+		after, err := afterSortByCreateTime(sortFlag, func(out any, meta map[string]any) (any, map[string]any) {
+			// #360: unify list author schema with update (user.displayName + modifiedTime).
+			return zhiyi.NormalizeWorkitemComments(out), meta
+		})
 		if err != nil {
 			handleErr(err)
 			return
@@ -190,7 +194,7 @@ Use --content or --content-file (UTF-8, BOM stripped). Default --format-type MAR
 			if err != nil {
 				return err
 			}
-			return output.Success(out, map[string]any{
+			return output.Success(zhiyi.NormalizeWorkitemComments(out), map[string]any{
 				"risk":   risk.Write,
 				"auth":   "alibaba_cloud_access_key",
 				"action": "UpdateWorkitemComment",

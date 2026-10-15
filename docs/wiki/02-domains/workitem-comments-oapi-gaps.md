@@ -51,3 +51,11 @@ export ALIBABA_CLOUD_ACCESS_KEY_SECRET=...
 yunxiao workitem comment --id <id> --content-file ./note.md --dry-run
 yunxiao workitem comments update --id <id> --comment-id <cid> --content-file ./note.md --dry-run
 ```
+
+## 评论作者字段统一（#360）
+
+OAPI `comments list` 返回 `user.{id,name}` + `gmtModified`；AccessKey `comments update` 返回 `user.displayName` + `modifiedTime`。CLI 在 list/update 输出侧归一化：
+
+- `user` 同时带 `name` 与 `displayName`
+- 若 `creator` 缺失或 name 为空，则镜像填充 `creator`（避免消费端读 `creator.name` 落空）
+- `modifiedTime` ↔ `gmtModified` 互为别名

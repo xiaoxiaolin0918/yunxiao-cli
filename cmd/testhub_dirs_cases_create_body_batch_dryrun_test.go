@@ -39,7 +39,7 @@ func thCreateBodySetup(t *testing.T, tag string) (stdout *bytes.Buffer, hits *in
 
 	stdout = withCmdJSONCapture(t)
 	resetStringFlags(t, testhubDirectoriesCreateCmd, "repo-id", "name", "parent-id")
-	resetStringFlags(t, testhubCasesCreateCmd, "repo-id", "subject", "directory-id", "data", "data-file")
+	resetStringFlags(t, testhubCasesCreateCmd, "repo-id", "subject", "directory-id", "assigned-to", "data", "data-file")
 	return stdout, hits
 }
 
@@ -145,6 +145,7 @@ func TestTesthubCasesCreateSubjectOnlyDryRun(t *testing.T) {
 		"testhub", "cases", "create",
 		"--repo-id", "repo-batch",
 		"--subject", "login happy path",
+		"--assigned-to", "user-1",
 		"--dry-run",
 	})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
@@ -152,7 +153,7 @@ func TestTesthubCasesCreateSubjectOnlyDryRun(t *testing.T) {
 		t.Fatalf("execute: %v\n%s", err, stdout.String())
 	}
 	thCreateBodyAssert(t, stdout, hits, "POST", "/testRepos/repo-batch/testcases", func(t *testing.T, body map[string]any, _ map[string]any) {
-		if body["subject"] != "login happy path" {
+		if body["subject"] != "login happy path" || body["assignedTo"] != "user-1" {
 			t.Fatalf("body=%v", body)
 		}
 		if _, has := body["directoryId"]; has {
@@ -168,6 +169,7 @@ func TestTesthubCasesCreateSubjectAndDirectoryDryRun(t *testing.T) {
 		"--repo-id", "repo-batch",
 		"--subject", "checkout",
 		"--directory-id", "dir-9",
+		"--assigned-to", "user-1",
 		"--dry-run",
 	})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
@@ -186,7 +188,7 @@ func TestTesthubCasesCreateDataJSONDryRun(t *testing.T) {
 	rootCmd.SetArgs([]string{
 		"testhub", "cases", "create",
 		"--repo-id", "repo-batch",
-		"--data", `{"priority":"P1","tags":["smoke"]}`,
+		"--data", `{"priority":"P1","tags":["smoke"],"assignedTo":"user-1"}`,
 		"--dry-run",
 	})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
@@ -209,7 +211,7 @@ func TestTesthubCasesCreateDataAndSubjectOverrideDryRun(t *testing.T) {
 	rootCmd.SetArgs([]string{
 		"testhub", "cases", "create",
 		"--repo-id", "repo-batch",
-		"--data", `{"subject":"from-data","priority":"P2"}`,
+		"--data", `{"subject":"from-data","priority":"P2","assignedTo":"user-1"}`,
 		"--subject", "from-flag",
 		"--directory-id", "dir-2",
 		"--dry-run",
@@ -233,7 +235,7 @@ func TestTesthubCasesCreateDataFileDryRun(t *testing.T) {
 	stdout, hits := thCreateBodySetup(t, "case-file")
 	dir := t.TempDir()
 	fp := filepath.Join(dir, "case.json")
-	if err := os.WriteFile(fp, []byte(`{"subject":"from-file","steps":3}`), 0o644); err != nil {
+	if err := os.WriteFile(fp, []byte(`{"subject":"from-file","steps":3,"assignedTo":"user-1"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	rootCmd.SetArgs([]string{
