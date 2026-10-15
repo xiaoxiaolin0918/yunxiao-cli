@@ -33,6 +33,12 @@ Risk: list*=**read**；`results update` / `plan-comments create`=**write**。
 yunxiao testhub directories list --repo-id <id>
 yunxiao testhub directories create --repo-id <id> --name folder --dry-run
 yunxiao testhub cases search --repo-id <id>
-yunxiao testhub cases get --repo-id <id> --id <caseId>
-yunxiao testhub cases create --repo-id <id> --subject "case" --dry-run
+yunxiao testhub cases get --repo-id <id> --id <caseId>   # meta.url when profile.space_id set (#361)
+yunxiao testhub cases create --repo-id <id> --subject "case" --assigned-to <userId> --dry-run
 ```
+
+**cases create (#357)**：`assignedTo` 实务必填（缺则平台 HTTP 400「负责人不能为空」）——用 `--assigned-to` 或 `--data` 里的 `assignedTo`；CLI 会预校验。成功响应会 refresh GET，带回 `customCode` / `subject`（裸 create 只回 `{id}`）。
+
+`--data` 提示：`testSteps` 可用 `{"contentType":"TABLE","content":[{"step":"...","expected":"..."}]}`；`preCondition` 建议 RICHTEXT（`<article class="4ever-article">...</article>`）或 `preConditionFormat: TEXT`。
+
+**meta.url (#361)**：`cases get` / `repos list` / `plans list` / `directories list` 在已知 `profile.space_id`（或 plan 自带 `spaceIdentifier`）时拼 Projex 直链；否则 `meta.webPathHint`。`repos list` 另补 `id` 别名（= `testRepoIdentifier`）。
