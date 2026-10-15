@@ -939,14 +939,14 @@ Output views (#130; exactly one of):
   (default) / --summary  brief fields (localId/title/status/state/wip/detailUrl/url)
                        plus the "can it merge?" set: mergeable, conflictCheckStatus,
                        checkList (incl. requirementRuleItems), supportMergeFastForwardOnly,
-                       allRequirementsPass, ahead, behind, and reviewers as
+                       allRequirementsPass, ahead, behind, sourceBranch/targetBranch, non-null comment counts, and reviewers as
                        [{name, opinion}] (reviewOpinionStatus). When GetChangeRequest
                        actually returns related work items, a compact relatedWorkItems
                        digest is included; null/absent relatedWorkItems are omitted.
                        Fields the API does not return are omitted. meta.projection = "summary".
   --brief              localId/title/status/state/wip/detailUrl/url only.
   --full               the raw object, identical to the pre-#130 default output
-                       (null relatedWorkItems / workItemIds stripped — see below).
+                       (null relatedWorkItems / workItemIds / totalCommentCount / unResolvedCommentCount stripped - see below).
 Compatibility switch: YUNXIAO_MRS_GET_VIEW=full|summary|brief picks the view when
 no view flag is given (flag > env > default summary), so scripts that must run on
 CLIs before and after #130 can set YUNXIAO_MRS_GET_VIEW=full instead of --full.
@@ -958,7 +958,12 @@ often returns null/omits it even when the MR is linked via Projex
 extRelationRecords (category=codeupMergeRequest). Do NOT treat missing/null
 relatedWorkItems as "unlinked"; title/branch containing ZYPT-xxxx is also not a
 formal link. meta.related_work_items always notes this (reliable=false) and gives
-a verify command. Reliable checks:
+a verify command. Comment counts (#358): GetChangeRequest often returns totalCommentCount /
+unResolvedCommentCount as null even when mrs comments list shows threads.
+Null values are stripped (same idea as relatedWorkItems); non-null numbers are kept.
+summary also includes sourceBranch/targetBranch so dual-target / WIP checks need no --full.
+
+Reliable checks:
   yunxiao codeup mrs link --repo <id> --local-id <n> --work-item <id|serial> --dry-run
   GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest
 

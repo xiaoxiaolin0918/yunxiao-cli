@@ -17,13 +17,14 @@ metadata:
 | Shortcut | 说明 | Risk |
 |----------|------|------|
 | `+failed` | 某流水线最近失败运行摘要（需 `--pipeline-id`） | read |
-| `+status` | 最近一次运行状态摘要 | read |
+| `+status` | 最近一次运行状态摘要（默认精简无 globalParams；`--full` 全量；runId 已归一化 #359） | read |
 | `+pending` | 列出 WAITING（可选 RUNNING）中未处理人工卡点 | read |
 | `+approve` / `+refuse` | 通过/拒绝人工卡点（等同 job pass/refuse，需 `--yes`） | high-risk-write |
 
 ```bash
 yunxiao pipeline +failed --pipeline-id <id>
 yunxiao pipeline +status --pipeline-id <id>
+yunxiao pipeline +status --pipeline-id <id> --full   # raw run incl. globalParams (#359)
 yunxiao pipeline list
 yunxiao pipeline list --all                    # 跟页（ListAll，上限 50）
 yunxiao pipeline get --id <id>

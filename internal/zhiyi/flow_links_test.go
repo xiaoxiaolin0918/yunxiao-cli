@@ -191,3 +191,22 @@ func TestAttachPipelineRunURLs(t *testing.T) {
 		t.Fatalf("%v", item)
 	}
 }
+
+
+func TestEnsurePipelineRunID(t *testing.T) {
+	m := map[string]any{"pipelineRunId": float64(88)}
+	EnsurePipelineRunID(m)
+	if m["runId"] != "88" {
+		t.Fatalf("%#v", m)
+	}
+	m2 := map[string]any{"id": float64(4)}
+	EnsurePipelineRunID(m2)
+	if m2["runId"] != "4" || m2["pipelineRunId"] != "4" {
+		t.Fatalf("%#v", m2)
+	}
+	m3 := map[string]any{"runId": "9", "pipelineRunId": float64(9)}
+	EnsurePipelineRunID(m3)
+	if m3["runId"] != "9" {
+		t.Fatalf("must not overwrite: %#v", m3)
+	}
+}
