@@ -42,3 +42,17 @@ yunxiao pipeline copy --id <src> --name <new> --yes
 
 **引用原样带走**：YAML 里的变量组、服务连接、代码源、主机组等 ID **不改写**；须在当前企业存在。跨企业复制不支持。
 
+## +status 默认精简（0.16.45+ / #359）
+
+原始最近一次运行响应常达 ~150KB，且含明文 globalParams。CLI 默认投影为精简 SummaryPipelineRun：
+
+`ash
+yunxiao pipeline +status --pipeline-id <id>
+yunxiao pipeline +status --pipeline-id <id> --full   # 全量原始运行（含 globalParams）
+`
+
+- 默认输出：状态、阶段摘要、
+unId（已归一化）、控制台 meta.url 等；**不含** globalParams
+- 需要完整字段（含密钥类参数）时显式传 --full
+- Agents 日常巡检用默认；排障/对账再用 --full
+
