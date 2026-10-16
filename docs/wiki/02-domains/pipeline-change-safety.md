@@ -46,13 +46,12 @@ yunxiao pipeline copy --id <src> --name <new> --yes
 
 原始最近一次运行响应常达 ~150KB，且含明文 globalParams。CLI 默认投影为精简 SummaryPipelineRun：
 
-`ash
+```bash
 yunxiao pipeline +status --pipeline-id <id>
 yunxiao pipeline +status --pipeline-id <id> --full   # 全量原始运行（含 globalParams）
-`
+```
 
-- 默认输出：状态、阶段摘要、
-unId（已归一化）、控制台 meta.url 等；**不含** globalParams
+- 默认输出：状态、阶段摘要、runId（已归一化）、控制台 meta.url 等；**不含** globalParams
 - 需要完整字段（含密钥类参数）时显式传 --full
 - Agents 日常巡检用默认；排障/对账再用 --full
 
