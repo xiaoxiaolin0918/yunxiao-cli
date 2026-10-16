@@ -570,6 +570,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.45** — fix: mrs get branches + strip null comment counts (#358); pipeline +status compact summary / --full (#359); workitem comments author normalize (#360); testhub cases create --assigned-to + customCode refresh (#357); testhub meta.url (#361)
 - **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — same-org get YAML + create; no CopyPipeline API; high-risk-write + `--dry-run` GET preview; YAML refs reused by ID (#356)
 - **0.16.43** — `yunxiao search <type>` thin router (#352): workitem/issue, mr/mrs, repo/repos, case/cases, app-tag, pipeline; `--q`/`--query` maps to domain keyword flags; wiki + yx migration updated
 - **0.16.42** — Neutralize +bug-create Zhiyi hard defaults: empty --module/--environment; send/gate only when set; play-first profile examples; neutral serials in docs/help.
