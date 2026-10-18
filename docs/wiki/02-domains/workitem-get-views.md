@@ -18,7 +18,7 @@ GetWorkitem 的 `description` 常有数千字（2026-09-29 查 ZYPT-5916 时一�
 - `priority`：顶层 `priority` 非 null 且非 `""` 时原样使用；否则在 `customFieldValues` 中找 `fieldId == "priority"` **或** `fieldName` 为 `优先级` / `Priority`（大小写不敏感；自定义字段 id 常是哈希）的条目，依次跳过空条目（无 values、值为空），取第一个非空值 → `{id, displayValue}`。`id` 取值对象的 `identifier`，没有时取 `id`；两者都没有就不输出 `id`（不会出现 `{"id": null}`）。brief 与 `--fields priority` 用同一规则。
   - 派生失败：brief 省略 `priority`；`--fields priority` 输出 `null`，`meta.hint` 提示用 `--full --jq '.data.customFieldValues'` 或 `yunxiao workitem fields` 核对字段（exit 0，不报 `unknown_fields`）。
 - `description_summary`：`(description: <n> chars, use --full or --fields description)`，n 为字符数（rune）。非 MARKDOWN（RICHTEXT 即 HTML）且含标签时，先去掉 HTML 标签、解码实体再计数，文案为 `<n> chars of text excluding HTML tags`；MARKDOWN 按原文计数。description 不是字符串时给出 `(description: non-string <object|array|number|boolean> value, …)`；为空、null 或缺失时省略。
-- 三种视图都保留 `meta.url` / `serial_number` / `resolved_id`。
+- 所有视图都保留 `meta.url`（深链）/ `serial_number` / `serial_url`（`https://devops.aliyun.com/projex/{bug|req|risk}/ZYPT-xxxx#`，#371）/ `resolved_id`。
 
 ## `--fields` 名字
 

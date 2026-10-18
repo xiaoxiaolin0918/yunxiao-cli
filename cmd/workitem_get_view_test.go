@@ -193,7 +193,7 @@ func TestWorkitemGetDefaultIsBrief(t *testing.T) {
 	if data["description_summary"] != "(description: 3200 chars, use --full or --fields description)" {
 		t.Fatalf("summary=%v", data["description_summary"])
 	}
-	if env.Meta["url"] == nil || env.Meta["serial_number"] != "ZYPT-5916" || env.Meta["resolved_id"] != "wi-5916" {
+	if env.Meta["url"] == nil || env.Meta["serial_number"] != "ZYPT-5916" || env.Meta["serial_url"] != "https://devops.aliyun.com/projex/req/ZYPT-5916#" || env.Meta["resolved_id"] != "wi-5916" {
 		t.Fatalf("meta=%#v", env.Meta)
 	}
 	if env.Meta["projection"] != "brief" {

@@ -82,7 +82,7 @@ List 响应的 `meta` 在有分页头时可能包含：
 
 ### 常见 `meta.url`
 
-workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台可点击链接。有则优先展示给用户。
+workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台可点击链接。有则优先展示给用户。 workitem 另含 `meta.serial_url`（`/projex/{bug|req|risk}/ZYPT-xxxx#`，#371）。
 
 ### `refresh_ok`（流转成功后）
 
