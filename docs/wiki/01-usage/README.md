@@ -35,6 +35,10 @@ yunxiao completion powershell | Out-String | Invoke-Expression
 # 持久化：写入 $PROFILE
 ```
 
+## Windows Shell（`--jq` / 中文）
+
+PowerShell 下**一律优先 `*-file`**；慎用内联中文与复杂 `--jq`。详见 [windows-shell-hints.md](./windows-shell-hints.md)（#370）。`yunxiao doctor` 在 Windows 会给出 `meta.windows_shell_hint`。
+
 ## 相关
 
 - 从 GitHub CLI / 公共 npm `yx` 迁移：[../00-process/gh-yx-migration.md](../00-process/gh-yx-migration.md)

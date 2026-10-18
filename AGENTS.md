@@ -124,7 +124,7 @@ Global `--dry-run` previews without executing (API or local write previews).
 - `codeup mrs diffs` adds per-item `latest: true|false` and `meta.latest_patchset_biz_id` / `meta.latest_version_no` via `mrpatchset.MarkLatest` (same rule as #93; API fields/order untouched; `latest` is injected by the CLI and overwrites any same-named API field) (#94).
 - `codeup mrs merge` rejected by the server (405「该状态下的评审不允许合并」etc.) best-effort GETs the MR (same path as `mrs get`) and enriches the error: `subtype="merge_rejected"` + `details.current_status` / `state_gap` / `suggested_actions` / `mr{localId,title,status,url}` / `diagnose.source`, hint names the next step (UNDER_DEV → web「取消 WIP」(#124, no OpenAPI), CLOSED → `mrs reopen`, UNDER_REVIEW → `mrs review`). Implemented via `contextError` `Subtype`/`Details` fields (`cmd/codeup_mrs_merge_diag.go`); gate (exit 10) and failed-diagnosis paths stay untouched (#127).
 
-Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans.
+Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans. On **Windows**, prefer `*-file` for Chinese text and avoid complex inline `--jq` (see [windows-shell-hints.md](docs/wiki/01-usage/windows-shell-hints.md), #370); `yunxiao doctor` prints `meta.windows_shell_hint`.
 
 ## Auth
 

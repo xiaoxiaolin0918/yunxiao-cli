@@ -149,6 +149,8 @@ yunxiao codeup repos list
 
 ### Windows 上的 Agent / 脚本
 
+**一律优先 `*-file`；慎用内联中文与复杂 `--jq`（#370）。** PowerShell 下请把中文标题/描述/评论/自定义字段写入 UTF-8 文件（`--subject-file` / `--title-file` / `--description-file` / `--content-file` / `--custom-fields-file`；CLI 去 BOM）。复杂 `--jq`（花括号/引号嵌套）常在到达 CLI 前被 shell 弄坏——请去掉 `--jq`，改用 Node/Python 过滤，或管道到外部 `jq`。`--jq` 失败时 stderr 带 `error.subtype=jq_failed` 与可操作 `hint`。详见 [windows-shell-hints.md](docs/wiki/01-usage/windows-shell-hints.md)。Windows 上 `yunxiao doctor` 会给出 `meta.windows_shell_hint`。
+
 消费 CLI JSON 时，优先用 **Node / Python 子进程**（以 Buffer/bytes 捕获 stdout 再 `JSON.parse`），避免 PowerShell `>` 重定向改写编码导致解析失败。用 `yunxiao doctor` 查看已解析的可执行文件路径与当前 profile（`organization_id`、`space_id`）。
 
 **git-bash / MSYS 路径改写（#117）：** MSYS 会在 CLI 收到参数前，把以 `/` 开头的参数改写成 Windows 路径，例如 `yunxiao api GET "/oapi/v1/platform/user"` 实际变成 `C:/Program Files/Git/oapi/v1/platform/user`。CLI 会识别该特征并自动还原 `/oapi/...`，同时在 stderr 打一行 `note:`（`YUNXIAO_API_NO_UNMANGLE=1` 可关闭；`//oapi/...` 双斜杠写法也会被折叠）。无法还原时，非 JSON（HTML）响应会以 `error.subtype=non_json_response` 报出最终请求 URL、HTTP 状态码、content-type 与截断正文——检查 `error.details.url` 是否含 `<盘符>:/` 段。Shell 侧规避：`MSYS_NO_PATHCONV=1`、`MSYS2_ARG_CONV_EXCL='*'`，或加双斜杠 `//oapi/v1/...`。
