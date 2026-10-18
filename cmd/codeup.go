@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -254,26 +255,13 @@ verifies via workitem extRelationRecords, attempts repair if needed, and fails
 			return
 		}
 		repoID := client.EncodeRepoID(repositoryID)
-		// Resolve numeric project ids when repo is numeric.
-		if sourceProjectID == "" {
-			sourceProjectID = numericOrEmpty(repositoryID)
-		}
-		if targetProjectID == "" {
-			targetProjectID = numericOrEmpty(repositoryID)
-		}
+		// sourceProjectId/targetProjectId must be decimal digit strings (#366).
 		if sourceProjectID == "" || targetProjectID == "" {
-			// fetch repository to get id
-			rpath, err := c.CodeupPath(cmd.Context(), "/repositories/"+repoID)
+			idStr, err := resolveNumericProjectID(cmd.Context(), c, repositoryID)
 			if err != nil {
 				handleErr(err)
 				return
 			}
-			var repoObj map[string]any
-			if err := c.Get(cmd.Context(), rpath, nil, &repoObj); err != nil {
-				handleErr(fmt.Errorf("need --source-project-id/--target-project-id or numeric --repo: %w", err))
-				return
-			}
-			idStr := fmt.Sprintf("%v", repoObj["id"])
 			if sourceProjectID == "" {
 				sourceProjectID = idStr
 			}
@@ -1816,6 +1804,30 @@ func enrichMrsList(statusFilter string) func(out any, meta map[string]any) (any,
 		}
 		return out, meta
 	}
+}
+
+// resolveNumericProjectID returns a decimal digit string for Codeup
+// sourceProjectId / targetProjectId (#366). Numeric --repo is returned as-is;
+// path / encoded identity triggers one GET repositories/{repo} and formats
+// id via zhiyi.NormalizeRepositoryID (avoids float64 %v scientific notation).
+func resolveNumericProjectID(ctx context.Context, c *client.Client, repositoryID string) (string, error) {
+	if n := numericOrEmpty(repositoryID); n != "" {
+		return n, nil
+	}
+	repoID := client.EncodeRepoID(repositoryID)
+	rpath, err := c.CodeupPath(ctx, "/repositories/"+repoID)
+	if err != nil {
+		return "", err
+	}
+	var repoObj map[string]any
+	if err := c.Get(ctx, rpath, nil, &repoObj); err != nil {
+		return "", fmt.Errorf("need --source-project-id/--target-project-id or numeric --repo: resolve repository %q: %w", repositoryID, err)
+	}
+	idStr := zhiyi.NormalizeRepositoryID(repoObj["id"])
+	if numericOrEmpty(idStr) == "" {
+		return "", fmt.Errorf("repository %q returned non-numeric id %q; pass --source-project-id/--target-project-id or numeric --repo", repositoryID, idStr)
+	}
+	return idStr, nil
 }
 
 func numericOrEmpty(s string) string {

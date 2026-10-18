@@ -32,6 +32,8 @@ yunxiao profile repo-add <alias> <repo> [--force] [--profile <name>]
 - 解析用的只读 GET 在 `--dry-run` 下也会发（预览最终写入值），但**不写文件**。
 - 已存在且指向不同 id 的别名需要 `--force` 才覆盖；相同 id 幂等成功（`unchanged: true`）。
 
+**注意（#366）**：`mrs create` / `mrs +create` 的 body 里 `sourceProjectId`/`targetProjectId` 必须是数字 id；路径形态会在 dry-run 前自动回查并格式化为十进制（见 [codeup-mr-silent-traps.md](./codeup-mr-silent-traps.md)）。
+
 ## 脚本/agent 建议
 
 - 稳定脚本：先用 `yunxiao profile repo-add` 注册别名（或直接数字 id）——无额外网络请求、不受组织内重名影响。

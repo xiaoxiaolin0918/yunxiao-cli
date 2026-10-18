@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.2.1
+version: 1.2.2
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -101,7 +101,7 @@ yunxiao codeup mrs create \
   --title "feat: x" --reviewer <userId1,userId2> --yes
 ```
 
-`--repo` 可为数字 id、别名、`org/repo` 路径（会编码）或裸仓库名（#125，见上文引用形态）；非数字时 CLI 会尝试拉取仓库解析 `sourceProjectId`/`targetProjectId`。
+`--repo` 可为数字 id、别名、`org/repo` 路径（含深层路径）或裸仓库名（#125）；非数字形态时 CLI 会在 `--dry-run` 前 GET 仓库，用十进制数字写入 `sourceProjectId`/`targetProjectId`（#366，避免路径串或 float64 科学计数法）。
 
 `--reviewer`：逗号分隔 userId，写入 OpenAPI `reviewerUserIds`；与 `mrs +create --reviewer` 语义一致。
 
@@ -250,8 +250,9 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 ## Merge requests
 
-### Silent traps (#24 / #32)
+### Silent traps (#24 / #32 / #366)
 - Wiki: [codeup-mr-silent-traps.md](../../docs/wiki/02-domains/codeup-mr-silent-traps.md)
+- Path/`org/repo` `--repo` on mrs create / +create: older builds may send path string or scientific-notation projectId → HTTP 500 (#366). Prefer numeric `--repo` (or `repos get` → id) on 0.16.45 and earlier; current CLI normalizes before dry-run.
 - Pass --work-item on mrs create / mrs +create: CLI GETs each id before create.
 - From 0.16.12: body sends comma-separated workItemIds string; after create verifies/repairs via extRelationRecords; **fails (ok=false)** if links still missing (see "MR work-item link" below). Older releases only warned.
 - Prefer --repo / --state on mrs list (server may ignore repositoryId / status).
