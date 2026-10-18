@@ -66,13 +66,26 @@ func TestFindWorkitemSearchAliases(t *testing.T) {
 		}
 	}
 	hasAsItems := false
+	hasSubjectAll := false
+	hasRecentDays := false
 	for _, param := range m.Params {
-		if param.Name == "as-items" {
+		switch param.Name {
+		case "as-items":
 			hasAsItems = true
+		case "subject-all":
+			hasSubjectAll = true
+		case "recent-days":
+			hasRecentDays = true
 		}
 	}
 	if !hasAsItems {
 		t.Fatal("workitem.search missing as-items param")
+	}
+	if !hasSubjectAll {
+		t.Fatal("workitem.search missing subject-all param")
+	}
+	if !hasRecentDays {
+		t.Fatal("workitem.search missing recent-days param")
 	}
 }
 

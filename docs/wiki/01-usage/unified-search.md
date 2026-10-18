@@ -35,6 +35,7 @@ v1 **不做**：`packages`、AppStack change-request 全文搜、多域一次返
 
 
 > workitem 降噪旗标（#368）：--subject-all / --recent-days 走透传；详见 [workitem-search-noise.md](../02-domains/workitem-search-noise.md)。
+
 ## 权威 schema
 
 本命令只是路由。参数与风险以目标命令为准，例如：
