@@ -30,7 +30,7 @@ func TestWorkitemSearchStatusConditionsDryRun(t *testing.T) {
 
 	stdout := withCmdJSONCapture(t)
 	resetStringFlags(t, workitemSearchCmd,
-		"category", "space-id", "assigned-to", "creator", "subject", "status",
+		"category", "space-id", "assigned-to", "creator", "subject", "subject-all", "status",
 		"status-stage", "type", "priority", "labels", "order-by", "sort",
 		"created-after", "created-before", "updated-after", "updated-before",
 		"finish-after", "finish-before",
@@ -39,6 +39,7 @@ func TestWorkitemSearchStatusConditionsDryRun(t *testing.T) {
 	_ = workitemSearchCmd.Flags().Set("per-page", "20")
 	_ = workitemSearchCmd.Flags().Set("all", "false")
 	_ = workitemSearchCmd.Flags().Set("as-items", "false")
+	_ = workitemSearchCmd.Flags().Set("recent-days", "0")
 	rootCmd.SetArgs([]string{
 		"workitem", "search",
 		"--space-id", "space-st-1",

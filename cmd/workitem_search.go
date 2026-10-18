@@ -3,8 +3,11 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
@@ -40,6 +43,16 @@ Server-side date conditions may still return out-of-window rows. Scripts should
 client-filter on gmtCreate / gmtModified / customFieldValues (and finishTime when
 present) as needed. Inspect meta.request.conditions to see what was sent.
 
+Subject filters:
+  --subject       single substring CONTAINS (backward compatible)
+  --subject-all   CSV of terms; each becomes a subject CONTAINS in the same
+                  condition group (AND). Accepts ASCII or Chinese commas.
+                  Combine with --subject: all terms AND together.
+
+Time window shortcut (#368):
+  --recent-days N  maps to --updated-after = (today-N) 00:00:00 Asia/Shanghai
+                   (gmtModified). Mutually exclusive with --updated-after.
+
 Combine freely with --assigned-to, --subject, --status / --status-stage, --labels, etc.
 
 Pagination:
@@ -58,6 +71,7 @@ Schema: yunxiao schema workitem.search
 Examples:
   yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59"
   yunxiao workitem search --category Bug --status 100005,100010 --status-stage 1,2
+  yunxiao workitem search --category Bug --subject-all "清空,筛选" --recent-days 30
   yunxiao workitem search --category Req --labels <label-id> --all
   yunxiao workitem search --category Req --finish-after "2026-09-01 00:00:00" --finish-before "2026-09-07 23:59:59" --all --as-items
 
@@ -80,6 +94,8 @@ finishTime notes (CLI vs MCP):
 		assignedTo, _ := cmd.Flags().GetString("assigned-to")
 		creator, _ := cmd.Flags().GetString("creator")
 		subject, _ := cmd.Flags().GetString("subject")
+		subjectAll, _ := cmd.Flags().GetString("subject-all")
+		recentDays, _ := cmd.Flags().GetInt("recent-days")
 		status, _ := cmd.Flags().GetString("status")
 		statusStage, _ := cmd.Flags().GetString("status-stage")
 		workitemType, _ := cmd.Flags().GetString("type")
@@ -94,6 +110,12 @@ finishTime notes (CLI vs MCP):
 		createdBefore, _ := cmd.Flags().GetString("created-before")
 		updatedAfter, _ := cmd.Flags().GetString("updated-after")
 		updatedBefore, _ := cmd.Flags().GetString("updated-before")
+		var errRecent error
+		updatedAfter, errRecent = resolveWorkitemSearchUpdatedAfter(updatedAfter, recentDays, time.Now())
+		if errRecent != nil {
+			handleErr(errRecent)
+			return
+		}
 		finishAfter, _ := cmd.Flags().GetString("finish-after")
 		finishBefore, _ := cmd.Flags().GetString("finish-before")
 		labels, _ := cmd.Flags().GetString("labels")
@@ -121,6 +143,7 @@ finishTime notes (CLI vs MCP):
 			AssignedTo:    assignedTo,
 			Creator:       creator,
 			Subject:       subject,
+			SubjectAll:    subjectAll,
 			Status:        status,
 			StatusStage:   statusStage,
 			WorkitemType:  workitemType,
@@ -176,18 +199,18 @@ finishTime notes (CLI vs MCP):
 }
 
 type workitemSearchFilterInput struct {
-	AssignedTo, Creator, Subject, Status, StatusStage, WorkitemType, Priority, Labels string
-	CreatedAfter, CreatedBefore, UpdatedAfter, UpdatedBefore, FinishAfter, FinishBefore string
+	AssignedTo, Creator, Subject, SubjectAll, Status, StatusStage, WorkitemType, Priority, Labels string
+	CreatedAfter, CreatedBefore, UpdatedAfter, UpdatedBefore, FinishAfter, FinishBefore           string
 }
 
 func buildWorkitemSearchFilters(in workitemSearchFilterInput) []any {
 	var filters []any
 	filters = appendUserFilter(filters, "assignedTo", in.AssignedTo)
 	filters = appendUserFilter(filters, "creator", in.Creator)
-	if in.Subject != "" {
+	for _, term := range subjectSearchTerms(in.Subject, in.SubjectAll) {
 		filters = append(filters, map[string]any{
 			"className": "string", "fieldIdentifier": "subject", "format": "input",
-			"operator": "CONTAINS", "value": []string{in.Subject},
+			"operator": "CONTAINS", "value": []string{term},
 		})
 	}
 	filters = appendStatusFilter(filters, in.Status)
@@ -310,4 +333,48 @@ func runWorkitemSearchAll(ctx context.Context, c *client.Client, path string, ba
 		out = wrapDataAsItems(items, meta)
 	}
 	return output.Success(out, meta)
+}
+
+// subjectSearchTerms builds the AND list for subject CONTAINS filters (#368).
+// --subject (single) plus --subject-all CSV (ASCII or Chinese commas) are
+// concatenated; empty tokens are dropped. Order is preserved; duplicates kept
+// (OpenAPI AND of identical CONTAINS is harmless).
+func subjectSearchTerms(subject, subjectAll string) []string {
+	var terms []string
+	if subject != "" {
+		terms = append(terms, subject)
+	}
+	if subjectAll != "" {
+		normalized := strings.ReplaceAll(subjectAll, "，", ",")
+		terms = append(terms, splitCSV(normalized)...)
+	}
+	return terms
+}
+
+// recentDaysUpdatedAfter returns gmtModified lower bound as
+// "YYYY-MM-DD 00:00:00" in Asia/Shanghai for (calendar today - days).
+func recentDaysUpdatedAfter(days int, now time.Time) (string, error) {
+	if days <= 0 {
+		return "", fmt.Errorf("--recent-days must be > 0 (got %d)", days)
+	}
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return "", err
+	}
+	local := now.In(loc)
+	y, m, d := local.Date()
+	start := time.Date(y, m, d, 0, 0, 0, 0, loc).AddDate(0, 0, -days)
+	return start.Format("2006-01-02 15:04:05"), nil
+}
+
+// resolveWorkitemSearchUpdatedAfter applies --recent-days onto updated-after.
+// Explicit --updated-after and --recent-days together is an error.
+func resolveWorkitemSearchUpdatedAfter(updatedAfter string, recentDays int, now time.Time) (string, error) {
+	if recentDays == 0 {
+		return updatedAfter, nil
+	}
+	if updatedAfter != "" {
+		return "", fmt.Errorf("--recent-days and --updated-after are mutually exclusive; pick one")
+	}
+	return recentDaysUpdatedAfter(recentDays, now)
 }

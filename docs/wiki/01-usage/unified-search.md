@@ -33,6 +33,8 @@ v1 **不做**：`packages`、AppStack change-request 全文搜、多域一次返
 - `--q` / `--query` 映射到上表关键词旗标；若目标已有同旗标且值不同 → 报错（不静默丢）
 - 输出信封与目标子命令一致
 
+
+> workitem 降噪旗标（#368）：--subject-all / --recent-days 走透传；详见 [workitem-search-noise.md](../02-domains/workitem-search-noise.md)。
 ## 权威 schema
 
 本命令只是路由。参数与风险以目标命令为准，例如：
@@ -47,6 +49,7 @@ yunxiao search --help          # 类型表 + 示例
 
 ```bash
 yunxiao search workitem --subject login --category Bug
+yunxiao search workitem --subject-all "清空,筛选" --recent-days 30  # #368 降噪
 yunxiao search issue --q login --assigned-to self
 yunxiao search --type mr --state opened --search fix
 yunxiao search repo --q yunxiao-cli
