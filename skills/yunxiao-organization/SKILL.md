@@ -31,8 +31,6 @@ yunxiao organization roles get --id <id>
 
 Risk: **read**.
 
-
-
 ## 按姓名解析成员 (#367)
 
 现场建单常用中文姓名解析 `assignedTo`，不要全量 `members list` 再客户端过滤：

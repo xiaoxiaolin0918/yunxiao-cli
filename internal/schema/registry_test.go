@@ -334,3 +334,45 @@ func TestCodeupMrsPushReviewStatusSchema(t *testing.T) {
 		t.Fatalf("merge schema should document the #124 error enrichment: %+v", merge)
 	}
 }
+
+
+func TestOrganizationMemberResolveSchema(t *testing.T) {
+	m := Find("organization.member_resolve")
+	if m == nil || m.Risk != risk.Read {
+		t.Fatalf("%+v", m)
+	}
+	hasName, hasPick := false, false
+	for _, param := range m.Params {
+		switch param.Name {
+		case "name":
+			hasName = param.Required
+		case "pick":
+			hasPick = true
+		}
+	}
+	if !hasName || !hasPick {
+		t.Fatalf("member_resolve params name(required)/pick: name=%v pick=%v", hasName, hasPick)
+	}
+}
+
+func TestWorkitemAssignedToDisplayNameDesc(t *testing.T) {
+	for _, id := range []string{"workitem.create", "workitem.update", "workitem.risk_create", "workitem.req_create"} {
+		m := Find(id)
+		if m == nil {
+			t.Fatalf("missing %s", id)
+		}
+		found := false
+		for _, param := range m.Params {
+			if param.Name != "assigned-to" {
+				continue
+			}
+			found = true
+			if !strings.Contains(param.Desc, "#367") || !strings.Contains(param.Desc, "display name") {
+				t.Fatalf("%s assigned-to desc=%q", id, param.Desc)
+			}
+		}
+		if !found {
+			t.Fatalf("%s missing assigned-to param", id)
+		}
+	}
+}
