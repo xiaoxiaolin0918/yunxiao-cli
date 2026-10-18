@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.6
+version: 1.1.7
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -19,7 +19,6 @@ metadata:
 3. **默认 JSON 输出**：判断成功用 `ok == true`（或进程退出码 0），**不要**用 `code == 0`。
 
 - Topic/Risk 创建不要带 `--sprint`；Topic ↔ Req 等普通关联优先使用 `ASSOCIATED`（依赖使用 `DEPEND_ON`）。
-
 
 ### Windows：`*-file` 优先；慎用内联中文与复杂 `--jq`（#370）
 
