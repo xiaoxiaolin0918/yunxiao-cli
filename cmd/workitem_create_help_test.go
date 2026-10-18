@@ -50,7 +50,7 @@ func TestWorkitemCreateHelpListsFlags(t *testing.T) {
 		{"type-id", "work item type id (required)"},
 		{"space-id", "project/space id (required)"},
 		{"subject", "title (required unless --subject-file)"},
-		{"assigned-to", "assignee user id or self (required)"},
+		{"assigned-to", "assignee user id, self, or display name (#367; required)"},
 		{"subject-file", "UTF-8 file for title"},
 		{"description-file", "UTF-8 file for description"},
 		{"custom-fields", "JSON object of customFieldValues"},

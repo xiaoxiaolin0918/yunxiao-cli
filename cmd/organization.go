@@ -13,7 +13,8 @@ var organizationCmd = &cobra.Command{
 	Long: `Organization domain.
 
 +shortcuts:
-  yunxiao organization +whoami     # current user + last org
+  yunxiao organization +whoami
+  yunxiao organization +member-resolve --name <displayName>     # current user + last org
 
 Typed:
   yunxiao organization user get

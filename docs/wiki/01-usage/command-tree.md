@@ -89,6 +89,7 @@
 | `organization user` | `orgUserCmd` |
 | `organization list` | `orgListCmd` |
 | `organization members` | `orgMembersCmd` |
+| `organization member-resolve` | `orgMemberResolveCmd` (#367) |
 | `organization departments` | `orgDepartmentsCmd` |
 | `organization roles` | `orgRolesCmd` |
 

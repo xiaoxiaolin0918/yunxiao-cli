@@ -186,7 +186,7 @@ workitem_type_not_enabled, #99) — fix profile bug_type_id accordingly.`,
 		if strings.TrimSpace(assignedTo) == "" {
 			assignedTo = "self"
 		}
-		assignedTo, err = resolveSelfID(cmd.Context(), c, assignedTo)
+		assignedTo, err = resolveAssignedToRef(cmd.Context(), c, assignedTo)
 		if err != nil {
 			handleErr(err)
 			return
@@ -325,7 +325,7 @@ func init() {
 	workitemBugCreateCmd.Flags().String("serious-level", "normal", "fatal/severe/normal/slight (synonyms: serious→severe, minor→slight; needs bug_create_fields.serious_level map) or option id")
 	workitemBugCreateCmd.Flags().String("expected-completion", "", "YYYY-MM-DD (required only if profile configures ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().String("sprint", "", "sprint id (required; omit to get suggestion)")
-	workitemBugCreateCmd.Flags().String("assigned-to", "", "assignee user id (default: profile.default_assigned_to or self)")
+	workitemBugCreateCmd.Flags().String("assigned-to", "", "assignee user id, self, or display name (#367; default: profile.default_assigned_to or self)")
 	workitemBugCreateCmd.Flags().String("verifier", "", "verifier user id or self (default: profile.default_verifier or workitem_defaults verifier)")
 	workitemBugCreateCmd.Flags().Bool("minimal", false, "only subject/description/priority/seriousLevel/sprint/assignedTo (skip module/env/ExpCompletionTime)")
 	workitemBugCreateCmd.Flags().Bool("no-defaults", false, "skip profile workitem_defaults for bug_type_id")
