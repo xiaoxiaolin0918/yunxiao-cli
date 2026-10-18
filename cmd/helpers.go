@@ -202,6 +202,17 @@ func handleErr(err error) {
 		processExit(1)
 		return
 	}
+	var jqe *output.JQError
+	if errors.As(err, &jqe) {
+		_ = output.Fail(output.ErrorBody{
+			Type:    "cli",
+			Subtype: "jq_failed",
+			Message: jqe.Error(),
+			Hint:    jqe.Hint(),
+		}, 1)
+		processExit(1)
+		return
+	}
 	_ = output.Fail(output.ErrorBody{
 		Type:    "cli",
 		Message: err.Error(),

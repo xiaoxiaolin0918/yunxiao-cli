@@ -85,7 +85,7 @@ func expandAliases() {
 func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("yunxiao %s\n", version.Version))
 	rootCmd.PersistentFlags().StringVar(&globalFormat, "format", "json", "output format: json|pretty")
-	rootCmd.PersistentFlags().StringVar(&globalJQ, "jq", "", "jq expression to filter JSON output")
+	rootCmd.PersistentFlags().StringVar(&globalJQ, "jq", "", "jq expression to filter JSON output (on Windows prefer simple filters or omit --jq; see windows-shell-hints / #370)")
 	rootCmd.PersistentFlags().StringVar(&globalOrg, "organization-id", "", "organization ID (or YUNXIAO_ORGANIZATION_ID)")
 	rootCmd.PersistentFlags().StringVar(&globalProfile, "profile", "", "tenant profile name (or YUNXIAO_PROFILE), e.g. zhiyi")
 	rootCmd.PersistentFlags().BoolVarP(&globalYes, "yes", "y", false, "confirm high-risk-write / multi-step write operations")

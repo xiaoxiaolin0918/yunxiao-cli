@@ -31,6 +31,31 @@ type ErrorBody struct {
 	Details map[string]any `json:"details,omitempty"`
 }
 
+// JQError is returned when --jq fails to parse or run. handleErr surfaces
+// subtype jq_failed plus Hint (Windows encoding/quoting guidance, #370).
+type JQError struct {
+	Err error
+}
+
+func (e *JQError) Error() string {
+	if e == nil || e.Err == nil {
+		return "jq: failed"
+	}
+	return "jq: " + e.Err.Error()
+}
+
+func (e *JQError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+// Hint is safe for stderr error.hint (PowerShell / encoding / pipe guidance).
+func (e *JQError) Hint() string {
+	return "On Windows PowerShell, complex --jq and inline Chinese often break (encoding/quoting) before the CLI sees them. Omit --jq and filter with Node/Python, or pipe to external jq; for Chinese create/comment fields prefer --*-file (UTF-8). See docs/wiki/01-usage/windows-shell-hints.md (#370)."
+}
+
 var (
 	Stdout io.Writer = os.Stdout
 	Stderr io.Writer = os.Stderr
@@ -63,10 +88,12 @@ func (e ExitError) Error() string { return e.Msg }
 
 func write(w io.Writer, env Envelope) error {
 	var payload any = env
-	if JQ != "" {
+	// Never apply --jq to error envelopes: a broken expression would otherwise
+	// swallow the jq_failed report itself (#370).
+	if JQ != "" && env.OK {
 		filtered, err := applyJQ(env, JQ)
 		if err != nil {
-			return fmt.Errorf("jq: %w", err)
+			return &JQError{Err: err}
 		}
 		payload = filtered
 	}

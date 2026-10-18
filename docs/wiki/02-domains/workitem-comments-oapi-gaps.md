@@ -45,6 +45,8 @@ export ALIBABA_CLOUD_ACCESS_KEY_SECRET=...
 
 ## Windows PowerShell 中文乱码
 
+更广的 Windows 指引（`*-file` / `--jq`）：[windows-shell-hints.md](../01-usage/windows-shell-hints.md)（#370）。
+
 `--content "中文"` 常被本机代码页弄乱。请写入 **UTF-8** 文件（可带 BOM；CLI 会去掉 BOM）后：
 
 ```bash

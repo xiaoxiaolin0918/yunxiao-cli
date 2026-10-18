@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.6
+version: 1.1.7
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -19,6 +19,14 @@ metadata:
 3. **默认 JSON 输出**：判断成功用 `ok == true`（或进程退出码 0），**不要**用 `code == 0`。
 
 - Topic/Risk 创建不要带 `--sprint`；Topic ↔ Req 等普通关联优先使用 `ASSOCIATED`（依赖使用 `DEPEND_ON`）。
+
+### Windows：`*-file` 优先；慎用内联中文与复杂 `--jq`（#370）
+
+PowerShell 下：
+
+- **写中文**（subject/title/description/content/custom-fields）：一律用对应 `--*-file`（UTF-8，去 BOM），不要内联 argv。
+- **过滤 JSON**：慎用复杂内联 `--jq`（花括号/引号易被 shell 弄坏）。优先省略 `--jq`，用 Node/Python 解析 stdout；或管道到外部 `jq`。失败时看 stderr `error.subtype=jq_failed` 的 `hint`。
+- 详情：[windows-shell-hints.md](../../docs/wiki/01-usage/windows-shell-hints.md)。`yunxiao doctor` 在 Windows 输出 `meta.windows_shell_hint`。
 
 ### Windows git-bash 的 MSYS 路径改写（#117）
 
@@ -66,7 +74,7 @@ PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalA
 { "ok": false, "error": { "type": "...", "message": "...", "hint": "..." } }
 ```
 
-`--jq '<expr>'` 过滤 JSON；`--format pretty` 缩进。
+`--jq '<expr>'` 过滤 JSON（Windows 慎用复杂内联，见上 #370）；`--format pretty` 缩进。
 
 ### 列表分页 meta（CLI 0.15.x）
 

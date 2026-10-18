@@ -33,7 +33,10 @@ not_needed | skipped | refreshed | refresh_failed; prefer
 "yunxiao auth refresh" over browser re-login when can_refresh.
 
 Optional: --check-update queries GitHub Releases once (no download).
-Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
+Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.
+
+On Windows, meta.windows_shell_hint reminds agents to prefer *-file and avoid
+complex inline --jq (see docs/wiki/01-usage/windows-shell-hints.md, #370).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		r, pf, err := resolveEffectiveConfig()
@@ -140,6 +143,9 @@ Set YUNXIAO_UPDATE_CHECK=0 to skip even when the flag is passed.`,
 			}
 		}
 		meta := map[string]any{"healthy": allOK, "goos": runtime.GOOS, "goarch": runtime.GOARCH}
+		if runtime.GOOS == "windows" {
+			meta["windows_shell_hint"] = "Prefer *-file for Chinese (subject/title/description/content/custom-fields); avoid complex inline --jq under PowerShell. See docs/wiki/01-usage/windows-shell-hints.md (#370)."
+		}
 		if err := output.Success(checks, meta); err != nil {
 			handleErr(err)
 			return
