@@ -55,6 +55,8 @@ var Registry = []Method{
 			{Name: "assigned-to", Type: "string", Required: false, Desc: "assignee user id or self"},
 			{Name: "creator", Type: "string", Required: false, Desc: "creator user id or self"},
 			{Name: "subject", Type: "string", Required: false, Desc: "subject contains"},
+			{Name: "subject-all", Type: "string", Required: false, Desc: "CSV subject terms; each CONTAINS in the same condition group (AND); ASCII or Chinese commas (#368)"},
+			{Name: "recent-days", Type: "int", Required: false, Desc: "shortcut: --updated-after=(today-N) 00:00:00 Asia/Shanghai; mutually exclusive with --updated-after (#368)"},
 			{Name: "status", Type: "string", Required: false, Desc: "status ids CSV (className status)"},
 			{Name: "status-stage", Type: "string", Required: false, Desc: "statusStage ids CSV"},
 			{Name: "labels", Type: "string", Required: false, Desc: "label ids CSV (tag filter; #141)"},

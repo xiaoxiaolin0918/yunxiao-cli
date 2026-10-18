@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.7"
+version: "1.4.8"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -37,6 +37,7 @@ yunxiao project labels create --name "快速通道" --color "#4676E5" --dry-run 
 yunxiao workitem search --assigned-to self --category Req
 yunxiao workitem search --category Req --labels <label-id>[,id2] --all  # CONTAINS；CSV label ids (#141)
 yunxiao workitem search --subject "登录" --status-stage 1,2
+yunxiao workitem search --category Bug --subject-all "清空,筛选" --recent-days 30  # AND 标题 + 近 N 天 gmtModified (#368)
 # 周报日期窗口 + 跟页（meta.total / --all；oapi 响应可能无 finishTime）
 yunxiao workitem search --category Req --created-after "2026-09-01 00:00:00" --created-before "2026-09-07 23:59:59" --all
 yunxiao workitem search --category Bug --status 100005,100010 --status-stage 1,2
@@ -87,6 +88,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `--space-id`：Projex 项目/空间 id
 - `project labels`（#141）：`list` 只读返回 id/name/color；`create` 需 `--name`（`--color` 默认 `#A773E0`），先 `--dry-run` 再 `--yes`；`--space-id` 可缺省为 `profile.space_id`
 - `workitem search --labels`（#141）：CSV label id，映射官方 tag 过滤器（`fieldIdentifier/className=tag`，`multiList`，`CONTAINS`），可与 `--assigned-to` / `--status` 等组合
+- `workitem search --subject-all` / `--recent-days`（#368）：多词标题 **AND**（同组多个 subject CONTAINS；支持中文逗号）；`--recent-days N` → `--updated-after`=(今天-N) 00:00:00 Asia/Shanghai，与显式 `--updated-after` 互斥。现场对账优先「多词 + 近 N 天」降噪声。`--rank` / `--as-items` 字段精简本版未做，见 wiki [workitem-search-noise.md](../../docs/wiki/02-domains/workitem-search-noise.md)。
 - `workitem update --labels`（#141）：**REPLACE** 整表标签（非追加）；安全做法：先 `workitem get`，合并 id 后再 `--labels a,b,c`；id 发现用 `project labels list`。create 也可用 `--labels`
 - `--content-file`：评论正文 UTF-8 文件（自动去 BOM）；Windows 写中文评论优先用此，避免 PowerShell 编码乱码
 - `workitem create` 的 `--subject-file` / `--description-file` / `--custom-fields-file`：同上（UTF-8 去 BOM；与内联 flag 互斥）；Windows 含中文建单优先用文件入参（#85）

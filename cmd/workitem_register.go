@@ -6,6 +6,8 @@ func init() {
 	workitemSearchCmd.Flags().String("assigned-to", "", "assignee user id or 'self'")
 	workitemSearchCmd.Flags().String("creator", "", "creator user id or 'self'")
 	workitemSearchCmd.Flags().String("subject", "", "subject contains")
+	workitemSearchCmd.Flags().String("subject-all", "", "CSV subject terms AND-ed as CONTAINS (#368); ASCII or Chinese commas")
+	workitemSearchCmd.Flags().Int("recent-days", 0, "shortcut: set --updated-after to (today-N) 00:00:00 Asia/Shanghai; exclusive with --updated-after (#368)")
 	workitemSearchCmd.Flags().String("status", "", "status ids, comma-separated (fieldIdentifier status / className status)")
 	workitemSearchCmd.Flags().String("status-stage", "", "status stage ids, comma-separated")
 	workitemSearchCmd.Flags().String("type", "", "work item type ids, comma-separated")
