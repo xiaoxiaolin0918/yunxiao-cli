@@ -43,6 +43,8 @@ any OpenAPI config (#113); when a step PUT fails HTTP 400 with a 必填 field li
 CLI maps the Chinese names back to field ids via the type's field config
 (error.subtype=transition_required_fields, details.fields[] + fields_draft).
 
+User-typed values (--developer / --responsible-person) must be userId-shaped on both --dry-run and real PUT (#378); display names are rejected with a hint to: yunxiao organization +member-resolve --name <display>.
+
 Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		view, err := transitionItemViewFromFlags(cmd)
@@ -225,7 +227,12 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 			metaBase["url"] = u
 		}
 
-		if globalDryRun {
+		if err := validateTransitionProvidedUserFields(pf, provided); err != nil {
+		handleErr(err)
+		return
+	}
+
+	if globalDryRun {
 			req := map[string]any{
 				"work_item":       id,
 				"resolved_id":     resolvedID,
@@ -328,8 +335,8 @@ func init() {
 	workitemBugTransitionCmd.Flags().String("id", "", "work item id or serial (ZYPT-xxxx)")
 	workitemBugTransitionCmd.Flags().String("to", "", "target status alias or status id (required)")
 	workitemBugTransitionCmd.Flags().String("plan-due-date", "", "YYYY-MM-DD (required en route to processing/testing)")
-	workitemBugTransitionCmd.Flags().String("developer", "", "developer userId(s), comma-separated")
-	workitemBugTransitionCmd.Flags().String("responsible-person", "", "responsible person userId (deploy-test)")
+	workitemBugTransitionCmd.Flags().String("developer", "", "developer userId(s), comma-separated (not display name; #378)")
+	workitemBugTransitionCmd.Flags().String("responsible-person", "", "responsible person userId (not display name; #378)")
 	workitemBugTransitionCmd.Flags().String("bug-reason", "", "free-text bug reason (not an enum id; paste the business description)")
 	workitemBugTransitionCmd.Flags().String("bug-impact-scope", "", "free-text impact scope (not an enum id)")
 	workitemBugTransitionCmd.Flags().Bool("full", false, "print the raw refreshed work item object (default: brief view, #114)")

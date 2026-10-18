@@ -38,3 +38,7 @@ yunxiao organization members search --query <q>
 
 - skill：`skills/yunxiao-organization/SKILL.md`
 - 实现：`cmd/member_resolve.go`（`resolveMemberByName` / `resolveAssignedToRef`）
+
+## 与流转字段（#378）
+
+`workitem +bug-transition --developer` / `--responsible-person` 以及 `+transition --fields` 中的用户型字段**不接受显示名**（dry-run 与实跑同源拒绝）。先用本命令解出 userId 再传入。
