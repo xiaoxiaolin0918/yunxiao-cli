@@ -145,3 +145,17 @@ title/description（官方文档实证），官方 MCP server 也没有 WIP 工�
 | 其他/未知 | 按原始状态提示 | `mrs get`；重试 merge |
 
 注意：high-risk 门（缺 `--yes` → exit 10 `confirmation_required`）先于一切诊断，不产生任何 API 调用；合并成功也不发诊断 GET。重试命令里的 `--yes` 只是提示文本，仍需用户/agent 自行确认。
+
+## mrs create / +create：路径 --repo 的 sourceProjectId（#366）
+
+Codeup `CreateChangeRequest` 的 `sourceProjectId` / `targetProjectId` 必须是**十进制数字字符串**（如 `"4951320"`）。
+
+陷阱（0.16.45 及更早）：
+
+1. `mrs +create` 曾把 `resolveCodeupRepo()` 的路径串原样塞进 body → 服务端 HTTP 500。
+2. `mrs create` 回查仓库时用 `fmt.Sprintf("%v", id)`，JSON `float64` 变成科学计数法（`4.95132e+06`）→ 同样 500。
+
+CLI 现行为：路径 / alias / bare name 在发请求（含 `--dry-run` 预览）前会 GET 仓库，并用 `zhiyi.NormalizeRepositoryID` 填十进制 id；非法则直接报错，不等真发。
+
+临时规避（旧版）：`yunxiao codeup repos get --repo <path> --jq .data.id` 后对 `--repo` / `--source-project-id` / `--target-project-id` 都传数字 id。
+

@@ -88,12 +88,18 @@ unique in the organization (#125). Profile optional when --repo is numeric.
 		title = zhiyi.WithWipTitle(title, target, wip)
 		reviewerIDs := zhiyi.SplitUserIDs(reviewer)
 
+		projectID, err := resolveNumericProjectID(cmd.Context(), c, repositoryID)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+
 		body := map[string]any{
 			"title":           title,
 			"sourceBranch":    source,
 			"targetBranch":    target,
-			"sourceProjectId": repositoryID,
-			"targetProjectId": repositoryID,
+			"sourceProjectId": projectID,
+			"targetProjectId": projectID,
 			"createFrom":      "WEB",
 			"description":     desc,
 			"reviewerUserIds": reviewerIDs,
