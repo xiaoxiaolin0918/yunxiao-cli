@@ -29,10 +29,12 @@ func BriefWorkItem(item map[string]any) map[string]any {
 }
 
 // StatusBrief keeps status.id and status.displayName (falls back to name).
+// Coerces bare string/number status ids via NormalizeWorkItemStatus (#369).
 func StatusBrief(item map[string]any) map[string]any {
 	if item == nil {
 		return nil
 	}
+	NormalizeWorkItemStatus(item)
 	status, _ := item["status"].(map[string]any)
 	if status == nil {
 		return nil
@@ -86,8 +88,8 @@ func statusDisplayName(status map[string]any) string {
 }
 
 // StatusDisplayNameByID reverse-resolves a status id to its display name via an
-// alias→id map (profile statuses / workflow statuses, #114). Deterministic: a
-// self-keyed entry (id→id) wins, else the alphabetically first alias. Empty when the
+// alias鈫抜d map (profile statuses / workflow statuses, #114). Deterministic: a
+// self-keyed entry (id鈫抜d) wins, else the alphabetically first alias. Empty when the
 // id is unknown.
 func StatusDisplayNameByID(statuses map[string]string, id string) string {
 	if id == "" || len(statuses) == 0 {
@@ -110,7 +112,7 @@ func StatusDisplayNameByID(statuses map[string]string, id string) string {
 
 // TransitionStatusBrief is the to-status view of a transition result (#114): the
 // refreshed item's status object when the refresh worked and matches target, else
-// the target id with the display name reverse-resolved from the alias→id map.
+// the target id with the display name reverse-resolved from the alias鈫抜d map.
 // Empty map when nothing is known about the target.
 func TransitionStatusBrief(refreshed map[string]any, refreshOK bool, target string, statuses map[string]string) map[string]any {
 	if target == "" {
