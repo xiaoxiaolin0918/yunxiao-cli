@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/client"
-	"github.com/yunxiao-cli/yunxiao/internal/orguid"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
@@ -44,8 +43,8 @@ reported at once (error.subtype missing_required_fields); --no-precheck skips.
 
 --assignee accepts an organization member display name (resolved via
 members:search, exact match; ambiguity lists candidates). --assigned-to takes a
-raw user id or self (default profile.default_assigned_to or self). Use only one
-of the two.
+raw user id, self, or a display name resolved like --assignee / +member-resolve
+(#367; default profile.default_assigned_to or self). Use only one of the two.
 
 Windows / PowerShell: for Chinese title or description, prefer --title-file /
 --description-file (UTF-8, BOM stripped) over inline flags.
@@ -149,7 +148,7 @@ func runWorkitemCategoryCreate(cmd *cobra.Command, category string) {
 		if strings.TrimSpace(assignedTo) == "" {
 			assignedTo = "self"
 		}
-		assignedTo, err = resolveSelfID(cmd.Context(), c, assignedTo)
+		assignedTo, err = resolveAssignedToRef(cmd.Context(), c, assignedTo)
 		if err != nil {
 			handleErr(err)
 			return
@@ -253,53 +252,22 @@ func runWorkitemCategoryCreate(cmd *cobra.Command, category string) {
 }
 
 // resolveAssigneeName resolves an organization member display name to a userId via
-// POST /members:search (same endpoint as `organization members search`). Requires an
-// exact (trimmed, case-insensitive) name match; several distinct user ids → error
-// listing candidates; no match → error. Never guesses (#128).
+// the shared members:search exact-match helper (#128 / #367). Never guesses.
 func resolveAssigneeName(ctx context.Context, c *client.Client, name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", fmt.Errorf("--assignee is empty")
 	}
-	path, err := c.PlatformPath(ctx, "/members:search")
+	hit, err := resolveMemberByName(ctx, c, name, false)
 	if err != nil {
-		return "", err
+		// Keep --assignee wording for existing tests / UX.
+		msg := err.Error()
+		msg = strings.Replace(msg, "name ", "--assignee ", 1)
+		msg = strings.Replace(msg, "re-run with --pick first or pass a userId", "pass --assigned-to with the exact user id", 1)
+		msg = strings.Replace(msg, "pass a userId instead", "pass --assigned-to <userId> instead", 1)
+		return "", fmt.Errorf("%s", msg)
 	}
-	var out any
-	if err := c.Post(ctx, path, map[string]any{"query": name, "page": 1, "perPage": 50}, &out); err != nil {
-		return "", fmt.Errorf("resolve --assignee %q via members:search: %w", name, err)
-	}
-	type memberMatch struct{ id, name string }
-	var matches []memberMatch
-	seen := map[string]bool{}
-	for _, it := range orguid.MembersFromAPI(out) {
-		m, ok := it.(map[string]any)
-		if !ok {
-			continue
-		}
-		n, _ := m["name"].(string)
-		if !strings.EqualFold(strings.TrimSpace(n), name) {
-			continue
-		}
-		id := memberIDString(m)
-		if id == "" || seen[id] {
-			continue
-		}
-		seen[id] = true
-		matches = append(matches, memberMatch{id: id, name: strings.TrimSpace(n)})
-	}
-	switch len(matches) {
-	case 1:
-		return matches[0].id, nil
-	case 0:
-		return "", fmt.Errorf("no organization member named %q (via members:search); pass --assigned-to <userId> instead", name)
-	default:
-		parts := make([]string, 0, len(matches))
-		for _, m := range matches {
-			parts = append(parts, fmt.Sprintf("%s (%s)", m.id, m.name))
-		}
-		return "", fmt.Errorf("--assignee %q is ambiguous: %s — pass --assigned-to with the exact user id", name, strings.Join(parts, ", "))
-	}
+	return hit.ID, nil
 }
 
 // memberIDString extracts the member userId from an OAPI member map (string or
@@ -323,7 +291,7 @@ func init() {
 		c.Flags().String("description-file", "", "UTF-8 Markdown file (BOM stripped; preferred on Windows for Chinese)")
 		c.Flags().String("priority", "medium", "urgent/high/medium/low alias, 显示值 from workitem_defaults (e.g. 高), or option id; pass \"\" to omit")
 		c.Flags().String("assignee", "", "assignee display name, resolved via organization members:search (exact match; ambiguity lists candidates)")
-		c.Flags().String("assigned-to", "", "assignee user id or self (default: profile.default_assigned_to or self); use only one of --assignee/--assigned-to")
+		c.Flags().String("assigned-to", "", "assignee user id, self, or display name (#367; default: profile.default_assigned_to or self); use only one of --assignee/--assigned-to")
 		c.Flags().String("participants", "", "comma-separated participant user ids (self allowed)")
 		c.Flags().String("sprint", "", "sprint id (optional; NOT sent by default — Risk/Req types often reject 迭代)")
 		c.Flags().String("type-id", "", "override the profile-resolved workitem type id")

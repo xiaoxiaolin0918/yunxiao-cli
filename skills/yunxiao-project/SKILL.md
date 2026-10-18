@@ -84,7 +84,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 ## 参数提示
 
 - `--category`：`Req` | `Task` | `Bug` | `Topic` | `Risk` 等；`workitem types list` 缺省（或 `--category all`）会**并发拉全部类别合并**（每项注入 `category`，`meta.categories` 注明；个别类别失败只 warning + `meta.categories_failed`）（#99）
-- `--assigned-to self`：自动解析为当前用户 id
+- `--assigned-to self`：自动解析为当前用户 id；亦可传中文显示名（#367，同 `organization +member-resolve`）
 - `--space-id`：Projex 项目/空间 id
 - `project labels`（#141）：`list` 只读返回 id/name/color；`create` 需 `--name`（`--color` 默认 `#A773E0`），先 `--dry-run` 再 `--yes`；`--space-id` 可缺省为 `profile.space_id`
 - `workitem search --labels`（#141）：CSV label id，映射官方 tag 过滤器（`fieldIdentifier/className=tag`，`multiList`，`CONTAINS`），可与 `--assigned-to` / `--status` 等组合

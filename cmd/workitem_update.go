@@ -41,7 +41,7 @@ or --custom-fields '{"<fieldId>":"…"}'.
 			handleErr(err)
 			return
 		}
-		assignedTo, err = resolveSelfID(cmd.Context(), c, assignedTo)
+		assignedTo, err = resolveAssignedToRef(cmd.Context(), c, assignedTo)
 		if err != nil {
 			handleErr(err)
 			return

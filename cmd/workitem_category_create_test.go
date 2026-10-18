@@ -425,7 +425,7 @@ func TestCategoryCreateAssignee(t *testing.T) {
 		},
 		{
 			name: "both assignee and assigned-to rejected", members: catCreateMembersFixture,
-			extra: []string{"--assignee", "崔健", "--assigned-to", "user-1"},
+			extra:       []string{"--assignee", "崔健", "--assigned-to", "user-1"},
 			wantErrPart: "use only one of --assignee", wantSearch: false,
 		},
 	}
@@ -628,5 +628,33 @@ func TestCategoryCreateHelp(t *testing.T) {
 				t.Fatalf("%s missing --%s", tc.name, flag)
 			}
 		}
+	}
+}
+
+// --assigned-to display name uses the same resolver as +member-resolve (#367).
+func TestCategoryCreateAssignedToByName(t *testing.T) {
+	s := newCatCreateServer(t)
+	s.members = catCreateMembersFixture
+	stdout, stderr, code := runCatCreate(t, true, "+risk-create", catBaseProfile("cat367at"), "--assigned-to", "崔健")
+	if code != 0 {
+		t.Fatalf("exit %d stderr=%s", code, stderr)
+	}
+	if body := catDryRunBody(t, stdout); body["assignedTo"] != "user-cui" {
+		t.Fatalf("assignedTo=%v", body["assignedTo"])
+	}
+	if s.memberSearches != 1 {
+		t.Fatalf("memberSearches=%d", s.memberSearches)
+	}
+	// id-shaped assigned-to must not hit members:search
+	s2 := newCatCreateServer(t)
+	stdout, stderr, code = runCatCreate(t, true, "+risk-create", catBaseProfile("cat367id"), "--assigned-to", "user-1")
+	if code != 0 {
+		t.Fatalf("id exit %d stderr=%s", code, stderr)
+	}
+	if body := catDryRunBody(t, stdout); body["assignedTo"] != "user-1" {
+		t.Fatalf("assignedTo=%v", body["assignedTo"])
+	}
+	if s2.memberSearches != 0 {
+		t.Fatalf("id-shaped should skip search, got %d", s2.memberSearches)
 	}
 }
