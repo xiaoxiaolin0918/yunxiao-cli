@@ -46,6 +46,8 @@ the type's field config and reports error.subtype=transition_required_fields wit
 details.fields[] (field id, name, current value, options) and a copy-paste
 details.fields_draft for the --fields retry. Unmatched names pass through verbatim.
 
+Known user-typed fields in --fields (profile bug_fields.developer/responsible_person and native assignedTo/verifier/participants/trackers) must be userId-shaped on --dry-run and real PUT (#378); display names are rejected (use yunxiao organization +member-resolve).
+
 --dry-run: with profile.workflows[<type>] edges and/or hinted_edges, validates
 current→target locally (edge_validation=validated|hinted|illegal; illegal → ok:false).
 Hinted-only edges (hinted_edges / needs_fields) are not "validated"; when verified
@@ -221,7 +223,12 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 			metaBase["url"] = u
 		}
 
-		if globalDryRun {
+		if err := validateTransitionProvidedUserFields(pf, extraFields); err != nil {
+		handleErr(err)
+		return
+	}
+
+	if globalDryRun {
 			req := map[string]any{
 				"work_item":       id,
 				"resolved_id":     resolvedID,

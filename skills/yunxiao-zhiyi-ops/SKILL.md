@@ -115,6 +115,8 @@ Risk: **write**（真发需 `--yes`）。风险/需求类型同样需项目 UI �
 
 ## 缺陷流转（`+bug-transition（BFS 无路时 direct_fallback / --direct，#123）`）
 
+> **#378**：`--developer` / `--responsible-person`（以及 `+transition --fields` 中已知用户型字段）必须是 **userId**，不能传显示名。`--dry-run` 与实跑同源校验；查 id：`yunxiao organization +member-resolve --name <显示名>`。
+
 按实证状态图 **BFS 多步 PUT**；途经每一态的必填字段取 **并集**（不只看终点）。
 
 | 途经状态 | 必填选项 |
