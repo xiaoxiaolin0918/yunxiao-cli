@@ -157,5 +157,8 @@ Codeup `CreateChangeRequest` 的 `sourceProjectId` / `targetProjectId` 必须是
 
 CLI 现行为：路径 / alias / bare name 在发请求（含 `--dry-run` 预览）前会 GET 仓库，并用 `zhiyi.NormalizeRepositoryID` 填十进制 id；非法则直接报错，不等真发。
 
-临时规避（旧版）：`yunxiao codeup repos get --repo <path> --jq .data.id` 后对 `--repo` / `--source-project-id` / `--target-project-id` 都传数字 id。
+临时规避（旧版）：先 `yunxiao codeup repos get --repo <path> --jq .data.id` 取数字 id，再按命令拆开传：
+
+- `mrs create`：可用数字 `--repo`，或显式 `--source-project-id` / `--target-project-id`。
+- `mrs +create`（旧版）：**没有** `--source-project-id` / `--target-project-id`，只能传**数字** `--repo`（或先 `repos get` 取 id 再 `--repo <id>`）。
 
