@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.5
+version: 1.1.6
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -82,7 +82,7 @@ List 响应的 `meta` 在有分页头时可能包含：
 
 ### 常见 `meta.url`
 
-workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台可点击链接。有则优先展示给用户。 workitem 另含 `meta.serial_url`（`/projex/{bug|req|risk}/ZYPT-xxxx#`，#371）。
+workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台深链。有则优先展示给用户。`workitem get` / `create` / `update`（不含 `+transition` / `+bug-transition`）另含 `meta.serial_url` 短链（`/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）。
 
 ### `refresh_ok`（流转成功后）
 
