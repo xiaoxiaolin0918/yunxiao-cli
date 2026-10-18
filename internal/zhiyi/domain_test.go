@@ -683,6 +683,44 @@ func TestEnrichWorkItemMeta(t *testing.T) {
 	if meta["serial_number"] != "YXCLI-49" {
 		t.Fatalf("%v", meta)
 	}
+	if meta["serial_url"] != "https://devops.aliyun.com/projex/req/YXCLI-49#" {
+		t.Fatalf("serial_url=%v", meta["serial_url"])
+	}
+}
+
+func TestWorkItemSerialURL(t *testing.T) {
+	cases := []struct {
+		cat  string
+		want string
+	}{
+		{"Bug", "https://devops.aliyun.com/projex/bug/ZYPT-6072#"},
+		{"Req", "https://devops.aliyun.com/projex/req/ZYPT-6072#"},
+		{"Risk", "https://devops.aliyun.com/projex/risk/ZYPT-6072#"},
+		{"Task", "https://devops.aliyun.com/projex/task/ZYPT-6072#"},
+		{"Topic", "https://devops.aliyun.com/projex/topic/ZYPT-6072#"},
+		{"", "https://devops.aliyun.com/projex/req/ZYPT-6072#"},
+		{"UnknownThing", "https://devops.aliyun.com/projex/req/ZYPT-6072#"},
+	}
+	for _, c := range cases {
+		item := map[string]any{"serialNumber": "ZYPT-6072"}
+		if c.cat != "" {
+			item["categoryId"] = c.cat
+		}
+		got := WorkItemSerialURL(item)
+		if got != c.want {
+			t.Fatalf("cat=%q got=%q want=%q", c.cat, got, c.want)
+		}
+	}
+	if WorkItemSerialURL(map[string]any{"id": "only-id", "categoryId": "Bug"}) != "" {
+		t.Fatal("expected empty without serial")
+	}
+	got := WorkItemSerialURL(map[string]any{"data": map[string]any{
+		"serialNumber": "ZYPT-1",
+		"categoryId":   "Bug",
+	}})
+	if got != "https://devops.aliyun.com/projex/bug/ZYPT-1#" {
+		t.Fatalf("nested: %q", got)
+	}
 }
 
 func TestBuildCreateBugArgs_UnmappedPriorityAlias(t *testing.T) {

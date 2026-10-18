@@ -61,7 +61,32 @@ func ResolveSpaceID(item map[string]any, profileSpace, flagSpace string) string 
 	return strings.TrimSpace(flagSpace)
 }
 
-// EnrichWorkItemMeta adds resolved_id, serial_number, and url when resolvable.
+// WorkItemSerialURL builds the short Projex serial link used in field ledgers
+// and Feishu Base rows (#371):
+//
+//	https://devops.aliyun.com/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#
+//
+// Path segment follows CategoryPathSegment. Empty when serialNumber is missing.
+func WorkItemSerialURL(item map[string]any) string {
+	if item == nil {
+		return ""
+	}
+	nested, _ := item["data"].(map[string]any)
+	sn := SerialNumber(item)
+	if sn == "" && nested != nil {
+		sn = SerialNumber(nested)
+	}
+	if sn == "" {
+		return ""
+	}
+	cat := CategoryID(item)
+	if cat == "" {
+		cat = "Req"
+	}
+	return fmt.Sprintf("https://devops.aliyun.com/projex/%s/%s#", CategoryPathSegment(cat), sn)
+}
+
+// EnrichWorkItemMeta adds resolved_id, serial_number, url, and serial_url when resolvable.
 func EnrichWorkItemMeta(meta map[string]any, item map[string]any, profileSpace, flagSpace string) map[string]any {
 	if meta == nil {
 		meta = map[string]any{}
@@ -87,6 +112,9 @@ func EnrichWorkItemMeta(meta map[string]any, item map[string]any, profileSpace, 
 	sid := ResolveSpaceID(item, profileSpace, flagSpace)
 	if u := WorkItemURL(item, sid); u != "" {
 		meta["url"] = u
+	}
+	if su := WorkItemSerialURL(item); su != "" {
+		meta["serial_url"] = su
 	}
 	return meta
 }

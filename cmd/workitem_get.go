@@ -44,7 +44,7 @@ view flag is given (flag > env > default brief). CLIs before 0.16.34 ignore it, 
 scripts that must work on old and new CLIs can set YUNXIAO_WORKITEM_GET_VIEW=full
 instead of passing --full. Other values fail before any request.
 
-All views keep meta.url / serial_number / resolved_id and the {ok,data,meta} envelope.
+All views keep meta.url / serial_number / serial_url / resolved_id and the {ok,data,meta} envelope.
 --jq runs on the projected envelope: scripts reading .data.description or
 .data.customFieldValues need --full (or --fields). --fields on a non-object response
 (array / null) fails with error.subtype=non_object_response. --dry-run sends nothing
