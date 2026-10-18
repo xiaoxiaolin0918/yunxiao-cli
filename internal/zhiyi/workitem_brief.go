@@ -88,8 +88,8 @@ func statusDisplayName(status map[string]any) string {
 }
 
 // StatusDisplayNameByID reverse-resolves a status id to its display name via an
-// alias鈫抜d map (profile statuses / workflow statuses, #114). Deterministic: a
-// self-keyed entry (id鈫抜d) wins, else the alphabetically first alias. Empty when the
+// alias→id map (profile statuses / workflow statuses, #114). Deterministic: a
+// self-keyed entry (id→id) wins, else the alphabetically first alias. Empty when the
 // id is unknown.
 func StatusDisplayNameByID(statuses map[string]string, id string) string {
 	if id == "" || len(statuses) == 0 {
@@ -112,7 +112,7 @@ func StatusDisplayNameByID(statuses map[string]string, id string) string {
 
 // TransitionStatusBrief is the to-status view of a transition result (#114): the
 // refreshed item's status object when the refresh worked and matches target, else
-// the target id with the display name reverse-resolved from the alias鈫抜d map.
+// the target id with the display name reverse-resolved from the alias→id map.
 // Empty map when nothing is known about the target.
 func TransitionStatusBrief(refreshed map[string]any, refreshOK bool, target string, statuses map[string]string) map[string]any {
 	if target == "" {
