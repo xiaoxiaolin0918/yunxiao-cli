@@ -633,3 +633,159 @@ func TestWorkitemGetDryRunShowsEnvSource(t *testing.T) {
 		}
 	}
 }
+
+// #369: GetWorkitem returns status=null; SearchWorkitems still has displayable status.
+const workitemGetNullStatusFixture = `{"id":"wi-6045","serialNumber":"ZYPT-6045","subject":"status null case",
+ "status":null,"categoryId":"Req","space":{"id":"space-1","name":"智衣"},
+ "assignedTo":{"id":"u-1","name":"肖晓霖"},"gmtModified":"2026-10-01T10:00:00Z",
+ "workitemType":{"id":"type-req","name":"产品类需求"},"description":"short"}`
+
+const workitemSearchStatusHit = `[{"id":"wi-6045","serialNumber":"ZYPT-6045","subject":"status null case",
+ "status":{"id":"100005","name":"处理中","displayName":"处理中"},"categoryId":"Req"}]`
+
+func TestWorkitemGetBriefRefreshesNullStatusFromSearch(t *testing.T) {
+	var searchHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/workitems/ZYPT-6045") {
+			_, _ = io.WriteString(w, workitemGetNullStatusFixture)
+			return
+		}
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/workitems:search") {
+			searchHits++
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), "serialNumber") || !strings.Contains(string(body), "ZYPT-6045") {
+				t.Errorf("search body missing serialNumber filter: %s", body)
+			}
+			_, _ = io.WriteString(w, workitemSearchStatusHit)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, `{"errorCode":"NotFound"}`)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv(config.EnvAccessToken, "test-token-369-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-369")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+	t.Setenv(envWorkitemGetView, "")
+
+	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-6045")
+	if code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	env, _ := decodeEnvelopeStrict(t, stdout)
+	data := env.Data.(map[string]any)
+	st, _ := data["status"].(map[string]any)
+	if st == nil || st["displayName"] != "处理中" || st["id"] != "100005" {
+		t.Fatalf("status=%#v stdout=%s", data["status"], stdout)
+	}
+	if env.Meta["status_refresh_failed"] != nil {
+		t.Fatalf("should not mark failed on success: %#v", env.Meta)
+	}
+	if searchHits != 1 {
+		t.Fatalf("searchHits=%d", searchHits)
+	}
+}
+
+func TestWorkitemGetBriefMarksStatusRefreshFailed(t *testing.T) {
+	var searchHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/workitems/ZYPT-6045") {
+			_, _ = io.WriteString(w, workitemGetNullStatusFixture)
+			return
+		}
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/workitems:search") {
+			searchHits++
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = io.WriteString(w, `{"errorCode":"Internal","errorMessage":"boom"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv(config.EnvAccessToken, "test-token-369-fail-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-369")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+	t.Setenv(envWorkitemGetView, "")
+
+	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-6045")
+	if code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	env, _ := decodeEnvelopeStrict(t, stdout)
+	if env.Meta["status_refresh_failed"] != true {
+		t.Fatalf("meta=%#v stdout=%s", env.Meta, stdout)
+	}
+	if st, _ := env.Data.(map[string]any)["status"]; st != nil {
+		t.Fatalf("brief should omit non-displayable status: %#v", st)
+	}
+	if searchHits != 1 {
+		t.Fatalf("searchHits=%d", searchHits)
+	}
+}
+
+func TestWorkitemGetBriefSkipsSearchWhenStatusPresent(t *testing.T) {
+	s := newWorkitemGetServer(t)
+	var searchHits int
+	// newWorkitemGetServer already serves ZYPT-5916 with status; wrap by checking gets only.
+	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-5916")
+	if code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	env, _ := decodeEnvelopeStrict(t, stdout)
+	if env.Meta["status_refresh_failed"] != nil {
+		t.Fatalf("meta=%#v", env.Meta)
+	}
+	st, _ := env.Data.(map[string]any)["status"].(map[string]any)
+	if st == nil || st["displayName"] == nil {
+		t.Fatalf("status=%#v", env.Data)
+	}
+	if s.gets != 1 {
+		t.Fatalf("gets=%d (search would not increment gets)", s.gets)
+	}
+	_ = searchHits
+}
+
+func TestWorkitemGetFullDoesNotRefreshStatus(t *testing.T) {
+	var searchHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/workitems/ZYPT-6045") {
+			_, _ = io.WriteString(w, workitemGetNullStatusFixture)
+			return
+		}
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/workitems:search") {
+			searchHits++
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv(config.EnvAccessToken, "test-token-369-full-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-369")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+	t.Setenv(envWorkitemGetView, "")
+
+	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-6045", "--full")
+	if code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	env, top := decodeEnvelopeStrict(t, stdout)
+	var data map[string]json.RawMessage
+	_ = json.Unmarshal(top["data"], &data)
+	if string(data["status"]) != "null" {
+		t.Fatalf("--full must keep raw null status: %s", top["data"])
+	}
+	if env.Meta["status_refresh_failed"] != nil || searchHits != 0 {
+		t.Fatalf("full must not refresh: meta=%#v searchHits=%d", env.Meta, searchHits)
+	}
+}

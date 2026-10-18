@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.6"
+version: "1.4.7"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -148,7 +148,7 @@ ZYPT / 缺陷命名必填字段 → 见 [`../yunxiao-zhiyi-ops/SKILL.md`](../yun
 
 - `workitem get/create/update` 与 `+transition` 成功时 `meta` 常含可点击 `url`（及 `serial_number` / `resolved_id`）。
 - `+transition` / `+bug-transition` 成功默认 brief（#114，同 create/get 惯例）：`data.item` 简要投影 + `from_status`/`to_status` 显示名；`--full` / `YUNXIAO_WORKITEM_GET_VIEW=full` 取回完整对象。核对字段落值才需要 `--full`。
-- `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / **status 仅 `{id,displayName}`** / assignedTo / sprint / priority / workitemType / categoryId / gmtModified，description 以 `description_summary`（字符数）占位；`.data.status.name` / `nameEn`、描述全文、customFieldValues 等用 `--full`（或 `--fields` / `YUNXIAO_WORKITEM_GET_VIEW=full`）。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感：GetWorkitem 字段在该工作项上缺失时为 `null`（列入 `meta.absent_fields`），完全未知的名字报 `unknown_fields` 并列出 `details.available`。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。详见 [workitem-get-views.md](../../docs/wiki/02-domains/workitem-get-views.md)。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
+- `workitem get` 默认 brief（0.16.34+，#98）：`data` 只含 id / serialNumber / subject / **status 仅 `{id,displayName}`** / assignedTo / sprint / priority / workitemType / categoryId / gmtModified，description 以 `description_summary`（字符数）占位；`.data.status.name` / `nameEn`、描述全文、customFieldValues 等用 `--full`（或 `--fields` / `YUNXIAO_WORKITEM_GET_VIEW=full`）。`--full` / `--brief` / `--fields` 互斥；`--fields` 名字大小写敏感：GetWorkitem 字段在该工作项上缺失时为 `null`（列入 `meta.absent_fields`），完全未知的名字报 `unknown_fields` 并列出 `details.available`。兼容示例：`yunxiao workitem get X --full 2>/dev/null || yunxiao workitem get X`。详见 [workitem-get-views.md](../../docs/wiki/02-domains/workitem-get-views.md)。简报缺可展示 status（null 或无 name/displayName）时会 Search 补齐，失败则 `meta.status_refresh_failed=true`（#369；仅 brief，`--fields` 不补）。**先用默认视图，确需时再 `--full`**，避免把长描述塞进上下文。
 - `workitem create` 创建前必填预检（0.16.33+，#95 / #103）：缺字段一次列全；详见 [workitem-create-precheck.md](../../docs/wiki/02-domains/workitem-create-precheck.md)。
 - `workitem create` 默认 brief：`data` 保留 `id` / `serialNumber` / `status.displayName` / `subject`（create API 若返回 null 会再 GET 补齐）；`--full` 输出完整对象（#62）。依赖完整 create JSON 的脚本请加 --full。
 - `workitem relations list` 会尽力为每条关联补齐 `serial_number` / `subject` / `url`（及 category）。

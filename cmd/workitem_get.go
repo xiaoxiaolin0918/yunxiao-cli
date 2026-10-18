@@ -26,7 +26,7 @@ Output views (0.16.34+, #98; exactly one of):
                        "(description: <n> chars, use --full or --fields description)"
                        instead of the description text (RICHTEXT/HTML: "<n> chars of
                        text excluding HTML tags"). Null / "" values are omitted.
-                       meta.projection = "brief".
+                       meta.projection = "brief". When GetWorkitem omits status, CLI searches by serialNumber to fill status {id, displayName}; on failure sets meta.status_refresh_failed (#369).
   --full               the raw GetWorkitem object, identical to 0.16.33 and earlier.
   --fields a,b,c       only these top-level keys, raw values (e.g. description,
                        customFieldValues, workitemType). Case-sensitive. A GetWorkitem
@@ -99,6 +99,20 @@ and shows the chosen view under request.projection.
 		meta := client.MetaWithPagination(map[string]any{"risk": risk.Read}, hdr)
 		item := asStringMap(out)
 		zhiyi.EnrichWorkItemMeta(meta, item, profileSpaceID(), "")
+		// Brief view: GetWorkitem sometimes returns status=null while search still
+		// has a displayable status (#369). Best-effort search refresh; on failure
+		// mark meta.status_refresh_failed so agents don't treat "no status" as fact.
+		if view.mode == "brief" && item != nil {
+			base := item
+			var failed bool
+			item, _, failed = zhiyi.EnsureWorkItemGetStatus(item, func() (map[string]any, error) {
+				return refreshWorkItemStatusViaSearch(cmd.Context(), c, base)
+			})
+			if failed {
+				meta["status_refresh_failed"] = true
+			}
+			out = item
+		}
 		data, err := view.apply(out, item, meta)
 		if err != nil {
 			handleErr(err)

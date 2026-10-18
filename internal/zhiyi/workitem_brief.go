@@ -29,10 +29,12 @@ func BriefWorkItem(item map[string]any) map[string]any {
 }
 
 // StatusBrief keeps status.id and status.displayName (falls back to name).
+// Coerces bare string/number status ids via NormalizeWorkItemStatus (#369).
 func StatusBrief(item map[string]any) map[string]any {
 	if item == nil {
 		return nil
 	}
+	NormalizeWorkItemStatus(item)
 	status, _ := item["status"].(map[string]any)
 	if status == nil {
 		return nil
