@@ -16,8 +16,10 @@ Typed:
   yunxiao packages artifacts list|get|delete|upload
 
 Upload (Packages protocol API + Basic auth, not openapi-rdc JSON):
-  GENERIC: --repo-id --repo-type GENERIC --path --version --file [--username --password]
-  MAVEN:   --repo-id --repo-type MAVEN --group-id --artifact-id --version --file
+  GENERIC: --repo-id --repo-type GENERIC --path --version --file --username --password
+  MAVEN:   --repo-id --repo-type MAVEN --group-id --artifact-id --version --file --username --password
+Dual credentials: OpenAPI PAT/profile (mustClient + ResolveOrgID) AND protocol Basic
+(YUNXIAO_PACKAGES_* or flags). Dry-run still requires Basic creds and an existing --file.
 OpenAPI binary upload announced 2025-02 but docs unpublished; CLI uses repo-guide protocol.
 Not wrapped (native clients): NPM=npm publish, DOCKER=docker push, NUGET=nuget/dotnet, PYPI=twine.
 

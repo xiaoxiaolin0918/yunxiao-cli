@@ -34,14 +34,18 @@ uses the repository-guide protocol host:
            multipart field "file"  (same shape as Packages 仓库指南 / funpub)
   MAVEN:   PUT  {protocol}/{org}/maven/{repo}/{group}/{artifact}/{version}/{file}
 
-Auth: --username/--password (or YUNXIAO_PACKAGES_USERNAME/PASSWORD) from the
-Packages 仓库指南 — distinct from YUNXIAO_ACCESS_TOKEN / x-yunxiao-token.
+Dual credentials (both required):
+  1) OpenAPI identity — normal yunxiao auth (PAT / credentials / profile) for
+     mustClient + ResolveOrgID (org segment in protocol URL).
+  2) Packages protocol Basic — --username/--password or
+     YUNXIAO_PACKAGES_USERNAME/PASSWORD from 仓库指南 (not the PAT).
+     Required even with --dry-run (checked before HTTP).
 
+--file must be a relative path under cwd that exists; dry-run still reads it.
 Supported repo-type: GENERIC, MAVEN.
-Not wrapped (use native clients; not a CLI gap for unpublished OpenAPI):
+Not wrapped (use native clients):
   NPM → npm publish | DOCKER → docker push | NUGET → nuget/dotnet push | PYPI → twine
 
---file must be a relative path under cwd (no absolute / no ..).
 Use --dry-run to preview; --yes is accepted (same global flags as delete).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
