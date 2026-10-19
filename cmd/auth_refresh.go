@@ -13,9 +13,10 @@ var authRefreshCmd = &cobra.Command{
 	Short: "Refresh OAuth access token using stored refresh_token",
 	Long: `Risk: write
 
-Explicitly refreshes the active OAuth credential (force; does not wait for the
+Explicitly refreshes the OAuth credential for the active profile slot (#380),
+or the legacy global Active when no profile is set (force; does not wait for the
 5-minute silent skew). Requires refresh_token + client_id from a prior
-"yunxiao auth login --browser".
+"yunxiao auth login --browser [--profile <name>]".
 
   yunxiao auth refresh
   yunxiao auth refresh --dry-run   # plan only: no network, no credential mutation
@@ -37,35 +38,42 @@ func runAuthRefresh(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	profileName := activeProfileName()
+	slot := config.CredentialForProfile(cred, profileName)
 	out := map[string]any{
-		"credentials_path": path,
-		"dry_run":          dryRun,
+		"credentials_path":   path,
+		"dry_run":            dryRun,
+		"credential_profile": profileName,
 	}
-	if cred.Active == nil || cred.Active.AccessToken == "" {
+	if slot == nil || slot.AccessToken == "" {
+		hint := "yunxiao auth login --browser  (or --token for PAT)"
+		if profileName != "" {
+			hint = "yunxiao auth login --browser --profile " + profileName
+		}
 		return output.Fail(output.ErrorBody{
 			Type:    "cli",
 			Message: "no active credentials",
-			Hint:    "yunxiao auth login --browser  (or --token for PAT)",
+			Hint:    hint,
 		}, 1)
 	}
-	out["token_kind"] = string(cred.Active.TokenKind)
-	out["token_masked"] = config.MaskToken(cred.Active.AccessToken)
-	if cred.Active.TokenKind != config.TokenKindOAuth {
+	out["token_kind"] = string(slot.TokenKind)
+	out["token_masked"] = config.MaskToken(slot.AccessToken)
+	if slot.TokenKind != config.TokenKindOAuth {
 		return output.Fail(output.ErrorBody{
 			Type:    "cli",
 			Message: "active credential is not oauth (PAT has no refresh)",
 			Hint:    "OAuth: yunxiao auth login --browser  |  PAT: no refresh needed",
 		}, 1)
 	}
-	canRefresh := cred.Active.RefreshToken != "" && cred.Active.ClientID != ""
-	nearOrPast := !cred.Active.ExpiresAt.IsZero() && time.Now().Add(oauthRefreshSkew).After(cred.Active.ExpiresAt)
-	accessExpired := !cred.Active.ExpiresAt.IsZero() && !time.Now().Before(cred.Active.ExpiresAt)
+	canRefresh := slot.RefreshToken != "" && slot.ClientID != ""
+	nearOrPast := !slot.ExpiresAt.IsZero() && time.Now().Add(oauthRefreshSkew).After(slot.ExpiresAt)
+	accessExpired := !slot.ExpiresAt.IsZero() && !time.Now().Before(slot.ExpiresAt)
 	out["can_refresh"] = canRefresh
-	out["has_refresh_token"] = cred.Active.RefreshToken != ""
+	out["has_refresh_token"] = slot.RefreshToken != ""
 	out["needs_refresh"] = nearOrPast
 	out["access_expired"] = accessExpired
 	out["would_refresh"] = canRefresh
-	for k, v := range oauthExpiryFields(cred.Active.ExpiresAt, canRefresh) {
+	for k, v := range oauthExpiryFields(slot.ExpiresAt, canRefresh) {
 		out[k] = v
 	}
 
@@ -103,15 +111,16 @@ func runAuthRefresh(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	if cred2.Active != nil {
-		out["token_masked"] = config.MaskToken(cred2.Active.AccessToken)
-		out["expires_at"] = cred2.Active.ExpiresAt
-		canRefresh2 := cred2.Active.RefreshToken != "" && cred2.Active.ClientID != ""
+	slot2 := config.CredentialForProfile(cred2, profileName)
+	if slot2 != nil {
+		out["token_masked"] = config.MaskToken(slot2.AccessToken)
+		out["expires_at"] = slot2.ExpiresAt
+		canRefresh2 := slot2.RefreshToken != "" && slot2.ClientID != ""
 		out["can_refresh"] = canRefresh2
-		out["has_refresh_token"] = cred2.Active.RefreshToken != ""
+		out["has_refresh_token"] = slot2.RefreshToken != ""
 		delete(out, "warning")
 		delete(out, "hint")
-		for k, v := range oauthExpiryFields(cred2.Active.ExpiresAt, canRefresh2) {
+		for k, v := range oauthExpiryFields(slot2.ExpiresAt, canRefresh2) {
 			out[k] = v
 		}
 		out["access_expired"] = false

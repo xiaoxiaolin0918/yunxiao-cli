@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.7
+version: 1.1.8
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -39,17 +39,20 @@ git-bash/MSYS 会在 CLI 收到参数前，把以 `/` 开头的参数改写成 W
 ## 认证
 
 ```bash
-export YUNXIAO_ACCESS_TOKEN="<PAT>"          # 推荐（CI / 会话）
-# 或
-yunxiao auth login --token "<PAT>"           # 写入 ~/.config/yunxiao/config.json (0600)
-yunxiao auth status
+export YUNXIAO_ACCESS_TOKEN="<PAT>"          # CI / 单身份强制覆盖
+yunxiao auth login --token "<PAT>" --profile work      # #380：绑到 profile
+yunxiao auth login --browser --profile work
+yunxiao auth status --profile work            # 含 credential_profile / token_masked
+yunxiao auth logout --profile work            # 只清该 profile 槽
 yunxiao whoami
 yunxiao doctor
 yunxiao auth refresh [--dry-run]   # #170：主动刷新 oat-；dry-run 不写盘
 yunxiao status          # open workitems + open MRs; optional pending gates
 ```
 
-可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。也可在 profile JSON 写可选 `access_token`（优先级：env > profile > config.json）。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>` 一次写入，`profile use --unset` 清除，#130）。
+可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。
+
+**多身份（#380）：** Token 优先级：`YUNXIAO_ACCESS_TOKEN` env → `credentials.profiles[<active profile>]` → 无 profile 时的遗留 `credentials.active` → profile JSON `access_token` → `config.json`。有 profile 名时**不会**回落到全局 `active`。详情：[auth-profiles.md](../../docs/wiki/01-usage/auth-profiles.md)。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>`，#130）。**login / logout 不对称：** `auth login` 的分槽目标 = flag > env > config 默认（已 `profile use work` 时裸 login 写入 `profiles[work]`）；`auth logout` **只用** flag/env（不用 config 默认）。仅三者皆空时 login/logout 才碰全局 `active`。
 
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token

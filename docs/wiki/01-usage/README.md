@@ -6,7 +6,7 @@
 
 | 模块 | 入口 | 风险提示 |
 |------|------|----------|
-| 认证 | `yunxiao auth` | login 写本地凭证；oat- 约 1 天短效，`status`/`doctor` 剩余 <24h 且无 refresh_token 时提醒续期（#122） |
+| 认证 | `yunxiao auth` | login 写本地凭证；oat- 约 1 天短效，`status`/`doctor` 剩余 <24h 且无 refresh_token 时提醒续期（#122）；多身份见 [auth-profiles.md](./auth-profiles.md)（#380）|
 | 健康检查 | `yunxiao doctor` / `whoami` | read；含 OAuth 临期提醒 |
 | 打开控制台 | `yunxiao browse` | read；`--print-only` / `--dry-run` 只打印 URL |
 | 本地别名 | `yunxiao alias` | set/list/delete；禁止别名内嵌 `--yes`/`-y` |

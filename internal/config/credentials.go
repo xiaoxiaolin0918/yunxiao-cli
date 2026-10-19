@@ -19,10 +19,15 @@ const (
 )
 
 // CredentialsFile is ~/.config/yunxiao/credentials.json (mode 0600).
-// Active credentials are always the last successful `auth login` (browser or token).
+//
+// Active is the legacy global slot (login with no profile).
+// Profiles holds per-profile credentials keyed by profile name (#380):
+// `yunxiao auth login --profile <name>` writes Profiles[name].
 type CredentialsFile struct {
-	// Active is the currently effective local login (oauth or pat).
+	// Active is the currently effective local login when no profile is selected.
 	Active *Credential `json:"active,omitempty"`
+	// Profiles maps profile name → credential (#380).
+	Profiles map[string]*Credential `json:"profiles,omitempty"`
 	// Clients caches DCR client_id per api_base (change of base uses a separate slot).
 	Clients map[string]string `json:"clients,omitempty"`
 }
@@ -38,7 +43,7 @@ type Credential struct {
 	APIBase      string    `json:"api_base,omitempty"`
 	// AuthHeader records the OpenAPI header strategy proven by O1 probe:
 	// "x-yunxiao-token" | "authorization-bearer". Empty means use default (x-yunxiao-token).
-	AuthHeader string `json:"auth_header,omitempty"`
+	AuthHeader string    `json:"auth_header,omitempty"`
 	UpdatedAt  time.Time `json:"updated_at,omitempty"`
 }
 
@@ -70,6 +75,9 @@ func LoadCredentials() (CredentialsFile, string, error) {
 	if f.Clients == nil {
 		f.Clients = map[string]string{}
 	}
+	if f.Profiles == nil {
+		f.Profiles = map[string]*Credential{}
+	}
 	return f, p, nil
 }
 
@@ -85,6 +93,9 @@ func SaveCredentials(f CredentialsFile) (string, error) {
 	if f.Clients == nil {
 		f.Clients = map[string]string{}
 	}
+	if f.Profiles == nil {
+		f.Profiles = map[string]*Credential{}
+	}
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return "", err
@@ -93,7 +104,6 @@ func SaveCredentials(f CredentialsFile) (string, error) {
 	if err := os.WriteFile(p, b, 0o600); err != nil {
 		return "", err
 	}
-	// Re-assert mode in case umask widened it.
 	_ = os.Chmod(p, 0o600)
 	return p, nil
 }
@@ -103,8 +113,6 @@ func SaveCredentials(f CredentialsFile) (string, error) {
 const CredentialsPendingName = "credentials.json.refresh-pending"
 
 // SaveCredentialsPending writes f to credentials.json.refresh-pending (mode 0600).
-// Used when SaveCredentials fails after the token endpoint already rotated tokens,
-// so the new refresh_token is not lost solely in process memory.
 func SaveCredentialsPending(f CredentialsFile) (string, error) {
 	d, err := Dir()
 	if err != nil {
@@ -116,6 +124,9 @@ func SaveCredentialsPending(f CredentialsFile) (string, error) {
 	p := filepath.Join(d, CredentialsPendingName)
 	if f.Clients == nil {
 		f.Clients = map[string]string{}
+	}
+	if f.Profiles == nil {
+		f.Profiles = map[string]*Credential{}
 	}
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
@@ -132,11 +143,21 @@ func SaveCredentialsPending(f CredentialsFile) (string, error) {
 // ClearOAuthActive removes active credentials when they are oauth (e.g. refresh failure).
 // Leaves clients cache intact unless clearClients is true.
 func ClearOAuthActive(clearClients bool) (string, error) {
+	return ClearOAuthSlot("", clearClients)
+}
+
+// ClearOAuthSlot clears oauth credentials in Active (empty profileName) or Profiles[profileName].
+func ClearOAuthSlot(profileName string, clearClients bool) (string, error) {
 	f, _, err := LoadCredentials()
 	if err != nil {
 		return "", err
 	}
-	if f.Active != nil && f.Active.TokenKind == TokenKindOAuth {
+	profileName = strings.TrimSpace(profileName)
+	if profileName != "" {
+		if c := f.Profiles[profileName]; c != nil && c.TokenKind == TokenKindOAuth {
+			delete(f.Profiles, profileName)
+		}
+	} else if f.Active != nil && f.Active.TokenKind == TokenKindOAuth {
 		f.Active = nil
 	}
 	if clearClients {
@@ -145,7 +166,7 @@ func ClearOAuthActive(clearClients bool) (string, error) {
 	return SaveCredentials(f)
 }
 
-// ClearActive removes whatever is active (logout).
+// ClearActive removes whatever is active (logout without --profile).
 func ClearActive() (string, error) {
 	f, _, err := LoadCredentials()
 	if err != nil {
@@ -155,24 +176,59 @@ func ClearActive() (string, error) {
 	return SaveCredentials(f)
 }
 
-// SetActivePAT stores a PAT as the active local credential (last successful auth login).
-func SetActivePAT(accessToken, apiBase string) (string, error) {
+// ClearProfile removes Profiles[profileName] only (#380 logout --profile).
+func ClearProfile(profileName string) (string, error) {
+	profileName = strings.TrimSpace(profileName)
+	if profileName == "" {
+		return "", fmt.Errorf("empty profile name")
+	}
 	f, _, err := LoadCredentials()
 	if err != nil {
 		return "", err
 	}
-	f.Active = &Credential{
+	if f.Profiles != nil {
+		delete(f.Profiles, profileName)
+	}
+	return SaveCredentials(f)
+}
+
+// SetActivePAT stores a PAT as the global Active credential (login with no profile).
+func SetActivePAT(accessToken, apiBase string) (string, error) {
+	return SetProfilePAT("", accessToken, apiBase)
+}
+
+// SetProfilePAT stores a PAT for profileName (#380). Empty profileName → Active.
+func SetProfilePAT(profileName, accessToken, apiBase string) (string, error) {
+	f, _, err := LoadCredentials()
+	if err != nil {
+		return "", err
+	}
+	c := &Credential{
 		AccessToken: accessToken,
 		TokenKind:   TokenKindPAT,
 		TokenType:   "pat",
 		APIBase:     strings.TrimRight(apiBase, "/"),
 		UpdatedAt:   time.Now().UTC(),
 	}
+	profileName = strings.TrimSpace(profileName)
+	if profileName == "" {
+		f.Active = c
+	} else {
+		if f.Profiles == nil {
+			f.Profiles = map[string]*Credential{}
+		}
+		f.Profiles[profileName] = c
+	}
 	return SaveCredentials(f)
 }
 
-// SetActiveOAuth stores OAuth tokens as the active local credential.
+// SetActiveOAuth stores OAuth tokens as the global Active credential.
 func SetActiveOAuth(c Credential) (string, error) {
+	return SetProfileOAuth("", c)
+}
+
+// SetProfileOAuth stores OAuth tokens for profileName (#380). Empty profileName → Active.
+func SetProfileOAuth(profileName string, c Credential) (string, error) {
 	f, _, err := LoadCredentials()
 	if err != nil {
 		return "", err
@@ -180,7 +236,16 @@ func SetActiveOAuth(c Credential) (string, error) {
 	c.TokenKind = TokenKindOAuth
 	c.APIBase = strings.TrimRight(c.APIBase, "/")
 	c.UpdatedAt = time.Now().UTC()
-	f.Active = &c
+	cp := c
+	profileName = strings.TrimSpace(profileName)
+	if profileName == "" {
+		f.Active = &cp
+	} else {
+		if f.Profiles == nil {
+			f.Profiles = map[string]*Credential{}
+		}
+		f.Profiles[profileName] = &cp
+	}
 	if c.ClientID != "" && c.APIBase != "" {
 		if f.Clients == nil {
 			f.Clients = map[string]string{}
@@ -188,6 +253,18 @@ func SetActiveOAuth(c Credential) (string, error) {
 		f.Clients[c.APIBase] = c.ClientID
 	}
 	return SaveCredentials(f)
+}
+
+// CredentialForProfile returns Profiles[profileName] or Active when profileName is empty.
+func CredentialForProfile(f CredentialsFile, profileName string) *Credential {
+	profileName = strings.TrimSpace(profileName)
+	if profileName != "" {
+		if f.Profiles == nil {
+			return nil
+		}
+		return f.Profiles[profileName]
+	}
+	return f.Active
 }
 
 // CachedClientID returns the DCR client_id for apiBase, if any.
@@ -213,7 +290,6 @@ func SetCachedClientID(apiBase, clientID string) error {
 	if f.Clients == nil {
 		f.Clients = map[string]string{}
 	}
-	// Changing base does not clear other slots; only overwrite this base.
 	f.Clients[base] = clientID
 	_, err = SaveCredentials(f)
 	return err

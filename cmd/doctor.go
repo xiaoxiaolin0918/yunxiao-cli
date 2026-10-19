@@ -23,7 +23,8 @@ var doctorCmd = &cobra.Command{
 	Long: `Risk: read
 
 Prints resolved executable path (os.Executable / argv0; Windows-friendly),
-active profile summary (name, organization_id, space_id), config/token checks,
+active profile summary (name, organization_id, space_id), config/token checks
+(including credential_profile when the token comes from a per-profile slot, #380),
 and a connectivity probe.
 
 The token check reports browser OAuth expiry (expires_at_local / expires_in /
@@ -46,7 +47,8 @@ complex inline --jq (see docs/wiki/01-usage/windows-shell-hints.md, #370).`,
 		}
 		tokenCheck := map[string]any{
 			"name": "token", "ok": r.AccessToken != "",
-			"source": r.TokenSource, "token_kind": string(r.TokenKind),
+			"source": r.TokenSource, "credential_profile": r.CredentialProfile,
+			"token_kind":   string(r.TokenKind),
 			"auth_refresh": authRefreshSkipped,
 		}
 		if r.AccessToken == "" {

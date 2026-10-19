@@ -37,6 +37,10 @@ type Resolved struct {
 	CredentialsPath string
 	// TokenSource is env | credentials | profile | config | none
 	TokenSource string
+	// CredentialProfile is the profile name when TokenSource is credentials
+	// and the token came from credentials.profiles[<name>] (#380). Empty for
+	// the legacy global Active slot, env, profile JSON, or config.
+	CredentialProfile string
 	// TokenKind is pat | oauth | "" (unknown/env)
 	TokenKind TokenKind
 	// AuthHeader is x-yunxiao-token | authorization-bearer (oauth probe result).
@@ -104,22 +108,32 @@ func SaveFile(f File) (string, error) {
 	return p, nil
 }
 
-// Resolve loads config and resolves settings without a profile token.
-// Token precedence for Resolve / ResolveWithProfileToken:
-//  1. YUNXIAO_ACCESS_TOKEN env (highest)
-//  2. ~/.config/yunxiao/credentials.json active (last successful auth login)
-//  3. active profile's access_token (when passed via ResolveWithProfileToken)
-//  4. ~/.config/yunxiao/config.json access_token (legacy)
-//  5. none
+// Resolve loads config and resolves settings without a profile.
+// Token precedence (#380):
+//  1. YUNXIAO_ACCESS_TOKEN env (force override)
+//  2. credentials.profiles[<active profile>] when a profile name is set
+//  3. credentials.active (legacy global) when no profile name is set
+//  4. profile JSON access_token (via ResolveForProfile / ResolveWithProfileToken)
+//  5. config.json access_token (legacy)
+//  6. none
+//
+// When a profile name is set, the legacy global Active slot is skipped so
+// different profiles keep isolated identities.
 func Resolve() (Resolved, error) {
-	return ResolveWithProfileToken("")
+	return ResolveForProfile("", "")
 }
 
-// ResolveWithProfileToken is like Resolve but considers an optional profile PAT.
-// Pass the active profile's access_token (or empty). Does not import profile
-// (avoids config↔profile cycle). Callers load the profile and pass the token.
-// TokenSource reports env | credentials | profile | config | none.
+// ResolveWithProfileToken is like Resolve but considers an optional profile PAT
+// from the profile JSON. Prefer ResolveForProfile when the profile name is known.
 func ResolveWithProfileToken(profileToken string) (Resolved, error) {
+	return ResolveForProfile("", profileToken)
+}
+
+// ResolveForProfile resolves tokens for an optional profile name (#380).
+// profileName selects credentials.profiles[name] (and skips global Active).
+// profileToken is the optional access_token embedded in the profile JSON.
+// TokenSource reports env | credentials | profile | config | none.
+func ResolveForProfile(profileName, profileToken string) (Resolved, error) {
 	f, p, err := LoadFile()
 	if err != nil {
 		return Resolved{}, err
@@ -147,13 +161,12 @@ func ResolveWithProfileToken(profileToken string) (Resolved, error) {
 	if v := strings.TrimSpace(os.Getenv(EnvEdition)); v != "" {
 		r.Edition = v
 	}
-	if t := strings.TrimSpace(os.Getenv(EnvAccessToken)); t != "" {
-		r.AccessToken = t
-		r.TokenSource = "env"
-	} else if cred.Active != nil && strings.TrimSpace(cred.Active.AccessToken) != "" {
-		a := cred.Active
+
+	profileName = strings.TrimSpace(profileName)
+	applyCred := func(a *Credential, credProfile string) {
 		r.AccessToken = a.AccessToken
 		r.TokenSource = "credentials"
+		r.CredentialProfile = credProfile
 		r.TokenKind = a.TokenKind
 		r.AuthHeader = a.AuthHeader
 		r.RefreshToken = a.RefreshToken
@@ -162,6 +175,27 @@ func ResolveWithProfileToken(profileToken string) (Resolved, error) {
 		if a.APIBase != "" && strings.TrimSpace(os.Getenv(EnvAPIBaseURL)) == "" && f.APIBaseURL == "" {
 			r.APIBaseURL = strings.TrimRight(a.APIBase, "/")
 		}
+	}
+
+	if t := strings.TrimSpace(os.Getenv(EnvAccessToken)); t != "" {
+		r.AccessToken = t
+		r.TokenSource = "env"
+	} else if profileName != "" {
+		if a := CredentialForProfile(cred, profileName); a != nil && strings.TrimSpace(a.AccessToken) != "" {
+			applyCred(a, profileName)
+		} else if t := strings.TrimSpace(profileToken); t != "" {
+			r.AccessToken = t
+			r.TokenSource = "profile"
+			r.TokenKind = TokenKindPAT
+		} else if f.AccessToken != "" {
+			r.AccessToken = f.AccessToken
+			r.TokenSource = "config"
+			r.TokenKind = TokenKindPAT
+		} else {
+			r.TokenSource = "none"
+		}
+	} else if cred.Active != nil && strings.TrimSpace(cred.Active.AccessToken) != "" {
+		applyCred(cred.Active, "")
 	} else if t := strings.TrimSpace(profileToken); t != "" {
 		r.AccessToken = t
 		r.TokenSource = "profile"
@@ -173,6 +207,7 @@ func ResolveWithProfileToken(profileToken string) (Resolved, error) {
 	} else {
 		r.TokenSource = "none"
 	}
+
 	if r.Edition == "" {
 		if strings.Contains(r.APIBaseURL, "openapi-rdc.aliyuncs.com") {
 			r.Edition = "central"
