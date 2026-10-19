@@ -46,17 +46,22 @@ func refreshAfterTransition(ctx context.Context, c getter, path, id string) (ref
 }
 
 // resolveEffectiveConfig applies active profile org (via setenv) and resolves
-// token with precedence: YUNXIAO_ACCESS_TOKEN > credentials.json > profile > config.json.
+// token with precedence (#380): YUNXIAO_ACCESS_TOKEN > credentials.profiles[name]
+// (or credentials.active when no profile) > profile JSON access_token > config.json.
 func resolveEffectiveConfig() (config.Resolved, *profile.Profile, error) {
 	pf, err := applyActiveProfileOrg()
 	if err != nil {
 		return config.Resolved{}, nil, err
 	}
 	var profileToken string
+	var profileName string
 	if pf != nil {
 		profileToken = pf.AccessToken
+		profileName = pf.Name
+	} else {
+		profileName = activeProfileName()
 	}
-	r, err := config.ResolveWithProfileToken(profileToken)
+	r, err := config.ResolveForProfile(profileName, profileToken)
 	if err != nil {
 		return r, pf, err
 	}

@@ -46,15 +46,17 @@ func tryOAuthRefresh(ctx context.Context, c *client.Client, force bool) (oauthRe
 	if err != nil {
 		return res, err
 	}
-	if cred.Active == nil || cred.Active.TokenKind != config.TokenKindOAuth {
+	profileName := activeProfileName()
+	slot := config.CredentialForProfile(cred, profileName)
+	if slot == nil || slot.TokenKind != config.TokenKindOAuth {
 		return res, nil
 	}
-	canRefresh := cred.Active.RefreshToken != "" && cred.Active.ClientID != ""
+	canRefresh := slot.RefreshToken != "" && slot.ClientID != ""
 	res.CanRefresh = canRefresh
-	if !cred.Active.ExpiresAt.IsZero() {
-		res.AccessExpired = !time.Now().Before(cred.Active.ExpiresAt)
+	if !slot.ExpiresAt.IsZero() {
+		res.AccessExpired = !time.Now().Before(slot.ExpiresAt)
 	}
-	nearOrPast := !cred.Active.ExpiresAt.IsZero() && time.Now().Add(oauthRefreshSkew).After(cred.Active.ExpiresAt)
+	nearOrPast := !slot.ExpiresAt.IsZero() && time.Now().Add(oauthRefreshSkew).After(slot.ExpiresAt)
 	res.NeedsRefresh = force || nearOrPast
 
 	if !force && !nearOrPast {
@@ -66,31 +68,38 @@ func tryOAuthRefresh(ctx context.Context, c *client.Client, force bool) (oauthRe
 		return res, nil
 	}
 
-	apiBase := cred.Active.APIBase
+	apiBase := slot.APIBase
 	if apiBase == "" && c != nil {
 		apiBase = c.BaseURL
 	}
 	meta, err := oauth.Discover(ctx, nil, apiBase)
 	if err != nil {
 		res.Outcome = authRefreshFailed
-		return res, clearOAuthAndErr(err)
+		return res, clearOAuthAndErr(profileName, err)
 	}
-	tok, err := oauth.Refresh(ctx, nil, meta.TokenEndpoint, cred.Active.ClientID, cred.Active.RefreshToken)
+	tok, err := oauth.Refresh(ctx, nil, meta.TokenEndpoint, slot.ClientID, slot.RefreshToken)
 	if err != nil {
 		res.Outcome = authRefreshFailed
-		return res, clearOAuthAndErr(err)
+		return res, clearOAuthAndErr(profileName, err)
 	}
-	cred.Active.AccessToken = tok.AccessToken
+	slot.AccessToken = tok.AccessToken
 	if tok.RefreshToken != "" {
-		cred.Active.RefreshToken = tok.RefreshToken
+		slot.RefreshToken = tok.RefreshToken
 	}
-	cred.Active.ExpiresAt = oauth.ExpiresAt(tok.ExpiresIn, time.Now().UTC())
-	cred.Active.UpdatedAt = time.Now().UTC()
+	slot.ExpiresAt = oauth.ExpiresAt(tok.ExpiresIn, time.Now().UTC())
+	slot.UpdatedAt = time.Now().UTC()
+	if profileName == "" {
+		cred.Active = slot
+	} else {
+		if cred.Profiles == nil {
+			cred.Profiles = map[string]*config.Credential{}
+		}
+		cred.Profiles[profileName] = slot
+	}
 	if _, err := config.SaveCredentials(cred); err != nil {
-		// Token endpoint may have rotated refresh_token; keep a sibling copy so it is not lost.
 		res.Outcome = authRefreshFailed
 		if pending, pendErr := config.SaveCredentialsPending(cred); pendErr == nil {
-			return res, fmt.Errorf("oauth refreshed but could not write credentials.json (%w); new tokens saved to %s — move over credentials.json or re-run: yunxiao auth login --browser", err, pending)
+			return res, fmt.Errorf("oauth refreshed but could not write credentials.json (%w); new tokens saved to %s; move over credentials.json or re-run: yunxiao auth login --browser", err, pending)
 		}
 		return res, fmt.Errorf("oauth refreshed but failed to save credentials (new refresh_token may be lost; re-run: yunxiao auth login --browser): %w", err)
 	}
@@ -98,10 +107,13 @@ func tryOAuthRefresh(ctx context.Context, c *client.Client, force bool) (oauthRe
 		c.Token = tok.AccessToken
 	}
 	res.Outcome = authRefreshRefreshed
+
 	return res, nil
 }
 
-func clearOAuthAndErr(cause error) error {
-	_, _ = config.ClearOAuthActive(false)
-	return fmt.Errorf("oauth refresh failed — cleared local oauth credentials; re-run: yunxiao auth login --browser (%w)", cause)
+func clearOAuthAndErr(profileName string, err error) error {
+	if _, cErr := config.ClearOAuthSlot(profileName, false); cErr != nil {
+		return fmt.Errorf("oauth refresh failed (%v); also failed to clear credentials: %w", err, cErr)
+	}
+	return fmt.Errorf("oauth refresh failed (credentials cleared; re-run: yunxiao auth login --browser): %w", err)
 }

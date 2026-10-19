@@ -12,6 +12,7 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/config"
 	"github.com/yunxiao-cli/yunxiao/internal/oauth"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/profile"
 )
 
 var authCmd = &cobra.Command{
@@ -26,10 +27,12 @@ var authLoginCmd = &cobra.Command{
 
 Browser OAuth (recommended for interactive / Agent use):
   yunxiao auth login --browser
+  yunxiao auth login --browser --profile <name>   # bind OAuth to profile (#380)
   yunxiao auth login --browser --dry-run   # print auth URL + callback; do not exchange
 
 PAT (required for CI / headless):
   yunxiao auth login --token <PAT>
+  yunxiao auth login --token <PAT> --profile <name>   # bind identity to profile (#380)
   Create a PAT: https://account-devops.aliyun.com/settings/personalAccessToken
 
 WARNING: OAuth consent grants full account API capability (platform has no module scopes).
@@ -40,7 +43,7 @@ silent-refresh when a refresh_token is stored; use "yunxiao auth refresh" to
 force refresh, or "yunxiao auth login --browser" when refresh is unavailable.
 "auth status" / "doctor" warn when less than 24h remains.
 
-Token precedence: YUNXIAO_ACCESS_TOKEN env > ~/.config/yunxiao/credentials.json (last successful login) > profile > config.json.
+Token precedence (#380): YUNXIAO_ACCESS_TOKEN env > credentials.profiles[<active profile>] > credentials.active (no profile) > profile JSON access_token > config.json.
 
 Risk: write`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -65,16 +68,17 @@ can_refresh, hint prefers "yunxiao auth refresh"; otherwise
 			return
 		}
 		out := map[string]any{
-			"has_token":         r.AccessToken != "",
-			"token_source":      r.TokenSource,
-			"token_kind":        string(r.TokenKind),
-			"token_masked":      config.MaskToken(r.AccessToken),
-			"api_base_url":      r.APIBaseURL,
-			"organization_id":   r.OrganizationID,
-			"edition":           r.Edition,
-			"config_path":       r.ConfigPath,
-			"credentials_path":  r.CredentialsPath,
-			"auth_header":       r.AuthHeader,
+			"has_token":          r.AccessToken != "",
+			"token_source":       r.TokenSource,
+			"credential_profile": r.CredentialProfile,
+			"token_kind":         string(r.TokenKind),
+			"token_masked":       config.MaskToken(r.AccessToken),
+			"api_base_url":       r.APIBaseURL,
+			"organization_id":    r.OrganizationID,
+			"edition":            r.Edition,
+			"config_path":        r.ConfigPath,
+			"credentials_path":   r.CredentialsPath,
+			"auth_header":        r.AuthHeader,
 		}
 		if r.TokenKind == config.TokenKindOAuth {
 			canRefresh := r.RefreshToken != "" && r.ClientID != ""
@@ -96,30 +100,13 @@ can_refresh, hint prefers "yunxiao auth refresh"; otherwise
 
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
-	Short: "Remove local credentials (credentials.json active + legacy config.json token)",
-	Long:  "Risk: write",
+	Short: "Remove local credentials (per-profile slot or global active)",
+	Long: `Risk: write
+
+With --profile / YUNXIAO_PROFILE: clears only credentials.profiles[<name>] (#380).
+Without a profile name: clears the legacy global Active slot and config.json access_token.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		credPath, err := config.ClearActive()
-		if err != nil {
-			handleErr(err)
-			return
-		}
-		f, _, err := config.LoadFile()
-		if err != nil {
-			handleErr(err)
-			return
-		}
-		f.AccessToken = ""
-		cfgPath, err := config.SaveFile(f)
-		if err != nil {
-			handleErr(err)
-			return
-		}
-		handleErr(output.Success(map[string]any{
-			"credentials_path": credPath,
-			"config_path":      cfgPath,
-			"cleared":          true,
-		}, nil))
+		handleErr(runAuthLogout())
 	},
 }
 
@@ -135,6 +122,57 @@ Risk: read`,
 	Run: func(cmd *cobra.Command, args []string) {
 		handleErr(runAuthProbe(cmd.Context()))
 	},
+}
+
+// authTargetProfile returns the profile name login/logout should bind to.
+// Uses --profile / YUNXIAO_PROFILE / config default (same as ResolveName).
+func authTargetProfile() string {
+	return profile.ResolveName(globalProfile)
+}
+
+// authLogoutProfileTarget returns the profile slot to clear on logout.
+// Only --profile flag or YUNXIAO_PROFILE (not config default) so a bare
+// "auth logout" still clears the legacy global Active slot.
+func authLogoutProfileTarget() string {
+	if s := strings.TrimSpace(globalProfile); s != "" {
+		return s
+	}
+	return strings.TrimSpace(os.Getenv(profile.EnvProfile))
+}
+
+func runAuthLogout() error {
+	name := authLogoutProfileTarget()
+	if name != "" {
+		credPath, err := config.ClearProfile(name)
+		if err != nil {
+			return err
+		}
+		return output.Success(map[string]any{
+			"credentials_path":   credPath,
+			"cleared":            true,
+			"credential_profile": name,
+			"hint":               "cleared credentials.profiles[" + name + "] only; other profiles and global Active untouched",
+		}, nil)
+	}
+	credPath, err := config.ClearActive()
+	if err != nil {
+		return err
+	}
+	f, _, err := config.LoadFile()
+	if err != nil {
+		return err
+	}
+	f.AccessToken = ""
+	cfgPath, err := config.SaveFile(f)
+	if err != nil {
+		return err
+	}
+	return output.Success(map[string]any{
+		"credentials_path": credPath,
+		"config_path":      cfgPath,
+		"cleared":          true,
+		"hint":             "cleared global Active + config.json token; profile slots unchanged — use auth logout --profile <name>",
+	}, nil)
 }
 
 func runAuthLogin(cmd *cobra.Command) error {
@@ -196,12 +234,12 @@ func runAuthLogin(cmd *cobra.Command) error {
 	}
 
 	if browser {
-		return runBrowserLogin(cmd.Context(), apiBase, org, dryRun)
+		return runBrowserLogin(cmd.Context(), apiBase, org, authTargetProfile(), dryRun)
 	}
-	return runPATLogin(cmd, token, apiBase, org)
+	return runPATLogin(cmd, token, apiBase, org, authTargetProfile())
 }
 
-func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) error {
+func runBrowserLogin(ctx context.Context, apiBase, org, profileName string, dryRun bool) error {
 	cached, _ := config.CachedClientID(apiBase)
 	res, err := oauth.BrowserLogin(ctx, oauth.BrowserLoginOptions{
 		APIBase:        apiBase,
@@ -238,7 +276,7 @@ func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) erro
 		APIBase:      apiBase,
 		ExpiresAt:    oauth.ExpiresAt(res.Tokens.ExpiresIn, time.Now().UTC()),
 	}
-	path, err := config.SetActiveOAuth(cred)
+	path, err := config.SetProfileOAuth(profileName, cred)
 	if err != nil {
 		return err
 	}
@@ -246,12 +284,13 @@ func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) erro
 	// O1 hard gate: probe headers immediately.
 	probe, probeErr := oauth.ProbeWhoami(ctx, nil, apiBase, res.Tokens.AccessToken)
 	out := map[string]any{
-		"credentials_path": path,
-		"token_kind":       "oauth",
-		"token_masked":     config.MaskToken(res.Tokens.AccessToken),
-		"api_base":         apiBase,
-		"client_id":        res.ClientID,
-		"expires_at":       cred.ExpiresAt,
+		"credentials_path":   path,
+		"token_kind":         "oauth",
+		"token_masked":       config.MaskToken(res.Tokens.AccessToken),
+		"api_base":           apiBase,
+		"client_id":          res.ClientID,
+		"expires_at":         cred.ExpiresAt,
+		"credential_profile": profileName,
 	}
 	// #122: human-readable expiry + renew command on login success.
 	canRefresh := res.Tokens.RefreshToken != "" && res.ClientID != ""
@@ -286,7 +325,7 @@ func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) erro
 	out["probe"] = probe
 	// Persist proven header strategy.
 	cred.AuthHeader = string(probe.Strategy)
-	if _, err := config.SetActiveOAuth(cred); err != nil {
+	if _, err := config.SetProfileOAuth(profileName, cred); err != nil {
 		return err
 	}
 	out["auth_header"] = cred.AuthHeader
@@ -299,7 +338,7 @@ func runBrowserLogin(ctx context.Context, apiBase, org string, dryRun bool) erro
 	return output.Success(out, nil)
 }
 
-func runPATLogin(cmd *cobra.Command, token, apiBase, org string) error {
+func runPATLogin(cmd *cobra.Command, token, apiBase, org, profileName string) error {
 	if token == "" {
 		fmt.Fprint(os.Stderr, "Paste Yunxiao personal access token (input hidden not available; paste then Enter):\n> ")
 		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -316,33 +355,58 @@ func runPATLogin(cmd *cobra.Command, token, apiBase, org string) error {
 			Hint:    "Prefer: yunxiao auth login --browser — or PAT: " + patHintShort(),
 		}, 1)
 	}
-	credPath, err := config.SetActivePAT(token, apiBase)
+	credPath, err := config.SetProfilePAT(profileName, token, apiBase)
 	if err != nil {
 		return err
 	}
-	// Also keep legacy config.json in sync for older tooling.
-	f, _, err := config.LoadFile()
-	if err != nil {
-		return err
+	var cfgPath string
+	if profileName == "" {
+		// Keep legacy config.json in sync only for global login (older tooling).
+		f, _, err := config.LoadFile()
+		if err != nil {
+			return err
+		}
+		f.AccessToken = token
+		if apiBase != "" {
+			f.APIBaseURL = apiBase
+		}
+		if org != "" {
+			f.OrganizationID = org
+		}
+		cfgPath, err = config.SaveFile(f)
+		if err != nil {
+			return err
+		}
+	} else if org != "" {
+		// Optional: persist org on config when provided with profile login.
+		f, _, err := config.LoadFile()
+		if err != nil {
+			return err
+		}
+		if org != "" {
+			f.OrganizationID = org
+		}
+		if apiBase != "" {
+			f.APIBaseURL = apiBase
+		}
+		if _, err := config.SaveFile(f); err != nil {
+			return err
+		}
 	}
-	f.AccessToken = token
-	if apiBase != "" {
-		f.APIBaseURL = apiBase
+	out := map[string]any{
+		"credentials_path":   credPath,
+		"token_kind":         "pat",
+		"token_masked":       config.MaskToken(token),
+		"credential_profile": profileName,
+		"hint":               "token stored with mode 0600; prefer YUNXIAO_ACCESS_TOKEN in CI; interactive: auth login --browser",
 	}
-	if org != "" {
-		f.OrganizationID = org
+	if profileName == "" {
+		out["config_path"] = cfgPath
+		out["hint"] = "token stored in global Active (+ legacy config.json); use --profile <name> to bind a per-profile identity (#380)"
+	} else {
+		out["hint"] = "token stored in credentials.profiles[" + profileName + "]; switch with --profile / YUNXIAO_PROFILE (#380)"
 	}
-	cfgPath, err := config.SaveFile(f)
-	if err != nil {
-		return err
-	}
-	return output.Success(map[string]any{
-		"credentials_path": credPath,
-		"config_path":      cfgPath,
-		"token_kind":       "pat",
-		"token_masked":     config.MaskToken(token),
-		"hint":             "token stored with mode 0600; prefer YUNXIAO_ACCESS_TOKEN in CI; interactive: auth login --browser",
-	}, nil)
+	return output.Success(out, nil)
 }
 
 func runAuthProbe(ctx context.Context) error {
@@ -350,22 +414,29 @@ func runAuthProbe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if cred.Active == nil || cred.Active.TokenKind != config.TokenKindOAuth || cred.Active.AccessToken == "" {
+	profileName := authTargetProfile()
+	slot := config.CredentialForProfile(cred, profileName)
+	if slot == nil || slot.TokenKind != config.TokenKindOAuth || slot.AccessToken == "" {
+		hint := "Complete browser login first: yunxiao auth login --browser"
+		if profileName != "" {
+			hint = "Complete browser login for this profile: yunxiao auth login --browser --profile " + profileName
+		}
 		return output.Fail(output.ErrorBody{
 			Type:    "cli",
 			Message: config.ErrNoOAuthToken.Error(),
-			Hint:    "Complete browser login first: yunxiao auth login --browser",
+			Hint:    hint,
 		}, 2)
 	}
-	apiBase := cred.Active.APIBase
+	apiBase := slot.APIBase
 	if apiBase == "" {
 		apiBase = config.DefaultAPIBaseURL
 	}
-	probe, err := oauth.ProbeWhoami(ctx, nil, apiBase, cred.Active.AccessToken)
+	probe, err := oauth.ProbeWhoami(ctx, nil, apiBase, slot.AccessToken)
 	out := map[string]any{
-		"credentials_path": path,
-		"api_base":         apiBase,
-		"token_masked":     config.MaskToken(cred.Active.AccessToken),
+		"credentials_path":   path,
+		"api_base":           apiBase,
+		"token_masked":       config.MaskToken(slot.AccessToken),
+		"credential_profile": profileName,
 	}
 	if probe != nil {
 		out["probe"] = probe
@@ -378,12 +449,20 @@ func runAuthProbe(ctx context.Context) error {
 		}
 		return output.ExitError{Code: 1, Msg: "O1 hard gate FAILED — oat- not usable with existing OpenAPI headers"}
 	}
-	cred.Active.AuthHeader = string(probe.Strategy)
+	slot.AuthHeader = string(probe.Strategy)
+	if profileName == "" {
+		cred.Active = slot
+	} else {
+		if cred.Profiles == nil {
+			cred.Profiles = map[string]*config.Credential{}
+		}
+		cred.Profiles[profileName] = slot
+	}
 	if _, err := config.SaveCredentials(cred); err != nil {
 		return err
 	}
 	out["probe_ok"] = true
-	out["auth_header"] = cred.Active.AuthHeader
+	out["auth_header"] = slot.AuthHeader
 	return output.Success(out, nil)
 }
 
