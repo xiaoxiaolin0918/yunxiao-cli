@@ -9,14 +9,19 @@ import (
 var packagesCmd = &cobra.Command{
 	Use:   "packages",
 	Short: "Artifact package repositories",
-	Long: `Packages domain (Packages / 制品).
+	Long: `Packages domain (Packages / artifact repos).
 
 Typed:
   yunxiao packages repos list [--repo-types ...] [--repo-categories ...]
-  yunxiao packages artifacts list|get|delete
-  (upload skipped — MCP operations/packages + tool-registry/packages.ts only list/get; no OpenAPI upload)
+  yunxiao packages artifacts list|get|delete|upload
 
-Risk: list/get=read; delete=high-risk-write`,
+Upload (Packages protocol API + Basic auth, not openapi-rdc JSON):
+  GENERIC: --repo-id --repo-type GENERIC --path --version --file [--username --password]
+  MAVEN:   --repo-id --repo-type MAVEN --group-id --artifact-id --version --file
+OpenAPI binary upload announced 2025-02 but docs unpublished; CLI uses repo-guide protocol.
+Not wrapped (native clients): NPM=npm publish, DOCKER=docker push, NUGET=nuget/dotnet, PYPI=twine.
+
+Risk: list/get=read; upload=write; delete=high-risk-write`,
 }
 
 var packagesReposCmd = &cobra.Command{Use: "repos", Short: "Package repositories"}
@@ -175,7 +180,7 @@ func init() {
 	packagesArtifactsDeleteCmd.Flags().String("repo-type", "", "repo type (required)")
 	packagesArtifactsDeleteCmd.Flags().String("id", "", "artifact id (required)")
 	packagesArtifactsDeleteCmd.Flags().String("version-id", "", "optional version id (delete one version)")
-	packagesArtifactsCmd.AddCommand(packagesArtifactsListCmd, packagesArtifactsGetCmd, packagesArtifactsDeleteCmd)
+	packagesArtifactsCmd.AddCommand(packagesArtifactsListCmd, packagesArtifactsGetCmd, packagesArtifactsDeleteCmd, packagesArtifactsUploadCmd)
 	packagesReposCmd.AddCommand(packagesReposListCmd)
 	packagesCmd.AddCommand(packagesReposCmd, packagesArtifactsCmd)
 }

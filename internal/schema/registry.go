@@ -38,7 +38,7 @@ var Registry = []Method{
 		Example: "yunxiao organization +member-resolve --name <displayName>"},
 	{ID: "project.list", Domain: "project", Description: "Search / list Projex projects",
 		HTTPMethod: "POST", Path: "/oapi/v1/projex/organizations/{org}/projects:search", Risk: risk.Read, Example: "yunxiao project list --name demo"},
-		{ID: "project.labels.list", Domain: "project", Description: "List Projex project labels (id/name/color; #141)",
+	{ID: "project.labels.list", Domain: "project", Description: "List Projex project labels (id/name/color; #141)",
 		HTTPMethod: "GET", Path: ".../projects/{spaceId}/labels", Risk: risk.Read,
 		Params: []Param{
 			{Name: "space-id", Type: "string", Required: false, Desc: "project/space id (default profile.space_id)"},
@@ -54,7 +54,7 @@ var Registry = []Method{
 			{Name: "color", Type: "string", Required: false, Desc: "label color (default #A773E0)"},
 		},
 		Example: "yunxiao project labels create --name fast-lane --dry-run"},
-{ID: "workitem.search", Domain: "project", Description: "Search work items (date/status filters, --all, opt-in --as-items; client-filter dates if needed)",
+	{ID: "workitem.search", Domain: "project", Description: "Search work items (date/status filters, --all, opt-in --as-items; client-filter dates if needed)",
 		HTTPMethod: "POST", Path: "/oapi/v1/projex/organizations/{org}/workitems:search", Risk: risk.Read,
 		Params: []Param{
 			{Name: "category", Type: "string", Required: true, Desc: "Req|Bug|Task|…"},
@@ -335,6 +335,9 @@ var Registry = []Method{
 	{ID: "packages.artifacts.delete", Domain: "packages", Description: "Delete artifact",
 		HTTPMethod: "DELETE", Path: ".../artifacts/{id}", Risk: risk.HighRiskWrite,
 		Example: "yunxiao packages artifacts delete --repo-id <id> --repo-type GENERIC --id <aid> --dry-run"},
+	{ID: "packages.artifacts.upload", Domain: "packages", Description: "Upload artifact via Packages protocol (GENERIC/MAVEN)",
+		HTTPMethod: "POST", Path: "packages.aliyun.com/api/protocol/{org}/{type}/{repo}/...", Risk: risk.Write,
+		Example: "yunxiao packages artifacts upload --repo-id <id> --repo-type GENERIC --path a/b --version 1.0.0 --file ./f.bin --dry-run"},
 	{ID: "workitem.delete", Domain: "project", Description: "Delete work item",
 		HTTPMethod: "DELETE", Path: ".../workitems/{id}", Risk: risk.HighRiskWrite,
 		Example: "yunxiao workitem delete --id <id> --dry-run"},

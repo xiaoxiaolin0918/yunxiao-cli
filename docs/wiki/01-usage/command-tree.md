@@ -99,6 +99,10 @@
 |------|---------|
 | `packages repos` | `packagesReposCmd` |
 | `packages artifacts` | `packagesArtifactsCmd` |
+| `packages artifacts list` | `packagesArtifactsListCmd` |
+| `packages artifacts get` | `packagesArtifactsGetCmd` |
+| `packages artifacts delete` | `packagesArtifactsDeleteCmd` |
+| `packages artifacts upload` | `packagesArtifactsUploadCmd` |
 
 ## `pipeline` 子命令
 

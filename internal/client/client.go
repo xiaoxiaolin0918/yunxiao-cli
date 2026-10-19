@@ -356,6 +356,138 @@ func (c *Client) PostMultipart(ctx context.Context, path string, query map[strin
 	return nil
 }
 
+// PostMultipartURL posts multipart/form-data to an absolute URL (Packages protocol host).
+// When basicUser is non-empty, Authorization Basic is used instead of the Yunxiao PAT header.
+// Not retried (non-idempotent).
+func (c *Client) PostMultipartURL(ctx context.Context, fullURL, fileField, filename string, data []byte, fields map[string]string, basicUser, basicPass string, out any) error {
+	if err := c.ensureFresh(ctx); err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		if err := w.WriteField(k, v); err != nil {
+			return err
+		}
+	}
+	part, err := w.CreateFormFile(fileField, filename)
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(data); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("User-Agent", c.UserAgent)
+	if basicUser != "" {
+		req.SetBasicAuth(basicUser, basicPass)
+	} else {
+		c.applyAuth(req)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return &APIError{
+			Status: resp.StatusCode,
+			Body:   RedactSecrets(bodyForError(raw), c.Token),
+			URL:    RedactSecrets(fullURL, c.Token),
+			Method: "POST",
+		}
+	}
+	if out == nil || len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		if s, ok := out.(*string); ok {
+			*s = string(raw)
+			return nil
+		}
+		return &DecodeError{
+			Method:      "POST",
+			URL:         RedactSecrets(fullURL, c.Token),
+			Status:      resp.StatusCode,
+			ContentType: resp.Header.Get("Content-Type"),
+			Body:        RedactSecrets(truncate(string(raw), decodeBodyPreview), c.Token),
+			Err:         err,
+		}
+	}
+	return nil
+}
+
+// PutBinaryURL PUTs raw bytes to an absolute URL (e.g. Maven protocol deploy).
+// When basicUser is non-empty, Authorization Basic is used instead of the Yunxiao PAT header.
+// Not retried (non-idempotent).
+func (c *Client) PutBinaryURL(ctx context.Context, fullURL string, data []byte, contentType, basicUser, basicPass string, out any) error {
+	if err := c.ensureFresh(ctx); err != nil {
+		return err
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	req, err := http.NewRequestWithContext(ctx, "PUT", fullURL, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("User-Agent", c.UserAgent)
+	if basicUser != "" {
+		req.SetBasicAuth(basicUser, basicPass)
+	} else {
+		c.applyAuth(req)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return &APIError{
+			Status: resp.StatusCode,
+			Body:   RedactSecrets(bodyForError(raw), c.Token),
+			URL:    RedactSecrets(fullURL, c.Token),
+			Method: "PUT",
+		}
+	}
+	if out == nil || len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		if s, ok := out.(*string); ok {
+			*s = string(raw)
+			return nil
+		}
+		return &DecodeError{
+			Method:      "PUT",
+			URL:         RedactSecrets(fullURL, c.Token),
+			Status:      resp.StatusCode,
+			ContentType: resp.Header.Get("Content-Type"),
+			Body:        RedactSecrets(truncate(string(raw), decodeBodyPreview), c.Token),
+			Err:         err,
+		}
+	}
+	return nil
+}
+
 // Do executes the request and returns response headers (for pagination meta).
 // Prefer Do over DoRaw when only headers are needed; use DoRaw when status code matters.
 func (c *Client) Do(ctx context.Context, method, path string, query map[string]string, body any, out any) (http.Header, error) {
