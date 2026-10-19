@@ -1,7 +1,7 @@
 ---
 name: yunxiao-packages
-version: 1.0.1
-description: "云效制品仓库（Packages）：列仓库/制品、删除制品。用户问 Maven/NPM/通用制品库列表时使用。上传未封装（MCP 无清晰 GENERIC 上传路径）。"
+version: 1.1.1
+description: "Yunxiao Packages: list/get/delete artifacts; upload GENERIC/MAVEN via protocol API."
 metadata:
   requires:
     bins: ["yunxiao"]
@@ -26,16 +26,46 @@ yunxiao packages artifacts get --repo-id <id> --repo-type GENERIC --id <aid>
 ```bash
 yunxiao packages artifacts delete --repo-id <id> --repo-type GENERIC --id <aid> --dry-run
 yunxiao packages artifacts delete --repo-id <id> --repo-type MAVEN --id <aid> --version-id <vid> --yes
+# dry-run still needs protocol Basic creds (flag or env) + a real --file on disk
+yunxiao packages artifacts upload --repo-id <id> --repo-type GENERIC --path a/b --version 1.0.0 --file ./f.bin --username <u> --password <p> --dry-run
 ```
 
-`artifacts delete` 为 **high-risk-write**。Artifact upload 尚未封装（API 形态因仓库类型而异）→ 用 `yunxiao api` 或后续版本。
+`artifacts delete` is **high-risk-write**. `artifacts upload` is **write** (GENERIC/MAVEN protocol).
 
-> **Upload**：v0.6 跳过——MCP/operations 中无清晰 GENERIC 上传路径；已知端点可用 `yunxiao api`。
+> **Upload**：GENERIC/MAVEN via Packages protocol API. OpenAPI binary upload docs still unpublished.
 
-## Upload（跳过）
+## Upload
 
-已核对 `operations/packages/{artifacts,repositories,types}.ts` 与 `tool-registry/packages.ts`：仅有 list repositories / list+get artifacts，**无 upload OpenAPI**。公开帮助文档为流水线「构建物上传」步骤，非 OpenAPI。故 CLI 不封装 upload。
+**Dual credentials (both required):**
+
+1. **OpenAPI identity** — normal `yunxiao` auth (`YUNXIAO_ACCESS_TOKEN` / credentials / profile). `mustClient` + `ResolveOrgID` need this to build `{org}` in the protocol URL. Protocol-only env is not enough.
+2. **Packages protocol Basic** — `--username`/`--password` or `YUNXIAO_PACKAGES_USERNAME`/`YUNXIAO_PACKAGES_PASSWORD` from 仓库指南. **Not** the PAT. Checked even on `--dry-run` (before any HTTP).
+
+Also: `--file` must exist as a relative path under cwd; dry-run still calls `readRelativeFile`.
+
+```bash
+# GENERIC (protocol multipart) — dry-run needs Basic creds too
+yunxiao packages artifacts upload --repo-id <id> --repo-type GENERIC --path myapp/build --version 1.0.0 --file ./app.bin --username <u> --password <p> --dry-run
+# or: export YUNXIAO_PACKAGES_USERNAME=... YUNXIAO_PACKAGES_PASSWORD=...
+yunxiao packages artifacts upload --repo-id <id> --repo-type GENERIC --path myapp/build --version 1.0.0 --file ./app.bin --yes
+
+# MAVEN (protocol PUT)
+yunxiao packages artifacts upload --repo-id <id> --repo-type MAVEN --group-id com.example --artifact-id demo --version 1.0.0 --file ./demo-1.0.0.jar --username <u> --password <p> --dry-run
+```
+
+Protocol base: `YUNXIAO_PACKAGES_PROTOCOL_BASE` (default `https://packages.aliyun.com/api/protocol`).
+
+### Supported / not wrapped
+
+| Type | Status |
+|------|--------|
+| GENERIC | supported (protocol POST multipart) |
+| MAVEN | supported (protocol PUT) |
+| NPM | not wrapped — `npm publish` |
+| DOCKER | not wrapped — `docker push` |
+| NUGET | not wrapped — nuget/dotnet push |
+| PYPI | not wrapped — twine |
 
 ## Known gaps
 
-Upload / repo create-delete 仍跳过（MCP 无清晰路径）。
+Repo create-delete still skipped. Upload: GENERIC/MAVEN via protocol; NPM/DOCKER/NUGET/PYPI use native clients.

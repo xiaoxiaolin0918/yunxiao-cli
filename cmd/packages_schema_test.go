@@ -20,7 +20,7 @@ func TestPackagesHelpDocumentsSurface(t *testing.T) {
 	if !strings.Contains(h, "high-risk") && !strings.Contains(h, "delete") {
 		t.Fatalf("packages Long should mention delete risk: %s", h)
 	}
-	var hasRepos, hasArtifacts, hasDelete bool
+	var hasRepos, hasArtifacts, hasDelete, hasUpload bool
 	for _, c := range packagesCmd.Commands() {
 		switch c.Name() {
 		case "repos":
@@ -28,14 +28,17 @@ func TestPackagesHelpDocumentsSurface(t *testing.T) {
 		case "artifacts":
 			hasArtifacts = true
 			for _, sub := range c.Commands() {
-				if sub.Name() == "delete" {
+				switch sub.Name() {
+				case "delete":
 					hasDelete = true
+				case "upload":
+					hasUpload = true
 				}
 			}
 		}
 	}
-	if !hasRepos || !hasArtifacts || !hasDelete {
-		t.Fatalf("expected repos+artifacts+delete, got repos=%v artifacts=%v delete=%v", hasRepos, hasArtifacts, hasDelete)
+	if !hasRepos || !hasArtifacts || !hasDelete || !hasUpload {
+		t.Fatalf("expected repos+artifacts+delete+upload, got repos=%v artifacts=%v delete=%v upload=%v", hasRepos, hasArtifacts, hasDelete, hasUpload)
 	}
 }
 
