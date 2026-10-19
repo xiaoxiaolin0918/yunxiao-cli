@@ -572,6 +572,7 @@ See [AGENTS.md](AGENTS.md) for contributor / AI-agent conventions.
 
 ## Changelog
 
+- **0.16.46** — feat: per-profile credentials (#380); packages artifacts upload GENERIC/MAVEN (#379); dry-run rejects display names on user-typed transition fields (#378); member-resolve / serial_url / search subject-all+recent-days / status null refresh / mrs path projectId / Windows *-file+jq hints (#367 #371 #368 #369 #366 #370)
 - **0.16.45** — fix: mrs get branches + strip null comment counts (#358); pipeline +status compact summary / --full (#359); workitem comments author normalize (#360); testhub cases create --assigned-to + customCode refresh (#357); testhub meta.url (#361)
 - **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — same-org get YAML + create; no CopyPipeline API; high-risk-write + `--dry-run` GET preview; YAML refs reused by ID (#356)
 - **0.16.43** — `yunxiao search <type>` thin router (#352): workitem/issue, mr/mrs, repo/repos, case/cases, app-tag, pipeline; `--q`/`--query` maps to domain keyword flags; wiki + yx migration updated

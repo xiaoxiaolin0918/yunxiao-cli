@@ -546,6 +546,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.46** — feat: 按 profile 分槽凭证 (#380)；packages artifacts upload GENERIC/MAVEN (#379)；流转 dry-run 拒用户型字段显示名 (#378)；+member-resolve / serial_url / search subject-all+recent-days / status 空值刷新 / mrs 路径 projectId / Windows *-file+jq hint (#367 #371 #368 #369 #366 #370)
 - **0.16.45** — fix: mrs get 补分支与剥空评论数 (#358)；pipeline +status 默认精简 / --full (#359)；comments 作者字段归一 (#360)；testhub cases create --assigned-to 预校验与 customCode refresh (#357)；testhub meta.url (#361)
 - **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — 同企业 get YAML + create；无官方 CopyPipeline；high-risk-write；`--dry-run` 会 GET 预览；YAML 引用按 ID 原样带走 (#356)
 - **0.16.43** — `yunxiao search <type>` 显式类型路由薄门面（#352）：workitem/issue、mr/mrs、repo/repos、case/cases、app-tag、pipeline；`--q`/`--query` 映射各域关键词旗标；同步 wiki 与 yx 迁移表
