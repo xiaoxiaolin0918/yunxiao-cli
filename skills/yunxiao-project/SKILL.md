@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.10"
+version: "1.4.11"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
