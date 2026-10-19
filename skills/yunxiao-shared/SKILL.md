@@ -1,6 +1,6 @@
 ---
 name: yunxiao-shared
-version: 1.1.7
+version: 1.1.8
 description: "Use for yunxiao CLI setup/auth: auth login/status/logout/refresh, config, doctor, whoami, self-update (yunxiao update), silent OAuth refresh + auth_refresh outcomes, JSON output contract (ok==true), list meta.has_more/total/page, meta.url, refresh_ok, --dry-run, high-risk --yes confirmation (exit 10), or handling error envelopes."
 metadata:
   requires:
@@ -52,7 +52,7 @@ yunxiao status          # open workitems + open MRs; optional pending gates
 
 可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。
 
-**多身份（#380）：** Token 优先级：`YUNXIAO_ACCESS_TOKEN` env → `credentials.profiles[<active profile>]` → 无 profile 时的遗留 `credentials.active` → profile JSON `access_token` → `config.json`。有 profile 名时**不会**回落到全局 `active`。详情：[auth-profiles.md](../../docs/wiki/01-usage/auth-profiles.md)。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>`，#130）。
+**多身份（#380）：** Token 优先级：`YUNXIAO_ACCESS_TOKEN` env → `credentials.profiles[<active profile>]` → 无 profile 时的遗留 `credentials.active` → profile JSON `access_token` → `config.json`。有 profile 名时**不会**回落到全局 `active`。详情：[auth-profiles.md](../../docs/wiki/01-usage/auth-profiles.md)。profile 选择优先级：`--profile` > `YUNXIAO_PROFILE` > config.json 默认（`yunxiao profile use <name>`，#130）。**login / logout 不对称：** `auth login` 的分槽目标 = flag > env > config 默认（已 `profile use work` 时裸 login 写入 `profiles[work]`）；`auth logout` **只用** flag/env（不用 config 默认）。仅三者皆空时 login/logout 才碰全局 `active`。
 
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token

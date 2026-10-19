@@ -131,7 +131,8 @@ Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans. On **Wind
 - Env (preferred for CI / single identity): `YUNXIAO_ACCESS_TOKEN`, optional `YUNXIAO_ORGANIZATION_ID`
 - Per-profile identity (#380): `yunxiao auth login --token '<PAT>' --profile <name>` (or `--browser`) stores into `~/.config/yunxiao/credentials.json` → `profiles[<name>]`
 - Then switch with `--profile` / `YUNXIAO_PROFILE` / `profile use`; `auth status` / `doctor` report `credential_profile`
-- Logout one slot: `yunxiao auth logout --profile <name>` (global Active only when no profile flag/env)
+- Login slot target (#380): `--profile` > `YUNXIAO_PROFILE` > config default from `profile use` (bare `auth login` after `profile use work` → `profiles[work]`, not global Active)
+- Logout slot target: **only** `--profile` / `YUNXIAO_PROFILE` (does **not** use config default); global Active only when flag and env are both empty
 - Optional legacy: `"access_token"` embedded in `~/.config/yunxiao/profiles/<name>.json` (mode 0600; never commit real tokens)
 - Token precedence: `YUNXIAO_ACCESS_TOKEN` > `credentials.profiles[<name>]` > `credentials.active` (no profile) > profile JSON `access_token` > `config.json`
 - `token_source`: `env` | `credentials` | `profile` | `config` | `none`
