@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.11"
+version: "1.4.12"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -60,7 +60,7 @@ yunxiao workitem comment --id <id> --content-file ./note.md --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --assigned-to self \
   --subject-file ./title.txt --description-file ./desc.md --custom-fields-file ./cf.json --dry-run
 yunxiao workitem create --space-id <sid> --type-id <tid> --subject "t" --assigned-to self --custom-fields '{"fid":"v"}' --dry-run
-yunxiao workitem types list --space-id <sid>                  # 缺省合并全部类别（含缺陷）（#99）
+yunxiao workitem types list [--space-id <sid>]                # 缺省合并全部类别（含缺陷）（#99）
 yunxiao workitem statuses --space-id <sid> --type-id <tid>    # 类型状态表 + meta.default_status_id（#118）
 yunxiao workitem relations list --id <id> --relation-type ASSOCIATED
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
@@ -85,7 +85,7 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 
 - `--category`：`Req` | `Task` | `Bug` | `Topic` | `Risk` 等；`workitem types list` 缺省（或 `--category all`）会**并发拉全部类别合并**（每项注入 `category`，`meta.categories` 注明；个别类别失败只 warning + `meta.categories_failed`）（#99）
 - `--assigned-to`：**仅** `workitem create` / `update` / `+bug-create` / `+risk-create` / `+req-create` 支持 `self`、ASCII userId，或中文显示名（#367，与 `organization +member-resolve` 同一精确匹配；重名报错）。`workitem search --assigned-to` **只**解析 `self` / userId，**不要**传显示名。
-- `--space-id`：Projex 项目/空间 id
+- `--space-id`：Projex 项目/空间 id；`workitem types list` 可缺省回落 `profile.space_id`（#385）
 - `project labels`（#141）：`list` 只读返回 id/name/color；`create` 需 `--name`（`--color` 默认 `#A773E0`），先 `--dry-run` 再 `--yes`；`--space-id` 可缺省为 `profile.space_id`
 - `workitem search --labels`（#141）：CSV label id，映射官方 tag 过滤器（`fieldIdentifier/className=tag`，`multiList`，`CONTAINS`），可与 `--assigned-to` / `--status` 等组合
 - `workitem search --subject-all` / `--recent-days`（#368）：多词标题 **AND**（同组多个 subject CONTAINS；支持中文逗号）；`--recent-days N` → `--updated-after`=(今天-N) 00:00:00 Asia/Shanghai，与显式 `--updated-after` 互斥。现场对账优先「多词 + 近 N 天」降噪声。`--rank` / `--as-items` 字段精简本版未做，见 wiki [workitem-search-noise.md](../../docs/wiki/02-domains/workitem-search-noise.md)。
@@ -95,19 +95,19 @@ yunxiao workitem update --id <id> --status <cancelStatusId> --cancel-reason "不
 - `workitem create` 必填预检；`--priority`/list 自定义字段支持显示值→option id（#126）（0.16.33+，#95）：POST 前（`--dry-run` 也会）读一次类型字段配置，缺失字段**一次性**报出：`error.subtype=missing_required_fields`，按 `error.details.missing[]` 的 `field_id` / `pass_via` / `options` 一次补齐（通常写进 `--custom-fields-file`），不要逐个试错。字段配置读不到 / 为空时只告警（`meta.precheck.status=skipped|empty`，看 `meta.precheck.warning`）照常创建，401 直接失败；带服务端 `defaultValue` 的字段不检查（列在 `skipped_default`）。实测验证只在 **play 沙箱**做（ZYPT 只允许 `--dry-run`）。**不要默认加 `--no-precheck`**；怀疑误报时，把 `error.details.missing` 报告给用户并询问，而不是绕过。
 - `workitem create` / `+bug-create` 遇 `工作项类型未启用`（#99）：报错自动附带该 space 已启用类型 `error.details.available_types[]`（`id` / `name` / `category`，`subtype=workitem_type_not_enabled`），直接挑一个 id 重试，不必再跑一次 types list
 - `workitem +bug-create`（必填预检同 create / #107，`--no-precheck` 可跳过） 的 `--title-file` / `--description-file`：同上；对齐 create（#89）；租户快捷建缺陷见 skill `yunxiao-zhiyi-ops`
-- `workitem +risk-create` / `+req-create`（#128）：`--title-file` / `--description-file` 同上；`--priority` 支持 别名 / `workitem_defaults` 显示值（如 `高`）/ option id（`--priority ""` 整体省略）；`--assignee <显示名>` 与 `--assigned-to <userId|self>` 二选一；需 profile（`space_id` + type 解析）；默认不带 `--sprint`
+- `workitem +risk-create` / `+req-create`（#128）：`--title-file` / `--description-file` 同上；`--priority` 支持 别名 / `workitem_defaults` 显示值（如 `高`）/ option id（`--priority ""` 整体省略）；`--assignee <显示名|self>` 与 `--assigned-to <userId|self>` 二选一（#387）；需 profile（`space_id` + type 解析）；默认不带 `--sprint`
 - 不确定 schema 时：`yunxiao schema workitem.comment` / `workitem.search`
 
 ## 主题 / 风险 (Topic / Risk)
 
 - **只能在项目设置 UI 启用类型**：没有用于启用 Topic/Risk 的 OpenAPI；未启用时 create 会返回 `工作项类型未启用！`（CLI 会附 `error.details.available_types` 可用类型清单，#99）。
 - **不要传 `--sprint`**：Topic/Risk 通常没有迭代字段；API 会返回 `未启用此字段【迭代】`。`yunxiao workitem create --help` 也会提示这一点。
-- 风险 / 需求优先用快捷创建（#128）：`workitem +risk-create` / `+req-create` 从 profile 解析 type id（`risk_type_id` / `req_type_id`，缺省时取 workitem_defaults/workflows 里唯一的对应 category 条目；多个会报候选），优先级支持 别名 / 显示值 / option id，默认**不**带 sprint，`--assignee` 可直接传组织成员显示名（members:search 精确解析，歧义报候选）；复用 #95 必填预检（`--no-precheck` 跳过）。无 profile 时仍用手拼 `workitem create`。
+- 风险 / 需求优先用快捷创建（#128）：`workitem +risk-create` / `+req-create` 从 profile 解析 type id（`risk_type_id` / `req_type_id`，缺省时取 workitem_defaults/workflows 里唯一的对应 category 条目；多个会报候选），优先级支持 别名 / 显示值 / option id，默认**不**带 sprint，`--assignee` 可传组织成员显示名或 `self`（#387；显示名走 members:search 精确解析，歧义报候选）；复用 #95 必填预检（`--no-precheck` 跳过）。无 profile 时仍用手拼 `workitem create`。
 - 创建后用 `profile.workflows` 对应 `type_id` 的状态别名做 `+transition`；类别使用 `Topic` 或 `Risk`。
 
 ```bash
 # 先按 Topic 类别找到已启用的 type_id；创建时不要带 --sprint
-yunxiao workitem types list --space-id <sid> --category Topic
+yunxiao workitem types list [--space-id <sid>] --category Topic
 yunxiao workitem create --space-id <sid> --type-id <topicTypeId> \
   --subject "产品主题" --assigned-to self --dry-run
 # Risk / Req 有 profile 时优先快捷创建（type id 与优先级来自 profile；默认不带 sprint）

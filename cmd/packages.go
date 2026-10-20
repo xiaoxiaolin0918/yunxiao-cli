@@ -31,7 +31,11 @@ var packagesReposCmd = &cobra.Command{Use: "repos", Short: "Package repositories
 var packagesReposListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List package repositories",
-	Long:  "Risk: read\nHTTP: GET .../packages/.../repositories",
+	Long: `Risk: read
+HTTP: GET .../packages/.../repositories
+
+Output redacts nested credentials in repoDescriptor (password/username ? ***)
+and top-level password/username fields before print (#386).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoTypes, _ := cmd.Flags().GetString("repo-types")
@@ -55,7 +59,7 @@ var packagesReposListCmd = &cobra.Command{
 		if repoCategories != "" {
 			q["repoCategories"] = repoCategories
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, q, nil, map[string]any{"risk": risk.Read}, redactPackagesReposSecrets))
 	},
 }
 

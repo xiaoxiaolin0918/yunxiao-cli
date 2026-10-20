@@ -30,7 +30,7 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem create|update|delete
   yunxiao workitem relations list|create|delete
   yunxiao workitem attachments list|create
-  yunxiao workitem types list --space-id <id>            # default: all categories merged (#99)
+  yunxiao workitem types list [--space-id <id>]          # space_id from profile; default: all categories merged (#99/#385)
   yunxiao workitem statuses --space-id <id> --type-id <id>  # status table from the type workflow (#118)
 
 Risk: search/get/comments/types/statuses/relations.list/attachments.list=read; +transition/+bug-transition/+bug-create/+risk-create/+req-create/+explore-workflow/create/comment/update/relations/attachments.create=write; delete=high-risk-write`,

@@ -1,6 +1,6 @@
 ---
 name: yunxiao-packages
-version: 1.1.1
+version: 1.1.2
 description: "Yunxiao Packages: list/get/delete artifacts; upload GENERIC/MAVEN via protocol API."
 metadata:
   requires:
@@ -13,6 +13,10 @@ metadata:
 开始前先读 [`../yunxiao-shared/SKILL.md`](../yunxiao-shared/SKILL.md)。
 
 > List 响应 `meta` 可能含 `has_more` / `total` / `page`；`has_more==true` 时勿把首页当全集（见 yunxiao-shared）。
+
+## Security (#386)
+
+`packages repos list` redacts credentials before print: nested `repoDescriptor` JSON (`hybridDescriptor.proxies[].password` / `username`) and top-level `password`/`username` become `***`. Do not log raw API dumps for packages repos.
 
 ## Typed commands
 
