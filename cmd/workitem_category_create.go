@@ -295,7 +295,7 @@ func init() {
 		c.Flags().String("description", "", "Markdown description (required unless --description-file)")
 		c.Flags().String("description-file", "", "UTF-8 Markdown file (BOM stripped; preferred on Windows for Chinese)")
 		c.Flags().String("priority", "medium", "urgent/high/medium/low alias, 显示值 from workitem_defaults (e.g. 高), or option id; pass \"\" to omit")
-		c.Flags().String("assignee", "", "assignee display name or self (#387), resolved via members:search (exact match; ambiguity lists candidates)")
+		c.Flags().String("assignee", "", "assignee display name or self (#387); self -> current user, names via members:search (exact match; ambiguity lists candidates)")
 		c.Flags().String("assigned-to", "", "assignee user id, self, or display name (#367; default: profile.default_assigned_to or self); use only one of --assignee/--assigned-to")
 		c.Flags().String("participants", "", "comma-separated participant user ids (self allowed)")
 		c.Flags().String("sprint", "", "sprint id (optional; NOT sent by default — Risk/Req types often reject 迭代)")

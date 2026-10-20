@@ -1,6 +1,6 @@
 ---
 name: yunxiao-packages
-version: 1.1.2
+version: 1.1.3
 description: "Yunxiao Packages: list/get/delete artifacts; upload GENERIC/MAVEN via protocol API."
 metadata:
   requires:
@@ -16,7 +16,9 @@ metadata:
 
 ## Security (#386)
 
-`packages repos list` redacts credentials before print: nested `repoDescriptor` JSON (`hybridDescriptor.proxies[].password` / `username`) and top-level `password`/`username` become `***`. Do not log raw API dumps for packages repos.
+`packages repos list` redacts credentials before print: nested `repoDescriptor` JSON (`hybridDescriptor.proxies[].password` / `username`) and top-level sensitive keys (`password` / `username` / `passwd` / `user` / `secret` / `accessKey` / `accessKeySecret` / `access_key` / `access_key_secret`, case-insensitive) become `***` (empty string and JSON `null` unchanged). Do not log raw API dumps for packages repos.
+
+Details: [packages-repos-redact.md](../../docs/wiki/02-domains/packages-repos-redact.md).
 
 ## Typed commands
 
