@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.6
+version: 1.3.7
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -99,7 +99,7 @@ yunxiao workitem +bug-create --profile zhiyi \
 - **type id**：`--type-id` > profile `risk_type_id` / `req_type_id` > workitem_defaults / workflows 里**唯一** category=Risk/Req 条目；多条会报候选（设 profile key 或传 `--type-id`）。
 - **优先级** `--priority`（默认 `medium`）：`workitem_defaults[<type>].fields.priority.display` 显示值（如 `高`）→ 共享 `bug_create_fields.priority` 别名 → medium 回退该类型默认值 → option id 直传；未映射的已知别名直接报错（不盲发 API 400）。`--priority ""` 整体省略（交给 defaults / 预检）。
 - **默认不挂 sprint**（Risk 类型常 `未启用此字段【迭代】`）；确需时显式 `--sprint <id>`。
-- `--assignee <显示名>` 经组织 `members:search` 精确解析 userId（歧义报候选）；或 `--assigned-to <userId|self>`（二选一，默认 `default_assigned_to` / `self`）。
+- `--assignee <显示名|self>`：`self` 解析为当前用户（#387，与 `+bug-create --assigned-to self` 一致，不走 members:search）；显示名经组织 `members:search` 精确解析为 userId（歧义报候选）。与 `--assigned-to <userId|self>` 二选一（默认 `default_assigned_to` / `self`）。
 - `workitem_defaults[<type>]` 自动补 participants / trackers 等（`--no-defaults` 跳过）；创建前走 #95 必填预检（`--no-precheck` 跳过）；`formatType` 默认 MARKDOWN；`--title-file` / `--description-file` 同 `+bug-create`。
 
 ```bash

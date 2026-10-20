@@ -60,6 +60,8 @@ func newCatCreateServer(t *testing.T) *catCreateServer {
 		defer s.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/platform/user"):
+			_, _ = io.WriteString(w, `{"id":"user-self"}`)
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/workitemTypes/") && strings.HasSuffix(r.URL.Path, "/fields"):
 			s.fieldsGETs++
 			if s.fieldsStatus != 0 {
@@ -414,7 +416,9 @@ func TestCategoryCreateAssignee(t *testing.T) {
 		wantSearch  bool
 	}{
 		{name: "unique exact name", members: catCreateMembersFixture, extra: []string{"--assignee", "崔健"}, want: "user-cui", wantSearch: true},
-		{name: "case and spaces tolerated", members: catCreateMembersFixture, extra: []string{"--assignee", " 崔健 "}, want: "user-cui", wantSearch: true},
+
+		{name: "assignee self", members: catCreateMembersFixture, extra: []string{"--assignee", "self"}, want: "user-self", wantSearch: false},
+		{name: "assignee SELF case", members: catCreateMembersFixture, extra: []string{"--assignee", "SELF"}, want: "user-self", wantSearch: false},		{name: "case and spaces tolerated", members: catCreateMembersFixture, extra: []string{"--assignee", " 崔健 "}, want: "user-cui", wantSearch: true},
 		{
 			name: "ambiguous lists candidates", members: twoCuis, extra: []string{"--assignee", "崔健"},
 			wantErrPart: "--assignee \"崔健\" is ambiguous: user-cui-1 (崔健), user-cui-2 (崔健)", wantSearch: true,
@@ -452,6 +456,12 @@ func TestCategoryCreateAssignee(t *testing.T) {
 			}
 			if body := catDryRunBody(t, stdout); body["assignedTo"] != tc.want {
 				t.Fatalf("assignedTo=%v", body["assignedTo"])
+			}
+			if tc.wantSearch && s.memberSearches == 0 {
+				t.Fatalf("expected members:search")
+			}
+			if !tc.wantSearch && s.memberSearches != 0 {
+				t.Fatalf("unexpected members:search count=%d", s.memberSearches)
 			}
 		})
 	}
@@ -656,5 +666,20 @@ func TestCategoryCreateAssignedToByName(t *testing.T) {
 	}
 	if s2.memberSearches != 0 {
 		t.Fatalf("id-shaped should skip search, got %d", s2.memberSearches)
+	}
+}
+
+// #387: +req-create --assignee self must resolve like --assigned-to self (not members:search).
+func TestReqCreateAssigneeSelf(t *testing.T) {
+	s := newCatCreateServer(t)
+	stdout, stderr, code := runCatCreate(t, true, "+req-create", catBaseProfile("cat387self"), "--assignee", "self")
+	if code != 0 {
+		t.Fatalf("exit %d stderr=%s", code, stderr)
+	}
+	if body := catDryRunBody(t, stdout); body["assignedTo"] != "user-self" {
+		t.Fatalf("assignedTo=%v body=%v", body["assignedTo"], body)
+	}
+	if s.memberSearches != 0 {
+		t.Fatalf("self must not members:search, got %d", s.memberSearches)
 	}
 }

@@ -42,9 +42,10 @@ fields before POST (also under --dry-run); all missing required fields are
 reported at once (error.subtype missing_required_fields); --no-precheck skips.
 
 --assignee accepts an organization member display name (resolved via
-members:search, exact match; ambiguity lists candidates). --assigned-to takes a
-raw user id, self, or a display name resolved like --assignee / +member-resolve
-(#367; default profile.default_assigned_to or self). Use only one of the two.
+members:search, exact match; ambiguity lists candidates) or self (#387).
+--assigned-to takes a raw user id, self, or a display name resolved like
+--assignee / +member-resolve (#367; default profile.default_assigned_to or self).
+Use only one of the two.
 
 Windows / PowerShell: for Chinese title or description, prefer --title-file /
 --description-file (UTF-8, BOM stripped) over inline flags.
@@ -258,6 +259,10 @@ func resolveAssigneeName(ctx context.Context, c *client.Client, name string) (st
 	if name == "" {
 		return "", fmt.Errorf("--assignee is empty")
 	}
+	// Align with --assigned-to / +bug-create: self ? current user (#387).
+	if strings.EqualFold(name, "self") {
+		return resolveSelfID(ctx, c, "self")
+	}
 	hit, err := resolveMemberByName(ctx, c, name, false)
 	if err != nil {
 		// Keep --assignee wording for existing tests / UX.
@@ -290,7 +295,7 @@ func init() {
 		c.Flags().String("description", "", "Markdown description (required unless --description-file)")
 		c.Flags().String("description-file", "", "UTF-8 Markdown file (BOM stripped; preferred on Windows for Chinese)")
 		c.Flags().String("priority", "medium", "urgent/high/medium/low alias, 显示值 from workitem_defaults (e.g. 高), or option id; pass \"\" to omit")
-		c.Flags().String("assignee", "", "assignee display name, resolved via organization members:search (exact match; ambiguity lists candidates)")
+		c.Flags().String("assignee", "", "assignee display name or self (#387); self -> current user, names via members:search (exact match; ambiguity lists candidates)")
 		c.Flags().String("assigned-to", "", "assignee user id, self, or display name (#367; default: profile.default_assigned_to or self); use only one of --assignee/--assigned-to")
 		c.Flags().String("participants", "", "comma-separated participant user ids (self allowed)")
 		c.Flags().String("sprint", "", "sprint id (optional; NOT sent by default — Risk/Req types often reject 迭代)")

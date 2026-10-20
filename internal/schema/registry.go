@@ -343,7 +343,7 @@ var Registry = []Method{
 		Example: "yunxiao workitem delete --id <id> --dry-run"},
 	{ID: "workitem.types.list", Domain: "project", Description: "List work item types; without --category every known category (Req/Bug/Task/Risk/Topic) is fetched and merged with each item's category injected (#99)",
 		HTTPMethod: "GET", Path: ".../projects/{space}/workitemTypes", Risk: risk.Read,
-		Example: "yunxiao workitem types list --space-id <id> (or --category Bug for one)"},
+		Example: "yunxiao workitem types list [--space-id <id>] (default profile.space_id; or --category Bug for one)"},
 	{ID: "appstack.change_orders.create", Domain: "appstack", Description: "Create change order",
 		HTTPMethod: "POST", Path: ".../apps/{app}/changeOrders", Risk: risk.HighRiskWrite,
 		Example: "yunxiao appstack change-orders create --app my-app --data '{...}' --dry-run"},

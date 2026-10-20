@@ -109,16 +109,20 @@ be invisible behind the old silent default --category Req). An explicit
 
 meta.categories lists the categories merged; meta.categories_failed carries
 per-category errors (those categories are skipped with a stderr warning, the
-rest still print). See also: workitem fields (field config), workitem statuses
+rest still print).
+
+--space-id defaults to active profile.space_id when omitted (#385).
+See also: workitem fields (field config), workitem statuses
 (status table).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		spaceID, _ := cmd.Flags().GetString("space-id")
-		category, _ := cmd.Flags().GetString("category")
-		if err := requireFlags("space-id", spaceID); err != nil {
+		spaceID, err := resolveSpaceIDFlag(spaceID)
+		if err != nil {
 			handleErr(err)
 			return
 		}
+		category, _ := cmd.Flags().GetString("category")
 		c, _, err := mustClient()
 		if err != nil {
 			handleErr(err)
