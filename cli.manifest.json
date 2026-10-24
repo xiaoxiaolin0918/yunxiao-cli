@@ -1,6 +1,6 @@
 {
   "name": "yunxiao",
-  "bin": "yunxiao.exe",
+  "bin": "yunxiao-cli.exe",
   "version": "0.16.46",
   "envelope": "ok-json",
   "status": "registered",
