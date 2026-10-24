@@ -50,7 +50,7 @@ yunxiao auth refresh [--dry-run]   # #170：主动刷新 oat-；dry-run 不写�
 yunxiao status          # open workitems + open MRs; optional pending gates
 ```
 
-**Honesty (#389):** `can_refresh` / `auth status` only mean a local refresh_token is present (`can_refresh_note=not_probed`). Empty doctor/status does **not** guarantee a ticket swap. Force probe: `yunxiao auth refresh` or `yunxiao doctor --probe-refresh`. Failures include machine-readable `oauth_error` (e.g. `invalid_grant`). doctor/whoami force-refresh once on 401 when silent outcome was `not_needed`. Agents on 401 should call a real API or `auth refresh` ? do not trust `can_refresh` alone.
+**Honesty (#389):** `can_refresh` / `auth status` only mean local `refresh_token` + `client_id` are present (`can_refresh_note=not_probed`). Empty doctor/status does **not** guarantee a ticket swap. Force probe: `yunxiao auth refresh` or `yunxiao doctor --probe-refresh`. Failures include machine-readable `oauth_error` (e.g. `invalid_grant`). doctor/whoami force-refresh once on 401 when silent outcome was `not_needed`. Agents on 401 should call a real API or `auth refresh` — do not trust `can_refresh` alone.
 
 可选：`YUNXIAO_ORGANIZATION_ID`、`YUNXIAO_API_BASE_URL`（默认 `https://openapi-rdc.aliyuncs.com`）、`YUNXIAO_EDITION=central|region`。
 
