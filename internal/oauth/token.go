@@ -74,6 +74,36 @@ func Exchange(ctx context.Context, httpClient *http.Client, tokenEndpoint, clien
 	return postToken(ctx, httpClient, tokenEndpoint, form)
 }
 
+// TokenError is a non-2xx response from the OAuth token endpoint.
+// Code is the RFC 6749 "error" field when present (e.g. invalid_grant).
+type TokenError struct {
+	Status int
+	Code   string
+	Body   string
+}
+
+func (e *TokenError) Error() string {
+	if e == nil {
+		return "oauth token: error"
+	}
+	if e.Code != "" {
+		return fmt.Sprintf("oauth token: HTTP %d: %s: %s", e.Status, e.Code, truncate(e.Body, 400))
+	}
+	return fmt.Sprintf("oauth token: HTTP %d: %s", e.Status, truncate(e.Body, 400))
+}
+
+func newTokenError(status int, raw []byte) *TokenError {
+	te := &TokenError{Status: status, Body: string(raw)}
+	var body struct {
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+	}
+	if json.Unmarshal(raw, &body) == nil {
+		te.Code = strings.TrimSpace(body.Error)
+	}
+	return te
+}
+
 // Refresh exchanges a refresh_token for a new access (and possibly refresh) token.
 func Refresh(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, refreshToken string) (*TokenResponse, error) {
 	form := url.Values{}
@@ -103,7 +133,7 @@ func postToken(ctx context.Context, httpClient *http.Client, tokenEndpoint strin
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("oauth token: HTTP %d: %s", resp.StatusCode, truncate(string(raw), 400))
+		return nil, newTokenError(resp.StatusCode, raw)
 	}
 	var out TokenResponse
 	if err := json.Unmarshal(raw, &out); err != nil {
