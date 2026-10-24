@@ -24,6 +24,8 @@ or the legacy global Active when no profile is set (force; does not wait for the
 On success prints token_masked / expires_at_local / auth_refresh=refreshed.
 On failure clears local oauth credentials and hints:
   yunxiao auth login --browser
+Machine-readable failures include oauth_error when the token endpoint returns an
+RFC 6749 code (e.g. invalid_grant) (#389).
 
 Business commands (and doctor/whoami) also silent-refresh via the same path when
 near expiry. Long-lived automation should prefer a PAT.`,
@@ -100,7 +102,15 @@ func runAuthRefresh(cmd *cobra.Command) error {
 	out["auth_refresh"] = attempt.Outcome
 	if err != nil {
 		out["error"] = err.Error()
-		if e := output.Success(out, map[string]any{"auth_refresh": authRefreshFailed}); e != nil {
+		if attempt.OAuthError != "" {
+			out["oauth_error"] = attempt.OAuthError
+		}
+		applyOAuthHonestyFields(out, attempt, slot.RefreshToken != "")
+		meta := map[string]any{"auth_refresh": authRefreshFailed}
+		if attempt.OAuthError != "" {
+			meta["oauth_error"] = attempt.OAuthError
+		}
+		if e := output.Success(out, meta); e != nil {
 			return e
 		}
 		return output.ExitError{Code: 1, Msg: "oauth refresh failed"}

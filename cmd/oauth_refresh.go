@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -27,6 +28,7 @@ type oauthRefreshAttempt struct {
 	AccessExpired bool // access token expires_at <= now (before attempt)
 	NeedsRefresh  bool // within skew or force
 	CanRefresh    bool // refresh_token + client_id present
+	OAuthError    string // RFC 6749 token error code when refresh failed (e.g. invalid_grant)
 }
 
 // oauthRefreshHook refreshes oat- when near expiry; on failure clears oauth creds.
@@ -80,6 +82,10 @@ func tryOAuthRefresh(ctx context.Context, c *client.Client, force bool) (oauthRe
 	tok, err := oauth.Refresh(ctx, nil, meta.TokenEndpoint, slot.ClientID, slot.RefreshToken)
 	if err != nil {
 		res.Outcome = authRefreshFailed
+		var te *oauth.TokenError
+		if errors.As(err, &te) && te.Code != "" {
+			res.OAuthError = te.Code
+		}
 		return res, clearOAuthAndErr(profileName, err)
 	}
 	slot.AccessToken = tok.AccessToken
@@ -116,4 +122,33 @@ func clearOAuthAndErr(profileName string, err error) error {
 		return fmt.Errorf("oauth refresh failed (%v); also failed to clear credentials: %w", err, cErr)
 	}
 	return fmt.Errorf("oauth refresh failed (credentials cleared; re-run: yunxiao auth login --browser): %w", err)
+}
+
+
+// applyOAuthHonestyFields records #389 diagnostic fields on doctor/auth status maps.
+// can_refresh alone means local refresh_token+client_id; can_refresh_note=not_probed
+// until a token-endpoint attempt runs (silent near-expiry, --probe-refresh, or 401 retry).
+func applyOAuthHonestyFields(dst map[string]any, attempt oauthRefreshAttempt, refreshTokenPresent bool) {
+	dst["refresh_token_present"] = refreshTokenPresent
+	attempted := attempt.Outcome == authRefreshRefreshed || attempt.Outcome == authRefreshFailed
+	dst["refresh_attempted"] = attempted
+	if attempted {
+		dst["refresh_ok"] = attempt.Outcome == authRefreshRefreshed
+		if attempt.Outcome == authRefreshRefreshed {
+			dst["can_refresh_note"] = "probed_ok"
+		} else {
+			dst["can_refresh_note"] = "probed_fail"
+		}
+		if attempt.OAuthError != "" {
+			dst["oauth_error"] = attempt.OAuthError
+		}
+	} else {
+		delete(dst, "refresh_ok")
+		dst["can_refresh_note"] = "not_probed"
+	}
+}
+
+func isUnauthorizedAPI(err error) bool {
+	var ae *client.APIError
+	return errors.As(err, &ae) && ae.Status == 401
 }

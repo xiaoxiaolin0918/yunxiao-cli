@@ -276,11 +276,26 @@ func TestAuthRefreshHelpDocuments(t *testing.T) {
 	if !strings.Contains(authRefreshCmd.Long, "--dry-run") {
 		t.Fatalf("auth refresh Long must document --dry-run: %s", authRefreshCmd.Long)
 	}
+	if !(strings.Contains(authRefreshCmd.Long, "oauth_error") || strings.Contains(authRefreshCmd.Long, "invalid_grant")) {
+		t.Fatalf("auth refresh Long must document oauth_error/invalid_grant (#389): %s", authRefreshCmd.Long)
+	}
 	if !strings.Contains(doctorCmd.Long, "auth_refresh") {
 		t.Fatalf("doctor Long must document auth_refresh: %s", doctorCmd.Long)
 	}
+	if !strings.Contains(doctorCmd.Long, "probe-refresh") {
+		t.Fatalf("doctor Long must document --probe-refresh (#389): %s", doctorCmd.Long)
+	}
+	if !strings.Contains(doctorCmd.Long, "not_probed") {
+		t.Fatalf("doctor Long must document not_probed (#389): %s", doctorCmd.Long)
+	}
+	if f := doctorCmd.Flags().Lookup("probe-refresh"); f == nil {
+		t.Fatal("doctor must register --probe-refresh")
+	}
 	if !strings.Contains(whoamiCmd.Long, "auth_refresh") {
 		t.Fatalf("whoami Long must document auth_refresh: %s", whoamiCmd.Long)
+	}
+	if !strings.Contains(authStatusCmd.Long, "not_probed") {
+		t.Fatalf("auth status Long must document not_probed (#389): %s", authStatusCmd.Long)
 	}
 }
 

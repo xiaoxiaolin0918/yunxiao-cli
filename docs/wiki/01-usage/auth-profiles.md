@@ -60,3 +60,30 @@ yunxiao auth logout --profile work
 - `yunxiao auth --help` / `auth login --help`
 - skill：`skills/yunxiao-shared/SKILL.md`（认证节）
 - 使用索引：[README.md](./README.md)
+
+## doctor / auth status 诚实字段（#389）
+
+`can_refresh: true` **仅表示** credentials 里同时有 `refresh_token` + `client_id`，**不代表** token endpoint 已探活成功。
+
+| 字段 | 含义 |
+|------|------|
+| `refresh_token_present` | 本地是否存有 refresh_token |
+| `can_refresh` | 本地是否具备换票条件（refresh_token + client_id） |
+| `can_refresh_note` | `not_probed` / `probed_ok` / `probed_fail` — 是否已实际请求 token endpoint |
+| `refresh_attempted` / `refresh_ok` | 本次是否发起过换票；若发起则 `refresh_ok` 表示成败 |
+| `connectivity.api_ok` | doctor 对 `/platform/user` 探活是否成功 |
+| `auth_refresh` | `not_needed` \| `skipped` \| `refreshed` \| `refresh_failed` |
+
+要点：
+
+1. **空跑 `yunxiao auth status` / 空跑 `yunxiao doctor` 不保证换票。** status 永不打 token endpoint（`can_refresh_note=not_probed`）。
+2. doctor 在 access 临近过期时会静默 refresh；若静默路径为 `not_needed` 且 API 探活返回 **401**，会 **再强制 refresh 一次后重试**。
+3. 需要主动探活时：`yunxiao auth refresh` 或 `yunxiao doctor --probe-refresh`。
+4. `auth refresh` 失败时会给出机读 `oauth_error`（如 `invalid_grant`）；此时需重新 `yunxiao auth login --browser`。
+5. Agent/CI 遇 401：先打真实 API 或 `auth refresh`，**勿单信 `can_refresh`**。
+
+```bash
+yunxiao auth refresh --profile <name>
+yunxiao doctor --profile <name> --probe-refresh
+yunxiao auth status --profile <name>   # 仅本地元数据；can_refresh_note=not_probed
+```

@@ -59,7 +59,12 @@ var authStatusCmd = &cobra.Command{
 For browser OAuth tokens also reports expiry: expires_at / expires_at_local /
 expires_in, plus a warning when less than 24h remains (or already expired). When
 can_refresh, hint prefers "yunxiao auth refresh"; otherwise
-"yunxiao auth login --browser" (#122).`,
+"yunxiao auth login --browser" (#122).
+
+Honesty (#389): can_refresh / has_refresh_token are local credential metadata only
+(can_refresh_note=not_probed). auth status never hits the token endpoint — empty
+status does not guarantee a ticket swap. Agents on 401 should run
+"yunxiao auth refresh" or a real OpenAPI call.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		r, pf, err := resolveEffectiveConfig()
@@ -84,7 +89,9 @@ can_refresh, hint prefers "yunxiao auth refresh"; otherwise
 			canRefresh := r.RefreshToken != "" && r.ClientID != ""
 			out["expires_at"] = r.ExpiresAt
 			out["has_refresh_token"] = r.RefreshToken != ""
+			out["refresh_token_present"] = r.RefreshToken != ""
 			out["can_refresh"] = canRefresh
+			out["can_refresh_note"] = "not_probed" // #389: status never hits token endpoint
 			// #122: near-expiry reminder (expires_at_local / expires_in /
 			// expiring / warning) when the token cannot silently refresh.
 			for k, v := range oauthExpiryFields(r.ExpiresAt, canRefresh) {

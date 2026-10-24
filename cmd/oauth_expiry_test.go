@@ -149,6 +149,7 @@ func runRootForOAuthExpiry(t *testing.T, args ...string) (string, string, int) {
 	t.Helper()
 	// Cobra sticky bool flags: reset auth refresh --dry-run between Execute calls.
 	_ = authRefreshCmd.Flags().Set("dry-run", "false")
+	_ = doctorCmd.Flags().Set("probe-refresh", "false")
 	stdout := withCmdJSONCapture(t)
 	var stderr bytes.Buffer
 	prevErr := output.Stderr
