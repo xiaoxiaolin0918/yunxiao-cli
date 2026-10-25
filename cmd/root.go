@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yunxiao-cli/yunxiao/internal/alias"
-	"github.com/yunxiao-cli/yunxiao/internal/termui"
 	"github.com/yunxiao-cli/yunxiao/internal/output"
+	"github.com/yunxiao-cli/yunxiao/internal/termui"
 	"github.com/yunxiao-cli/yunxiao/internal/version"
 )
 
@@ -83,7 +83,7 @@ func expandAliases() {
 }
 
 func init() {
-	rootCmd.SetVersionTemplate(fmt.Sprintf("yunxiao %s\n", version.Version))
+	rootCmd.SetVersionTemplate("{\"ok\":true,\"result\":{\"name\":\"yunxiao\",\"version\":\"{{.Version}}\"}}\n")
 	rootCmd.PersistentFlags().StringVar(&globalFormat, "format", "json", "output format: json|pretty")
 	rootCmd.PersistentFlags().StringVar(&globalJQ, "jq", "", "jq expression to filter JSON output (on Windows prefer simple filters or omit --jq; see windows-shell-hints / #370)")
 	rootCmd.PersistentFlags().StringVar(&globalOrg, "organization-id", "", "organization ID (or YUNXIAO_ORGANIZATION_ID)")
