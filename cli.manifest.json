@@ -8,7 +8,7 @@
   "docs": "docs",
   "ui": null,
   "doctor": ["doctor"],
-  "update": null,
+  "update": ["update"],
   "risk_default": "read",
   "supports_dry_run": true,
   "supports_yes": true
