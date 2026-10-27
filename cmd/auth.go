@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +15,14 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 	"github.com/yunxiao-cli/yunxiao/internal/profile"
 )
+
+// authURLOut receives the bare https authorization URL line for WorkBuddy / agents
+// (tests may redirect). Always a single whitespace-delimited URL, never JSON-quoted.
+var authURLOut io.Writer = os.Stderr
+
+func printBareAuthURL(authURL string) {
+	fmt.Fprintln(authURLOut, authURL)
+}
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
@@ -27,6 +36,7 @@ var authLoginCmd = &cobra.Command{
 
 Browser OAuth (recommended for interactive / Agent use):
   yunxiao auth login --browser
+  # prints a bare https auth URL on stderr for WorkBuddy URL extraction
   yunxiao auth login --browser --profile <name>   # bind OAuth to profile (#380)
   yunxiao auth login --browser --dry-run   # print auth URL + callback; do not exchange
 
@@ -255,6 +265,7 @@ func runBrowserLogin(ctx context.Context, apiBase, org, profileName string, dryR
 		WarnWriter: func(s string) {
 			fmt.Fprint(os.Stderr, s)
 		},
+		OnAuthURL: printBareAuthURL,
 		OnDryRun: func(authURL, redirectURI, clientID string) error {
 			return output.Success(map[string]any{
 				"dry_run":      true,
@@ -346,6 +357,13 @@ func runBrowserLogin(ctx context.Context, apiBase, org, profileName string, dryR
 }
 
 func runPATLogin(cmd *cobra.Command, token, apiBase, org, profileName string) error {
+	if token == "" && !stdinIsInteractive() {
+		return output.Fail(output.ErrorBody{
+			Type:    "cli",
+			Message: "non-interactive session: pass --token <PAT> or use --browser",
+			Hint:    "WorkBuddy/CI: yunxiao auth login --browser (authWaitForExit) or --token <PAT>; never prompt PAT on non-TTY",
+		}, 1)
+	}
 	if token == "" {
 		fmt.Fprint(os.Stderr, "Paste Yunxiao personal access token (input hidden not available; paste then Enter):\n> ")
 		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
