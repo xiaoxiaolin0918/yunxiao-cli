@@ -70,6 +70,11 @@ func newMrsMergeDiagServer(t *testing.T, mrFixture string) *mrsMergeDiagServer {
 				return
 			}
 			_, _ = io.WriteString(w, s.mrFixture)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/repositories/"):
+			// #130 residual: merge precheck may GET repository settings; answer empty
+			// object so existing diag tests still reach the merge POST.
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{}`)
 		default:
 			s.other = append(s.other, r.Method+" "+r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -313,7 +318,7 @@ func TestMrsMergeDiagHelpersTerminalStatuses(t *testing.T) {
 	if gap := mergeStateGap("CLOSED"); !strings.Contains(gap, "CLOSED") || !strings.Contains(gap, "reopen") {
 		t.Fatalf("gap=%q", gap)
 	}
-	actions := mergeSuggestedActions("4951320", "139", "ff-only", "CLOSED")
+	actions := mergeSuggestedActions("4951320", "139", "ff-only", "CLOSED", nil)
 	raw, _ := json.Marshal(actions)
 	if !strings.Contains(string(raw), "mrs reopen") {
 		t.Fatalf("actions=%s", raw)
@@ -360,5 +365,71 @@ func TestHandleErrContextErrorSubtypeDetails(t *testing.T) {
 	})
 	if cli.Type != "cli" || cli.Subtype != "merge_rejected" || cli.Details["current_status"] != "UNDER_DEV" {
 		t.Fatalf("cli body=%+v", cli)
+	}
+}
+
+// TestMrsMergeRejectUnsupportedMergeType (#130 residual comment): when the
+// server rejects with "不支持X合并方式", suggested_actions must offer an
+// alternative merge-type — never echo the same failing command.
+func TestMrsMergeRejectUnsupportedMergeType(t *testing.T) {
+	const rejectBody = `{"code":403,"errorCode":"SYSTEM_FORBIDDEN_ERROR","errorDescription":"不支持fast-forward-only合并方式"}`
+	s := newMrsMergeDiagServer(t, `{"localId":139,"title":"feat: x","status":"TO_BE_MERGED","mergeable":true,"conflictCheckStatus":"NO_CONFLICT"}`)
+	s.mergeStatus = http.StatusForbidden
+	s.mergeResp = rejectBody
+
+	stdout := withCmdJSONCapture(t)
+	globalDryRun = false
+	globalYes = true
+	var stderr bytes.Buffer
+	prevErr := output.Stderr
+	output.Stderr = &stderr
+	t.Cleanup(func() { output.Stderr = prevErr })
+	prevExit := processExit
+	code := 0
+	processExit = func(c int) { code = c; panic(exitPanic{code: c}) }
+	t.Cleanup(func() { processExit = prevExit })
+
+	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message")
+	rootCmd.SetArgs([]string{"codeup", "mrs", "merge", "--repo", "4951320", "--local-id", "139", "--merge-type", "fast-forward-only", "--yes"})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(exitPanic); !ok {
+					panic(r)
+				}
+			}
+		}()
+		if err := rootCmd.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+	}()
+	_ = stdout
+	if code != 1 {
+		t.Fatalf("exit %d stderr=%s", code, stderr.String())
+	}
+	eb := decodeErrorBody(t, stderr.String())
+	if eb.Subtype != "merge_rejected" {
+		t.Fatalf("subtype=%q", eb.Subtype)
+	}
+	rawActions, _ := json.Marshal(eb.Details["suggested_actions"])
+	actions := string(rawActions)
+	// Must suggest an alternative that can succeed on repos that only allow merge-commit.
+	if !strings.Contains(actions, "--merge-type no-fast-forward") {
+		t.Fatalf("suggested_actions missing no-fast-forward alternative: %s", actions)
+	}
+	// Must NOT re-offer the same failing merge-type (with or without --yes).
+	if strings.Contains(actions, "--merge-type fast-forward-only") || strings.Contains(actions, "--merge-type ff-only") {
+		t.Fatalf("suggested_actions must not retry the failing merge-type: %s", actions)
+	}
+	gap, _ := eb.Details["state_gap"].(string)
+	if !strings.Contains(strings.ToLower(gap+eb.Hint), "merge") && !strings.Contains(gap+eb.Hint, "合并") {
+		// soft: gap/hint should mention merge-method issue
+		if !strings.Contains(eb.Hint, "no-fast-forward") {
+			t.Fatalf("hint should point at alternative merge-type: gap=%q hint=%q", gap, eb.Hint)
+		}
+	}
+	if !strings.Contains(eb.Hint, "no-fast-forward") {
+		t.Fatalf("hint=%q missing no-fast-forward", eb.Hint)
 	}
 }
