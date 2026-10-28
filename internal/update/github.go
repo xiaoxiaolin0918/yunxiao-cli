@@ -164,6 +164,7 @@ func DownloadURLCandidates(primary string) []string {
 			urls = append(urls,
 				"https://ghproxy.net/"+primary,
 				"https://mirror.ghproxy.com/"+primary,
+				"https://gh-proxy.com/"+primary,
 			)
 		}
 	}
