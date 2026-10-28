@@ -46,6 +46,15 @@ yunxiao doctor --profile work   # token 检查同样带 credential_profile
 yunxiao auth logout --profile work
 ```
 
+
+## WorkBuddy 连接器认证（裸 URL + authWaitForExit）
+
+- 命令：`yunxiao auth login --browser`（连接器 `cli.json` auth；**不要**用 `--dry-run`）。
+- 本机回调 listener 起来且 auth URL 算好后，**立刻**在 stderr 打印一行裸 `https://…`（前后空白分隔，无引号/尖括号/`\u0026`），便于 10s 内提取。
+- 打印后进程继续打开浏览器并 **阻塞** 到换票完成；连接器须 `authWaitForExit: true`，否则官方默认杀子进程会导致 loopback 回调失败。
+- 非 TTY 不会交互询问 PAT；未给 `--token` 时立即失败并提示 `--browser` / `--token`。
+- Unix 非交互安装：`curl -fsSL https://raw.githubusercontent.com/xiaoxiaolin0918/yunxiao-cli/main/scripts/workbuddy-init-unix.sh | bash -s -- darwin`（或 `linux`）。
+- Device Authorization Grant（RFC 8628）未在本 CLI 实现；平台 Device 端点待核实前仍走 loopback + `authWaitForExit`。
 ## 与 env 的关系
 
 - 设了 `YUNXIAO_ACCESS_TOKEN` 时，**所有 profile 都用这一份**（CI 单身份场景）。

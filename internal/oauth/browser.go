@@ -11,16 +11,20 @@ import (
 
 // BrowserLoginOptions configures the interactive authorization-code flow.
 type BrowserLoginOptions struct {
-	APIBase     string
-	ClientName  string
-	HTTPClient  *http.Client
-	Timeout     time.Duration
-	OpenBrowser func(url string) error // nil → OS default
+	APIBase        string
+	ClientName     string
+	HTTPClient     *http.Client
+	Timeout        time.Duration
+	OpenBrowser    func(url string) error // nil → OS default
 	CachedClientID string
-	WarnWriter  func(string) // printed before opening browser
-	DryRun      bool
+	WarnWriter     func(string) // printed before opening browser
+	DryRun         bool
 	// OnDryRun is called with auth URL + redirect when DryRun is true.
 	OnDryRun func(authURL, redirectURI, clientID string) error
+	// OnAuthURL is called once the authorization URL is ready (before OpenBrowser
+	// and before OnDryRun). WorkBuddy and other agents use this to extract a bare
+	// https URL within 10s without parsing JSON.
+	OnAuthURL func(authURL string)
 }
 
 // BrowserLoginResult is the outcome of a successful (non-dry-run) login.
@@ -99,6 +103,10 @@ func BrowserLogin(ctx context.Context, opt BrowserLoginOptions) (*BrowserLoginRe
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if opt.OnAuthURL != nil {
+		opt.OnAuthURL(authURL)
 	}
 
 	if opt.DryRun {
