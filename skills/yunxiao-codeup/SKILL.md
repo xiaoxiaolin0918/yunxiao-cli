@@ -162,6 +162,9 @@ patchset biz id 可从 `mrs diffs` 取得（0.16.32+：`meta.latest_patchset_biz
 
 ```bash
 yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run
+
+作者不能自评（#395）：当前身份 == MR `author.userId` 时 CLI 本地拒绝（`subtype=review_as_author`），提示 `mrs reviewers add --reviewer <otherUserId>` 或换身份；服务端 403 `can not submit review opinion as the author` 同样包装。`mrs merge` 在 UNDER_REVIEW 时也会提示作者勿自评。
+
 yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run
 yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run
 yunxiao codeup mrs reopen --repo <id> --local-id 1 --dry-run

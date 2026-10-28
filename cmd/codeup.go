@@ -880,7 +880,16 @@ var codeupMrsCloseCmd = &cobra.Command{
 var codeupMrsReviewCmd = &cobra.Command{
 	Use:   "review",
 	Short: "Submit an MR review opinion (high-risk-write)",
-	Long:  "Risk: high-risk-write\nHTTP: POST .../changeRequests/{localId}/review\nOpinion: PASS | NOT_PASS",
+	Long: `Risk: high-risk-write
+HTTP: POST .../changeRequests/{localId}/review
+Opinion: PASS | NOT_PASS
+
+Author self-review (#395): before the POST the CLI GETs the MR and
+/platform/user; if author.userId matches the current user it refuses locally
+with subtype review_as_author and suggested_actions (mrs reviewers add / switch
+identity) — Codeup rejects "can not submit review opinion as the author".
+--dry-run still runs that read-only precheck (request.precheck). A 403 with the
+same platform wording is enriched the same way even when precheck was skipped.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -911,7 +920,17 @@ var codeupMrsReviewCmd = &cobra.Command{
 		if comment != "" {
 			body["reviewComment"] = comment
 		}
-		handleErr(runJSONMutating(cmd.Context(), c, "codeup mrs review", risk.HighRiskWrite, "POST", path, nil, body, nil))
+		rp := c.Preview("POST", path, nil, body)
+		if globalDryRun {
+			pre, perr := precheckMrsReview(cmd.Context(), c, repo, repositoryID, localID)
+			if perr != nil {
+				handleErr(perr)
+				return
+			}
+			handleErr(output.DryRunResult(string(risk.HighRiskWrite), requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}))
+			return
+		}
+		handleErr(runMrsReview(cmd.Context(), c, repo, repositoryID, localID, path, body, rp))
 	},
 }
 

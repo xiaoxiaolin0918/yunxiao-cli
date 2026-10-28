@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/yunxiao-cli/yunxiao/internal/config"
@@ -12,19 +14,45 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/risk"
 )
 
-func TestCodeupMrsReviewDryRun(t *testing.T) {
-	var hits int
+// reviewDryRunServer serves MR detail + platform/user so #395 author precheck
+// can run under --dry-run (POST must stay at 0 hits).
+type reviewDryRunServer struct {
+	mu   sync.Mutex
+	hits int
+	post int
+}
+
+func newReviewDryRunServer(t *testing.T, authorID, currentID string) *reviewDryRunServer {
+	t.Helper()
+	s := &reviewDryRunServer{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		w.WriteHeader(500)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.hits++
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/platform/user"):
+			_, _ = io.WriteString(w, `{"id":"`+currentID+`","name":"tester"}`)
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/changeRequests/"):
+			_, _ = io.WriteString(w, `{"localId":139,"status":"UNDER_REVIEW","author":{"userId":"`+authorID+`","name":"author"}}`)
+		case r.Method == http.MethodPost:
+			s.post++
+			w.WriteHeader(500)
+		default:
+			w.WriteHeader(404)
+		}
 	}))
 	t.Cleanup(srv.Close)
-
 	t.Setenv(config.EnvAccessToken, "test-token-codeup-mrs-review-not-real")
 	t.Setenv(config.EnvOrganizationID, "org-codeup-mrs-review")
 	t.Setenv(config.EnvEdition, "central")
 	t.Setenv(config.EnvAPIBaseURL, srv.URL)
 	t.Setenv("YUNXIAO_PROFILE", "")
+	return s
+}
+
+func TestCodeupMrsReviewDryRun(t *testing.T) {
+	s := newReviewDryRunServer(t, "author-1", "reviewer-1")
 
 	prevYes := globalYes
 	prevDry := globalDryRun
@@ -71,24 +99,17 @@ func TestCodeupMrsReviewDryRun(t *testing.T) {
 	if body == nil || body["reviewOpinion"] != "PASS" || body["reviewComment"] != "lgtm dry-run" {
 		t.Fatalf("body=%v", body)
 	}
-	if hits != 0 {
-		t.Fatalf("hits=%d", hits)
+	pre, _ := req["precheck"].(map[string]any)
+	if pre == nil || pre["status"] != "ok" || pre["is_author"] != false {
+		t.Fatalf("precheck=%v", pre)
+	}
+	if s.post != 0 {
+		t.Fatalf("post=%d", s.post)
 	}
 }
 
 func TestCodeupMrsReviewNotPassDryRun(t *testing.T) {
-	var hits int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		w.WriteHeader(500)
-	}))
-	t.Cleanup(srv.Close)
-
-	t.Setenv(config.EnvAccessToken, "test-token-codeup-mrs-review-np-not-real")
-	t.Setenv(config.EnvOrganizationID, "org-codeup-mrs-review-np")
-	t.Setenv(config.EnvEdition, "central")
-	t.Setenv(config.EnvAPIBaseURL, srv.URL)
-	t.Setenv("YUNXIAO_PROFILE", "")
+	s := newReviewDryRunServer(t, "author-2", "reviewer-2")
 
 	prevYes := globalYes
 	prevDry := globalDryRun
@@ -134,7 +155,7 @@ func TestCodeupMrsReviewNotPassDryRun(t *testing.T) {
 	if _, has := body["reviewComment"]; has {
 		t.Fatalf("unexpected reviewComment=%v", body["reviewComment"])
 	}
-	if hits != 0 {
-		t.Fatalf("hits=%d", hits)
+	if s.post != 0 {
+		t.Fatalf("post=%d", s.post)
 	}
 }

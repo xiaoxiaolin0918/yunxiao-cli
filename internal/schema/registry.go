@@ -271,7 +271,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.close", Domain: "codeup", Description: "Close a merge request",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests/{id}/close", Risk: risk.HighRiskWrite,
 		Example: "yunxiao codeup mrs close --repo <id> --local-id 1 --dry-run"},
-	{ID: "codeup.mrs.review", Domain: "codeup", Description: "Review a merge request",
+	{ID: "codeup.mrs.review", Domain: "codeup", Description: "Review a merge request (prechecks author≠current user; #395)",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests/{id}/review", Risk: risk.HighRiskWrite,
 		Example: "yunxiao codeup mrs review --repo <id> --local-id 1 --opinion PASS --dry-run"},
 	{ID: "pipeline.run.cancel", Domain: "pipeline", Description: "Cancel an entire pipeline run",
