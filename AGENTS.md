@@ -132,7 +132,7 @@ Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans. On **Wind
 - Env (preferred for CI / single identity): `YUNXIAO_ACCESS_TOKEN`, optional `YUNXIAO_ORGANIZATION_ID`
 - **WorkBuddy / non-TTY auth**: `yunxiao auth login --browser` prints one bare `https://…` authorization URL on stderr as soon as the loopback listener is ready (whitespace-delimited, not JSON-quoted). Process then blocks until callback + token exchange — connectors should set `authWaitForExit: true`. Non-TTY never prompts for PAT; use `--browser` or `--token`.
 - Per-profile identity (#380): `yunxiao auth login --token '<PAT>' --profile <name>` (or `--browser`) stores into `~/.config/yunxiao/credentials.json` → `profiles[<name>]`
-- Then switch with `--profile` / `YUNXIAO_PROFILE` / `profile use`; `auth status` / `doctor` report `credential_profile`
+- Then switch with `--profile` / `YUNXIAO_PROFILE` / `profile use` / project-local `.yunxiao-profile` (cwd↑; #130); `auth status` / `doctor` report `credential_profile`
 - Login slot target (#380): `--profile` > `YUNXIAO_PROFILE` > config default from `profile use` (bare `auth login` after `profile use work` → `profiles[work]`, not global Active)
 - Logout slot target: **only** `--profile` / `YUNXIAO_PROFILE` (does **not** use config default); global Active only when flag and env are both empty
 - Optional legacy: `"access_token"` embedded in `~/.config/yunxiao/profiles/<name>.json` (mode 0600; never commit real tokens)

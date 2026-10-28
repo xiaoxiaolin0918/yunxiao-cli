@@ -32,7 +32,7 @@ var profileCmd = &cobra.Command{
 Select with --profile <name>, YUNXIAO_PROFILE=<name>, or once with
 yunxiao profile use <name> (writes "profile" into config.json as the default
 for every new shell session, #130). Precedence: --profile > YUNXIAO_PROFILE >
-config default; profile use --unset clears the default.
+config default; profile use --unset clears the default. Project-local .yunxiao-profile (cwd↑, first non-# line = name) overrides the config default when --profile / YUNXIAO_PROFILE are unset (#130).
 Ship examples: profiles/play.example.json (generic/sandbox first), profiles/zhiyi.example.json (Zhiyi-oriented full fields; optional).
 Examples are embedded in the binary (#92) and also ship in GitHub Release archives
 as on-disk profiles/ next to the binary (#116); install-example works from any install.
@@ -47,7 +47,7 @@ Writes "profile": "<name>" into ~/.config/yunxiao/config.json so new shells pick
 the profile without --profile / YUNXIAO_PROFILE (#130 item 2).
 The profile must already exist under ~/.config/yunxiao/profiles/<name>.json
 (checked before writing; install with profile install-example). Precedence stays
---profile > YUNXIAO_PROFILE > this default, so one-off overrides still work.
+--profile > YUNXIAO_PROFILE > project-local .yunxiao-profile (cwd) > this default, so one-off overrides still work.
 --unset clears the default (name optional then). --dry-run previews only.
 
   yunxiao profile use play

@@ -65,10 +65,14 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 	}
 	status := zhiyi.MRStatus(mr)
 	detail := mrsMergeErrorDetail(mr)
-	actions := mergeSuggestedActions(repoArg, localID, mergeType, status)
+	actions := mergeSuggestedActions(repoArg, localID, mergeType, status, ae)
+	gap := mergeStateGap(status)
+	if isUnsupportedMergeTypeAPIError(ae) {
+		gap = unsupportedMergeTypeGap(mergeType)
+	}
 	details := map[string]any{
 		"action":            "merge",
-		"state_gap":         mergeStateGap(status),
+		"state_gap":         gap,
 		"suggested_actions": actions,
 		"diagnose":          map[string]any{"source": "GET changeRequests/" + localID},
 		"mr":                detail,
@@ -76,7 +80,7 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 	if status != "" {
 		details["current_status"] = status
 	}
-	hint := mergeRejectionHint(status, actions)
+	hint := mergeRejectionHint(status, actions, ae, mergeType)
 	// Keep #124 extras that the structured table may not cover.
 	if failed := mrsMergeFailedTodoTypes(mr); len(failed) > 0 {
 		hint += ". merge requirements not met: " + strings.Join(failed, ", ") +
@@ -96,7 +100,6 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 		Details: details,
 	}
 }
-
 
 // mrsMergeErrorDetail builds error.details.mr from the fetched MR object (#124/#127).
 func mrsMergeErrorDetail(mr map[string]any) map[string]any {
@@ -142,4 +145,3 @@ func mrsMergeFailedTodoTypes(mr map[string]any) []string {
 	}
 	return failed
 }
-

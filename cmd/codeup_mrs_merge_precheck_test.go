@@ -24,6 +24,10 @@ type mergeSrv struct {
 	detailCode int // non-0 → respond with this status instead
 	gets       int
 	posts      []map[string]any
+	// repoJSON, when non-empty, is served at GET .../repositories/123 (#130 residual:
+	// fallback when MR detail omits merge-method config). Empty → 404 for that path.
+	repoJSON string
+	repoGets int
 }
 
 func (s *mergeSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +50,15 @@ func (s *mergeSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.posts = append(s.posts, m)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"result":true}`)
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories/123"):
+		s.repoGets++
+		if s.repoJSON == "" {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"errorMessage":"repo not found"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, s.repoJSON)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = io.WriteString(w, `{"errorMessage":"unexpected `+r.Method+" "+r.URL.Path+`"}`)
@@ -58,6 +71,12 @@ func (s *mergeSrv) snapshot() (int, []map[string]any) {
 	out := make([]map[string]any, len(s.posts))
 	copy(out, s.posts)
 	return s.gets, out
+}
+
+func (s *mergeSrv) snapshotRepoGets() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.repoGets
 }
 
 // mergeDetail builds an MR detail payload with the given overrides.
@@ -381,5 +400,120 @@ func TestMrsMergePrecheckDryRunRequestShape(t *testing.T) {
 	}
 	if gets, _ := s.snapshot(); gets != 1 {
 		t.Fatalf("detail GETs=%d want 1", gets)
+	}
+}
+
+// TestMrsMergePrecheckRepoFallback (#130 residual): when MR detail omits merge
+// method config, CLI GETs the repository once and applies the same rules.
+func TestMrsMergePrecheckRepoFallback(t *testing.T) {
+	cases := []struct {
+		name        string
+		detail      string
+		repoJSON    string
+		mergeType   string
+		wantOK      bool
+		wantSubtype string
+		wantMsgHas  []string
+		wantPosts   int
+		wantRepoGet int
+	}{
+		{
+			name:        "ff-only blocked via repo supportMergeFastForwardOnly=false",
+			detail:      mergeDetail(nil), // no mergeTypes on MR — the real-world gap
+			repoJSON:    `{"id":123,"supportMergeFastForwardOnly":false}`,
+			mergeType:   "fast-forward-only",
+			wantOK:      false,
+			wantSubtype: "merge_type_not_supported",
+			wantMsgHas:  []string{"does not support merge-type", "no-fast-forward"},
+			wantPosts:   0,
+			wantRepoGet: 1,
+		},
+		{
+			name:        "rebase blocked via repo mergeTypes",
+			detail:      mergeDetail(nil),
+			repoJSON:    `{"id":123,"mergeTypes":["Fast-forward-only","创建合并节点"]}`,
+			mergeType:   "rebase",
+			wantOK:      false,
+			wantSubtype: "merge_type_not_supported",
+			wantMsgHas:  []string{"rebase", "ff-only", "no-fast-forward"},
+			wantPosts:   0,
+			wantRepoGet: 1,
+		},
+		{
+			name:        "repo confirms allowed type → merge proceeds",
+			detail:      mergeDetail(nil),
+			repoJSON:    `{"id":123,"mergeTypes":["no-fast-forward","squash"]}`,
+			mergeType:   "no-fast-forward",
+			wantOK:      true,
+			wantPosts:   1,
+			wantRepoGet: 1,
+		},
+		{
+			name:        "MR already has mergeTypes → skip repo GET",
+			detail:      mergeDetail(map[string]any{"mergeTypes": []any{"squash"}}),
+			repoJSON:    `{"id":123,"mergeTypes":["rebase"]}`,
+			mergeType:   "squash",
+			wantOK:      true,
+			wantPosts:   1,
+			wantRepoGet: 0,
+		},
+		{
+			name:        "neither MR nor repo exposes config → still merges (server validates)",
+			detail:      mergeDetail(nil),
+			repoJSON:    "", // 404
+			mergeType:   "rebase",
+			wantOK:      true,
+			wantPosts:   1,
+			wantRepoGet: 1,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &mergeSrv{detailJSON: tc.detail, repoJSON: tc.repoJSON}
+			env, eenv, code := runMrsMergeCase(t, s, false, true, tc.mergeType)
+			if tc.wantOK {
+				if code != 0 || !env.OK {
+					t.Fatalf("want ok: code=%d eenv=%#v", code, eenv)
+				}
+			} else {
+				if code != 1 {
+					t.Fatalf("code=%d want 1", code)
+				}
+				if eenv.Error == nil {
+					t.Fatalf("no error envelope")
+				}
+				if eenv.Error.Subtype != tc.wantSubtype {
+					t.Fatalf("subtype=%q want %q msg=%q", eenv.Error.Subtype, tc.wantSubtype, eenv.Error.Message)
+				}
+				for _, want := range tc.wantMsgHas {
+					if !strings.Contains(eenv.Error.Message, want) && !strings.Contains(eenv.Error.Hint, want) {
+						t.Fatalf("missing %q in msg=%q hint=%q", want, eenv.Error.Message, eenv.Error.Hint)
+					}
+				}
+			}
+			if s.snapshotPostsLen() != tc.wantPosts {
+				t.Fatalf("posts=%d want %d", s.snapshotPostsLen(), tc.wantPosts)
+			}
+			if got := s.snapshotRepoGets(); got != tc.wantRepoGet {
+				t.Fatalf("repoGets=%d want %d", got, tc.wantRepoGet)
+			}
+		})
+	}
+}
+
+// TestMrsMergeNormalizesMergeTypeInBody (#130): OpenAPI expects canonical
+// mergeType spellings; aliases like fast-forward-only must be folded before POST.
+func TestMrsMergeNormalizesMergeTypeInBody(t *testing.T) {
+	s := &mergeSrv{detailJSON: mergeDetail(map[string]any{"mergeTypes": []any{"ff-only", "no-fast-forward"}})}
+	env, _, code := runMrsMergeCase(t, s, false, true, "fast-forward-only")
+	if code != 0 || !env.OK {
+		t.Fatalf("code=%d ok=%v", code, env.OK)
+	}
+	_, posts := s.snapshot()
+	if len(posts) != 1 {
+		t.Fatalf("posts=%d", len(posts))
+	}
+	if posts[0]["mergeType"] != "ff-only" {
+		t.Fatalf("body mergeType=%v want ff-only", posts[0]["mergeType"])
 	}
 }

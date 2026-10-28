@@ -207,13 +207,53 @@ func writeExample(dst string, b []byte) (string, error) {
 	return dst, nil
 }
 
+// DirProfileFile is the project-local profile selector (like .npmrc). First
+// non-empty, non-# line wins. Walks cwd -> parents up to 32 levels (#130).
+const DirProfileFile = ".yunxiao-profile"
+
+// DirProfileName reads .yunxiao-profile from the working directory (and parents).
+// Empty when absent, unreadable, or blank. Precedence is below YUNXIAO_PROFILE
+// and above the config.json default (#130).
+func DirProfileName() string {
+	wd, err := os.Getwd()
+	if err != nil || wd == "" {
+		return ""
+	}
+	dir := wd
+	for i := 0; i < 32; i++ {
+		b, err := os.ReadFile(filepath.Join(dir, DirProfileFile))
+		if err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				if idx := strings.IndexAny(line, " \t#"); idx >= 0 {
+					line = strings.TrimSpace(line[:idx])
+				}
+				return line
+			}
+			return ""
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return ""
+}
+
 // ResolveName returns the active profile name with precedence
-// explicit flag > YUNXIAO_PROFILE env > config.json "profile" default (#130).
+// explicit flag > YUNXIAO_PROFILE env > .yunxiao-profile (cwd) > config.json default (#130).
 func ResolveName(explicit string) string {
 	if s := strings.TrimSpace(explicit); s != "" {
 		return s
 	}
 	if s := strings.TrimSpace(os.Getenv(EnvProfile)); s != "" {
+		return s
+	}
+	if s := DirProfileName(); s != "" {
 		return s
 	}
 	return DefaultName()

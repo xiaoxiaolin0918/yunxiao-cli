@@ -819,7 +819,11 @@ MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
 			handleErr(err)
 			return
 		}
-		body := map[string]any{"mergeType": mergeType}
+		normalizedMergeType := zhiyi.NormalizeMergeType(mergeType)
+		if normalizedMergeType == "" {
+			normalizedMergeType = mergeType
+		}
+		body := map[string]any{"mergeType": normalizedMergeType}
 		if mergeMessage != "" {
 			body["mergeMessage"] = mergeMessage
 		}

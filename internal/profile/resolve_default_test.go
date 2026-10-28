@@ -18,8 +18,8 @@ func writeConfig(t *testing.T, xdg, body string) {
 }
 
 // TestResolveNamePrecedence (#130): --profile explicit > YUNXIAO_PROFILE env >
-// config.json "profile" default > empty. The config default must not override
-// an explicit flag or env, and must be ignored when unset/unreadable.
+// .yunxiao-profile (cwd) > config.json "profile" default > empty. The config
+// default must not override an explicit flag or env, and must be ignored when unset/unreadable.
 func TestResolveNamePrecedence(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -65,5 +65,55 @@ func TestDefaultName(t *testing.T) {
 	writeConfig(t, xdg, `{"profile":"zhiyi","edition":"central"}`)
 	if got := DefaultName(); got != "zhiyi" {
 		t.Fatalf("DefaultName = %q, want zhiyi", got)
+	}
+}
+
+// TestResolveNameDirProfile (#130): optional project-local .yunxiao-profile
+// sits between YUNXIAO_PROFILE env and config.json default (like .npmrc).
+func TestResolveNameDirProfile(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv(EnvProfile, "")
+	writeConfig(t, os.Getenv("XDG_CONFIG_HOME"), `{"profile":"cfg-p"}`)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".yunxiao-profile"), []byte("dir-p\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+
+	if got := ResolveName(""); got != "dir-p" {
+		t.Fatalf("ResolveName from .yunxiao-profile = %q want dir-p", got)
+	}
+	// env still wins over dir file
+	t.Setenv(EnvProfile, "env-p")
+	if got := ResolveName(""); got != "env-p" {
+		t.Fatalf("env should beat dir file: got %q", got)
+	}
+	t.Setenv(EnvProfile, "")
+	if got := ResolveName("flag-p"); got != "flag-p" {
+		t.Fatalf("flag should beat dir file: got %q", got)
+	}
+}
+
+// TestResolveNameDirProfileAbsentFallsBackToConfig: no .yunxiao-profile → config default.
+func TestResolveNameDirProfileAbsentFallsBackToConfig(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv(EnvProfile, "")
+	writeConfig(t, os.Getenv("XDG_CONFIG_HOME"), `{"profile":"cfg-p"}`)
+	dir := t.TempDir()
+	cwd, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	if got := ResolveName(""); got != "cfg-p" {
+		t.Fatalf("got %q want cfg-p", got)
 	}
 }
