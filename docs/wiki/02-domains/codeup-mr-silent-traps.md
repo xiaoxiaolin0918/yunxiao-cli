@@ -141,7 +141,7 @@ title/description（官方文档实证），官方 MCP server 也没有 WIP 工�
 | `UNDER_DEV`（开发中/WIP） | 需先解除 WIP 才能合并 | 网页 MR 页「…」菜单 →「取消 WIP」（暂无 OpenAPI，见 #124）；随后重试 merge 命令（附可复制命令，含 `--yes`） |
 | `MERGED` | 已合并，无事可做 | `mrs get` 确认 |
 | `CLOSED` | 需先重开 | `mrs reopen --dry-run`（确认后 `--yes`）；重试 merge |
-| `UNDER_REVIEW` | 需评审通过 | `mrs review --opinion PASS --dry-run`（确认后 `--yes`）；重试 merge |
+| `UNDER_REVIEW` | 需评审通过（**作者不能自评**，#395） | 非作者：`mrs review --opinion PASS`；作者：`mrs reviewers add --reviewer <otherUserId>` 后请他人评审；重试 merge |
 | 其他/未知 | 按原始状态提示 | `mrs get`；重试 merge |
 
 注意：high-risk 门（缺 `--yes` → exit 10 `confirmation_required`）先于一切诊断，不产生任何 API 调用；合并成功也不发诊断 GET。重试命令里的 `--yes` 只是提示文本，仍需用户/agent 自行确认。
@@ -162,3 +162,8 @@ CLI 现行为：路径 / alias / bare name 在发请求（含 `--dry-run` 预览
 - `mrs create`：可用数字 `--repo`，或显式 `--source-project-id` / `--target-project-id`。
 - `mrs +create`（旧版）：**没有** `--source-project-id` / `--target-project-id`，只能传**数字** `--repo`（或先 `repos get` 取 id 再 `--repo <id>`）。
 
+
+
+## mrs review：作者自评 403（#395）
+
+Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `can not submit review opinion as the author`）。CLI 在 POST 前用 `author.userId` vs `/platform/user` id 预检；命中则本地 `subtype=review_as_author`，并给出 `mrs reviewers add --reviewer <otherUserId>` / 换身份。服务端 403 原文也会被同样包装。`mrs merge` 在 `UNDER_REVIEW` 的 `suggested_actions` 会顺带提示作者勿自评。

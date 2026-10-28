@@ -46,7 +46,8 @@ func mergeSuggestedActions(repoArg, localID, mergeType, status string) []string 
 		}
 	case "UNDER_REVIEW":
 		return []string{
-			fmt.Sprintf("yunxiao codeup mrs review --repo %s --local-id %s --opinion PASS --dry-run (then --yes) once the review should pass", shellArg(repoArg), shellArg(localID)),
+			fmt.Sprintf("yunxiao codeup mrs review --repo %s --local-id %s --opinion PASS --dry-run (then --yes) once a non-author reviewer can pass it", shellArg(repoArg), shellArg(localID)),
+			fmt.Sprintf("if you are the MR author, Codeup forbids self-review: yunxiao codeup mrs reviewers add --repo %s --local-id %s --reviewer <otherUserId>", shellArg(repoArg), shellArg(localID)),
 			retry,
 		}
 	default:

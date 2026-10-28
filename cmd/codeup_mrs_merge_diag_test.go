@@ -35,8 +35,8 @@ type mrsMergeDiagServer struct {
 	// when non-zero, GETs beyond this count fail — lets #130 precheck succeed while
 	// the #124/#127 refresh GET fails.
 	getsBeforeFail int
-	mrFixture   string
-	other       []string
+	mrFixture      string
+	other          []string
 }
 
 func newMrsMergeDiagServer(t *testing.T, mrFixture string) *mrsMergeDiagServer {
@@ -136,8 +136,8 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 		noHint      []string // substrings that must NOT appear in error.hint
 	}{
 		{
-			name:      "under_dev_wip_needs_unwip_via_web",
-			mrFixture: `{"localId":139,"title":"feat: x","status":"UNDER_DEV","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
+			name:       "under_dev_wip_needs_unwip_via_web",
+			mrFixture:  `{"localId":139,"title":"feat: x","status":"UNDER_DEV","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
 			wantStatus: "UNDER_DEV",
 			wantGap:    []string{"UNDER_DEV", "取消 WIP"},
 			wantActions: []string{
@@ -147,17 +147,18 @@ func TestMrsMergeRejectEnriched(t *testing.T) {
 			wantHint: []string{"UNDER_DEV", "取消 WIP", "mrs merge --repo 4951320 --local-id 139 --merge-type ff-only --yes"},
 		},
 		{
-			name:      "under_review_suggests_review_pass",
-			mrFixture: `{"localId":139,"title":"feat: r","status":"UNDER_REVIEW","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
+			name:       "under_review_suggests_review_pass",
+			mrFixture:  `{"localId":139,"title":"feat: r","status":"UNDER_REVIEW","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
 			wantStatus: "UNDER_REVIEW",
 			wantGap:    []string{"UNDER_REVIEW", "review"},
 			wantActions: []string{
 				"yunxiao codeup mrs review --repo 4951320 --local-id 139 --opinion PASS",
+				"reviewers add --repo 4951320 --local-id 139 --reviewer",
 			},
 		},
 		{
-			name:      "unknown_status_generic_guidance",
-			mrFixture: `{"localId":139,"title":"feat: u","status":"SOME_NEW_STATE","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
+			name:       "unknown_status_generic_guidance",
+			mrFixture:  `{"localId":139,"title":"feat: u","status":"SOME_NEW_STATE","targetProjectPathWithNamespace":"zhiyi/zhiyi_doc"}`,
 			wantStatus: "SOME_NEW_STATE",
 			wantGap:    []string{"SOME_NEW_STATE"},
 			wantActions: []string{
@@ -304,7 +305,6 @@ func TestMrsMergeSuccessNoDiagnosis(t *testing.T) {
 	}
 }
 
-
 // MERGED/CLOSED are refused by #130 precheck before POST; #127 helpers still describe them.
 func TestMrsMergeDiagHelpersTerminalStatuses(t *testing.T) {
 	if gap := mergeStateGap("MERGED"); !strings.Contains(gap, "already MERGED") {
@@ -362,4 +362,3 @@ func TestHandleErrContextErrorSubtypeDetails(t *testing.T) {
 		t.Fatalf("cli body=%+v", cli)
 	}
 }
-
