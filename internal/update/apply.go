@@ -81,7 +81,8 @@ func DownloadFirstOK(ctx context.Context, client HTTPDoer, urls []string, destPa
 	if len(errs) == 0 {
 		return "", fmt.Errorf("no download URLs")
 	}
-	return "", fmt.Errorf("all downloads failed:\n  %s", strings.Join(errs, "\n  "))
+	return "", fmt.Errorf("all downloads failed:\n  %s\n\nhint: set %s to a reachable mirror base, e.g.\n  %s=https://gh-proxy.com/https://github.com/%s/releases/download",
+		strings.Join(errs, "\n  "), EnvDownloadBase, EnvDownloadBase, GithubRepo())
 }
 
 // FileSHA256 returns hex sha256 of path.
