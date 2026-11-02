@@ -35,22 +35,31 @@ func Pipeline(pipelineID, runID string) (Target, error) {
 }
 
 // WorkItem builds a Projex console URL from ids.
+// With --id: project deep link (#openWorkitemIdentifier=...).
+// Serial-only: short serial_url (/projex/{seg}/{SERIAL}#), not ?serialNumber= (#400).
 func WorkItem(spaceID, internalID, serial, category string) (Target, error) {
 	sid := strings.TrimSpace(spaceID)
 	if sid == "" {
 		return Target{}, fmt.Errorf("space-id is required")
 	}
 	item := map[string]any{}
-	if id := strings.TrimSpace(internalID); id != "" {
+	id := strings.TrimSpace(internalID)
+	sn := strings.TrimSpace(serial)
+	if id != "" {
 		item["id"] = id
 	}
-	if sn := strings.TrimSpace(serial); sn != "" {
+	if sn != "" {
 		item["serialNumber"] = sn
 	}
 	if cat := strings.TrimSpace(category); cat != "" {
 		item["categoryId"] = cat
 	}
-	u := zhiyi.WorkItemURL(item, sid)
+	var u string
+	if id != "" {
+		u = zhiyi.WorkItemURL(item, sid)
+	} else if sn != "" {
+		u = zhiyi.WorkItemSerialURL(item)
+	}
 	if u == "" {
 		return Target{}, fmt.Errorf("need --id or --serial to build workitem URL")
 	}

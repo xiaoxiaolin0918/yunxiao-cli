@@ -159,7 +159,7 @@ yunxiao update --yes            # 非交互直接更新（脚本/CI）
 
 ## Browse console
 
-- `yunxiao browse pipeline|workitem|mr|repo|url` �� open console; `--print-only` for CI/Agent.
+- `yunxiao browse pipeline|workitem|mr|repo|url` — open console; `--print-only` for CI/Agent. `browse workitem --serial` prints `serial_url` (`/projex/{seg}/{SERIAL}#`, #400); `--id` keeps `#openWorkitemIdentifier=`. Missing `--category` defaults path seg to `req`.
 - Migration from gh/yx: `docs/wiki/00-process/gh-yx-migration.md`.
 
 ## Alias

@@ -27,9 +27,30 @@ func TestWorkItem(t *testing.T) {
 	if !strings.Contains(got.URL, "space1") || !strings.Contains(got.URL, "openWorkitemIdentifier=wid") {
 		t.Fatalf("url=%s", got.URL)
 	}
+	// Prefer id deep link even when serial is also provided.
+	got, err = WorkItem("space1", "wid", "ZYPT-1", "Bug")
+	if err != nil || !strings.Contains(got.URL, "openWorkitemIdentifier=wid") || strings.Contains(got.URL, "serialNumber=") {
+		t.Fatalf("id+serial: %s %v", got.URL, err)
+	}
+	// Serial-only: short Projex serial_url (#400), not ?serialNumber=.
 	got, err = WorkItem("space1", "", "ZYPT-1", "Req")
-	if err != nil || !strings.Contains(got.URL, "serialNumber=ZYPT-1") {
-		t.Fatalf("serial: %s %v", got.URL, err)
+	if err != nil || got.URL != "https://devops.aliyun.com/projex/req/ZYPT-1#" {
+		t.Fatalf("serial Req: %s %v", got.URL, err)
+	}
+	got, err = WorkItem("space1", "", "ZYPT-2", "Task")
+	if err != nil || got.URL != "https://devops.aliyun.com/projex/task/ZYPT-2#" {
+		t.Fatalf("serial Task: %s %v", got.URL, err)
+	}
+	got, err = WorkItem("space1", "", "ZYPT-3", "Risk")
+	if err != nil || got.URL != "https://devops.aliyun.com/projex/risk/ZYPT-3#" {
+		t.Fatalf("serial Risk: %s %v", got.URL, err)
+	}
+	got, err = WorkItem("space1", "", "ZYPT-4", "")
+	if err != nil || got.URL != "https://devops.aliyun.com/projex/req/ZYPT-4#" {
+		t.Fatalf("serial default category: %s %v", got.URL, err)
+	}
+	if strings.Contains(got.URL, "serialNumber=") || strings.Contains(got.URL, "/project/") {
+		t.Fatalf("serial-only must not use project/?serialNumber=: %s", got.URL)
 	}
 }
 

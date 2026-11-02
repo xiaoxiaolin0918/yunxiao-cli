@@ -19,6 +19,7 @@ GetWorkitem 的 `description` 常有数千字（2026-09-29 查 ZYPT-5916 时一�
   - 派生失败：brief 省略 `priority`；`--fields priority` 输出 `null`，`meta.hint` 提示用 `--full --jq '.data.customFieldValues'` 或 `yunxiao workitem fields` 核对字段（exit 0，不报 `unknown_fields`）。
 - `description_summary`：`(description: <n> chars, use --full or --fields description)`，n 为字符数（rune）。非 MARKDOWN（RICHTEXT 即 HTML）且含标签时，先去掉 HTML 标签、解码实体再计数，文案为 `<n> chars of text excluding HTML tags`；MARKDOWN 按原文计数。description 不是字符串时给出 `(description: non-string <object|array|number|boolean> value, …)`；为空、null 或缺失时省略。
 - 所有视图都保留 `meta.url`（深链）/ `serial_number` / `serial_url`（`https://devops.aliyun.com/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）/ `resolved_id`。
+- `yunxiao browse workitem --serial`（无 `--id`）同样打印上述 `serial_url` 短链（#400）；有 `--id` 时仍用 `meta.url` 形态（`#openWorkitemIdentifier=`）。缺 `--category` 时 path segment 默认为 `req`。
 
 ## `--fields` 名字
 

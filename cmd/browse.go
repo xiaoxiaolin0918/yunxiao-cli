@@ -95,6 +95,11 @@ var browseCategory string
 var browseWorkitemCmd = &cobra.Command{
 	Use:   "workitem",
 	Short: "Open a Projex work item page",
+	Long:  `Open or print a Projex work item console URL.
+
+With --id: project deep link (.../project/<space>/<seg>#openWorkitemIdentifier=<id>).
+With --serial only: short serial_url (.../projex/<seg>/<SERIAL>#), same as workitem get meta.serial_url (#400).
+--category selects the path segment (Bug|Req|Task|Risk|Topic); default when omitted is req.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		t, err := browse.WorkItem(browseSpaceID, browseWorkItemID, browseSerial, browseCategory)
 		if err != nil {
@@ -109,7 +114,7 @@ func init() {
 	browseWorkitemCmd.Flags().StringVar(&browseSpaceID, "space-id", "", "Projex space/project id (required)")
 	browseWorkitemCmd.Flags().StringVar(&browseWorkItemID, "id", "", "internal work item id")
 	browseWorkitemCmd.Flags().StringVar(&browseSerial, "serial", "", "serial number e.g. YXCLI-1")
-	browseWorkitemCmd.Flags().StringVar(&browseCategory, "category", "", "Bug|Req|Task (optional)")
+	browseWorkitemCmd.Flags().StringVar(&browseCategory, "category", "", "Bug|Req|Task|Risk|Topic (optional; default path seg=req)")
 	_ = browseWorkitemCmd.MarkFlagRequired("space-id")
 }
 
