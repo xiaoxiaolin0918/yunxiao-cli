@@ -95,7 +95,7 @@ List 响应的 `meta` 在有分页头时可能包含：
 
 ### 常见 `meta.url`
 
-workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台深链。有则优先展示给用户。`workitem get` / `create` / `update`（不含 `+transition` / `+bug-transition`）另含 `meta.serial_url` 短链（`/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）。
+workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台深链。有则优先展示给用户。`workitem get` / `create` / `update`（不含 `+transition` / `+bug-transition`）另含 `meta.serial_url` 短链（`/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）。 `yunxiao browse workitem --serial`（无 `--id`）打印同一 `serial_url` 形态（#400）；`--id` 仍用 `#openWorkitemIdentifier=`。`--category` 映射 path segment，缺省 `req`。
 
 ### `refresh_ok`（流转成功后）
 

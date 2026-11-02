@@ -56,7 +56,8 @@ yunxiao pipeline +refuse \
 ```bash
 yunxiao browse pipeline --pipeline-id <id> --print-only
 yunxiao browse pipeline --pipeline-id <id> --run-id <rid>
-yunxiao browse workitem --space-id <sid> --serial ZYPT-1 --print-only
+yunxiao browse workitem --space-id <sid> --serial ZYPT-1 --category Task --print-only
+# → https://devops.aliyun.com/projex/task/ZYPT-1#  （serial_url；勿用 ?serialNumber=）
 yunxiao browse mr --repo-url https://codeup.aliyun.com/org/repo --local-id 3 --print-only
 ```
 
