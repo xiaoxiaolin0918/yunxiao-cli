@@ -112,7 +112,7 @@ func TestBrowseWorkitemSerialDryRun(t *testing.T) {
 		t.Fatalf("kind=%v", data["kind"])
 	}
 	url, _ := data["url"].(string)
-	if !strings.Contains(url, "space-batch") || !strings.Contains(url, "serialNumber=ZYPT-99") {
+	if url != "https://devops.aliyun.com/projex/req/ZYPT-99#" {
 		t.Fatalf("url=%q", url)
 	}
 	if meta["dry_run"] != true || meta["opened"] != false {
@@ -153,13 +153,8 @@ func TestBrowseWorkitemCategoryDryRun(t *testing.T) {
 	}
 	data, _ := browseBatchParse(t, stdout)
 	url, _ := data["url"].(string)
-	if !strings.Contains(url, "serialNumber=ZYPT-1") {
+	if url != "https://devops.aliyun.com/projex/bug/ZYPT-1#" {
 		t.Fatalf("url=%q", url)
-	}
-	// category may appear as categoryId=Bug in URL depending on zhiyi builder
-	if !strings.Contains(url, "Bug") && !strings.Contains(url, "category") {
-		// still OK if serial present; category is optional enrichment
-		t.Logf("category not visible in url=%q (optional)", url)
 	}
 }
 

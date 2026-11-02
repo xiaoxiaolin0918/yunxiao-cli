@@ -117,7 +117,7 @@ func TestBrowseWorkitemPrintOnly(t *testing.T) {
 	}
 	_ = json.Unmarshal([]byte(stdout), &env)
 	url, _ := env.Data["url"].(string)
-	if !strings.Contains(url, "space-1") || !strings.Contains(url, "ZYPT-1") {
+	if url != "https://devops.aliyun.com/projex/req/ZYPT-1#" {
 		t.Fatalf("url=%q data=%#v", url, env.Data)
 	}
 }

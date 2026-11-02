@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -28,7 +27,7 @@ func TestBrowseWorkitemDryRun(t *testing.T) {
 		t.Fatalf("envelope=%#v", env)
 	}
 	url, _ := env.Data["url"].(string)
-	if !strings.Contains(url, "space-9") || !strings.Contains(url, "ZYPT-42") {
+	if url != "https://devops.aliyun.com/projex/bug/ZYPT-42#" {
 		t.Fatalf("url=%q", url)
 	}
 	if env.Meta["dry_run"] != true || env.Meta["opened"] != false {

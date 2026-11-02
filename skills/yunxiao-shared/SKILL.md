@@ -95,7 +95,7 @@ List 响应的 `meta` 在有分页头时可能包含：
 
 ### 常见 `meta.url`
 
-workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台深链。有则优先展示给用户。`workitem get` / `create` / `update`（不含 `+transition` / `+bug-transition`）另含 `meta.serial_url` 短链（`/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）。
+workitem get/create/update/transition、MR get/create、pipeline get/run 等常在 `meta.url`（或列表项 `url`）给出控制台深链。有则优先展示给用户。`workitem get` / `create` / `update`（不含 `+transition` / `+bug-transition`）另含 `meta.serial_url` 短链（`/projex/{bug|req|risk|task|topic}/ZYPT-xxxx#`，由 category 映射，缺省 `req`；#371）。 `yunxiao browse workitem --serial`（无 `--id`）打印同一 `serial_url` 形态（#400）；`--id` 仍用 `#openWorkitemIdentifier=`。`--category` 映射 path segment，缺省 `req`。
 
 ### `refresh_ok`（流转成功后）
 
@@ -159,7 +159,7 @@ yunxiao update --yes            # 非交互直接更新（脚本/CI）
 
 ## Browse console
 
-- `yunxiao browse pipeline|workitem|mr|repo|url` �� open console; `--print-only` for CI/Agent.
+- `yunxiao browse pipeline|workitem|mr|repo|url` — open console; `--print-only` for CI/Agent. `browse workitem --serial` prints `serial_url` (`/projex/{seg}/{SERIAL}#`, #400); `--id` keeps `#openWorkitemIdentifier=`. Missing `--category` defaults path seg to `req`.
 - Migration from gh/yx: `docs/wiki/00-process/gh-yx-migration.md`.
 
 ## Alias

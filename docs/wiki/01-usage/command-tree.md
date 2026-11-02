@@ -56,7 +56,7 @@
 | 命令 | Go 变量 |
 |------|---------|
 | `browse pipeline` | `browsePipelineCmd` |
-| `browse workitem` | `browseWorkitemCmd` |
+| `browse workitem` | `browseWorkitemCmd`（`--serial`→`serial_url` / `--id`→`openWorkitemIdentifier`；#400） |
 | `browse mr` | `browseMRCmd` |
 | `browse repo` | `browseRepoCmd` |
 | `browse url` | `browseURLCmd` |
