@@ -41,6 +41,7 @@ Install and init yunxiao CLI with a LOCAL profile:
    Note: oat- tokens are short-lived (~1 day). Login success prints the human-readable
    expiry (expires_at_local) + renew command; `auth status` / `doctor` warn when <24h
    remains and no refresh_token is stored — renew via yunxiao auth login --browser (#122).
+   Silent refresh when refresh_token is stored (or: yunxiao auth refresh [--dry-run]); on failure re-run auth login --browser. Logout: yunxiao auth logout clears that slot access+refresh (= other CLIs' logout --forget; no separate --forget / no OS password store). doctor exposes can_refresh (baseline can_auto_login equivalent).
    PAT fallback:
      Console: https://account-devops.aliyun.com/settings/personalAccessToken
      Help: https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token

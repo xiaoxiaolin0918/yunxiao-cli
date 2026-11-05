@@ -46,6 +46,21 @@ yunxiao doctor --profile work   # token 检查同样带 credential_profile
 yunxiao auth logout --profile work
 ```
 
+## logout 与 forget 等价（基线 checklist）
+
+yunxiao **不**把密码写入 OS Credential Manager / Keychain，也 **无** `login.cred` / `--remember`。
+本地续期材料就是 `credentials.json` 槽里的 `refresh_token`（外加 `client_id`）。
+
+因此：
+
+| 其它 CLI 用语 | yunxiao 等价 |
+|---------------|--------------|
+| `logout`（只清 session/token） | 不适用单独「session-only」——access 与 refresh 同槽 |
+| `logout --forget`（session + 存密/refresh 双清） | **`yunxiao auth logout`**（及 `--profile <name>`） |
+
+`auth logout` 删除整个槽（access + refresh + 该槽 oauth 元数据）；刷新失败路径也会清 oauth 槽并提示重新 `auth login --browser`。
+doctor / auth status 用 `can_refresh` / `refresh_token_present` 表达「能否自动续期」（基线字段 **`can_auto_login` 的等价布尔**），**不要**找 `password_stored` / `--remember`。
+本 CLI 不实现 `--remember` / `--auto-login` / `login.cred`（§3.5：有 refresh 不必硬套存密）。
 
 ## WorkBuddy 连接器认证（裸 URL + authWaitForExit）
 
