@@ -43,7 +43,8 @@ export YUNXIAO_ACCESS_TOKEN="<PAT>"          # CI / 单身份强制覆盖
 yunxiao auth login --token "<PAT>" --profile work      # #380：绑到 profile
 yunxiao auth login --browser --profile work
 yunxiao auth status --profile work            # 含 credential_profile / token_masked
-yunxiao auth logout --profile work            # 只清该 profile 槽
+yunxiao auth logout --profile work            # 只清该 profile 槽（含 access+refresh；= forget 等价）
+# 无 auth logout --forget：yunxiao 不存 OS keychain / login.cred 密码；logout 已双清 session+refresh
 yunxiao whoami
 yunxiao doctor
 yunxiao auth refresh [--dry-run]   # #170：主动刷新 oat-；dry-run 不写盘
@@ -58,6 +59,13 @@ yunxiao status          # open workitems + open MRs; optional pending gates
 
 PAT 控制台（首选）：https://account-devops.aliyun.com/settings/personalAccessToken
 帮助：https://help.aliyun.com/zh/yunxiao/user-guide/personal-access-token
+
+**基线 checklist 对照（cli-manager `baseline-checklist.md`，yunxiao = refresh 家）：**
+- **不实现** `--remember` / `--store-password` / `--auto-login` / `--auto-renew` / `login.cred` / OS 凭据库存密（§3.5：有 refresh 不必硬套）。
+- **自动续期条件**用 `can_refresh`（doctor / auth status；另有 `refresh_token_present` / `auth_refresh`）——等价基线字段 **`can_auto_login`**。
+- **logout**：`yunxiao auth logout`（可选 `--profile`）清除该槽 access+refresh，等价其它 CLI 的 `logout --forget`；无单独 `--forget`。
+- 续期失败 → exit **1** + ok:false；**勿**与缺 `--yes` 的 exit **10** 混淆。
+**logout / forget（基线）：**`yunxiao auth logout`（可选 `--profile`）清除该槽全部本地凭证（`access_token` + `refresh_token`），等价于其它 CLI 的 `logout --forget`。本 CLI **无** `--remember` / `login.cred` / OS 凭据库存密，故**不**另加 `--forget` 开关。仅清「当前会话」、保留 refresh 以便自动续期——对 yunxiao 不适用（续期靠 refresh_token 文件槽，logout 即放弃自动续）。
 
 **OAuth 短票与刷新（#122 / #170）：**`auth login --browser` 拿到的 oat- 大约 1 天有效；登录成功响应含 `expires_at_local`（本地可读过期时间）。业务命令经 `mustClient` 在到期前约 5 分钟会**静默刷新**（有 `refresh_token` + `client_id` 时）。`doctor` / `whoami` 同样走静默刷新，并在结果里给出 `auth_refresh`：`not_needed` | `skipped` | `refreshed` | `refresh_failed`。也可主动执行 `yunxiao auth refresh`（`--dry-run` 只预览、不写盘、不打 token 端点）。`auth status` / `doctor` 在剩余 **<24h** 且无法刷新（`can_refresh:false`）时打 `warning` + `hint`，指向 `yunxiao auth login --browser`。Agent 看到 `expiring:true` / `warning` / `auth_refresh:refresh_failed` 时应提示用户续期，而不是假装仍已登录。
 

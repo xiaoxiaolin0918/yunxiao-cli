@@ -1,4 +1,4 @@
-package cmd
+﻿package cmd
 
 import (
 	"bufio"
@@ -119,6 +119,10 @@ var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Remove local credentials (per-profile slot or global active)",
 	Long: `Risk: write
+
+Clears the whole credential slot (access_token + refresh_token + oauth client metadata in that slot).
+This is the forget equivalent for yunxiao-cli: there is no OS keychain / login.cred password store,
+and no separate auth logout --forget flag — bare logout already dual-clears session + refresh.
 
 With --profile / YUNXIAO_PROFILE: clears only credentials.profiles[<name>] (#380).
 Without a profile name: clears the legacy global Active slot and config.json access_token.`,
