@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.2.2
+version: 1.2.3
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -279,3 +279,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 - `yunxiao browse mr --repo-url <web> --local-id <n> --print-only`
 - `yunxiao browse repo --repo-url <web> --print-only`
+
+## mrs link dry-run 已挂判定（#402）
+
+`yunxiao codeup mrs link --dry-run` 以工作项 `GET .../extRelationRecords?category=codeupMergeRequest` 为准，匹配 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}` 或 `repo!localId`），并正确处理 JSON 数字型 `projectId`。已正式关联的 WI 归入 `alreadyLinked`，**不会**出现在 `to_link`。不要用 `mrs get` 的 `relatedWorkItems` 判定是否挂单（#354 仍是上游问题）。

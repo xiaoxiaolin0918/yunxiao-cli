@@ -15,6 +15,9 @@ HTTP: POST .../workitems/{id}/extRelationRecords (category=codeupMergeRequest)
 
 Links one or more work items to an existing Codeup MR via Projex extRelationRecords
 (not UpdateChangeRequest). Idempotent: already-linked items are skipped.
+Dry-run classifies using workitem extRelationRecords (businessId / bizId /
+mergeRequestId / URL), not MR relatedWorkItems. Already-linked items go to
+alreadyLinked and are omitted from to_link (#402).
 
 Prefer --dry-run first. Work item refs may be serials (e.g. YXCLI-1) or internal ids;
 each is resolved via workitem get before linking.

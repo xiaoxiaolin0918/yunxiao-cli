@@ -137,7 +137,7 @@ func listWorkItemMRRelations(ctx context.Context, c *client.Client, workItemID s
 		}
 		return out, nil
 	case map[string]any:
-		if items := client.ExtractListItems(t); items != nil {
+		if items := extractExtRelationItems(t); items != nil {
 			var out []map[string]any
 			for _, e := range items {
 				if m, ok := e.(map[string]any); ok {
@@ -150,28 +150,37 @@ func listWorkItemMRRelations(ctx context.Context, c *client.Client, workItemID s
 	return nil, nil
 }
 
-func relationMatchesMR(rel map[string]any, projectID, localID string) bool {
-	biz := strings.TrimSpace(fmt.Sprint(rel["businessId"]))
-	proj := strings.TrimSpace(fmt.Sprint(rel["projectId"]))
-	if biz == "<nil>" {
-		biz = ""
+func extractExtRelationItems(body map[string]any) []any {
+	if items := client.ExtractListItems(body); items != nil {
+		return items
 	}
-	if proj == "<nil>" {
-		proj = ""
+	for _, key := range []string{"result", "records"} {
+		if inner, ok := body[key]; ok {
+			if items := client.ExtractListItems(inner); items != nil {
+				return items
+			}
+		}
 	}
-	if localID == "" || biz != localID {
-		return false
+	return nil
+}
+
+func alreadyLinkedIDs(wanted []mrlink.ResolvedWorkItem, missing []string) []string {
+	miss := map[string]struct{}{}
+	for _, id := range missing {
+		miss[id] = struct{}{}
 	}
-	// When projectId is present on both sides, require equality (avoid cross-repo false positives).
-	if projectID != "" && proj != "" && proj != projectID {
-		return false
+	var out []string
+	for _, id := range mrlink.InternalIDs(wanted) {
+		if _, ok := miss[id]; !ok {
+			out = append(out, id)
+		}
 	}
-	return true
+	return out
 }
 
 // missingWorkItemLinksViaExtRelations returns wanted internal ids not linked to this MR.
-func missingWorkItemLinksViaExtRelations(ctx context.Context, c *client.Client, projectID, localID string, wanted []mrlink.ResolvedWorkItem) ([]string, error) {
-	if len(wanted) == 0 || localID == "" {
+func missingWorkItemLinksViaExtRelations(ctx context.Context, c *client.Client, id mrExtIdentity, wanted []mrlink.ResolvedWorkItem) ([]string, error) {
+	if len(wanted) == 0 || id.LocalID == "" {
 		return nil, nil
 	}
 	var missing []string
@@ -182,7 +191,7 @@ func missingWorkItemLinksViaExtRelations(ctx context.Context, c *client.Client, 
 		}
 		ok := false
 		for _, rel := range rels {
-			if relationMatchesMR(rel, projectID, localID) {
+			if relationMatchesMR(rel, id) {
 				ok = true
 				break
 			}
@@ -240,7 +249,7 @@ func ensureMRWorkItemLinks(ctx context.Context, c *client.Client, projectID stri
 
 	// Prefer extRelationRecords — GetChangeRequest often omits work item fields.
 	if localID != "" {
-		extMissing, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted)
+		extMissing, err := missingWorkItemLinksViaExtRelations(ctx, c, mrExtIdentityFrom(mr, projectID, localID), wanted)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not verify work item links via extRelationRecords: %v\n", err)
 		} else {
@@ -263,7 +272,7 @@ func ensureMRWorkItemLinks(ctx context.Context, c *client.Client, projectID stri
 				continue
 			}
 		}
-		if recheck, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted); err == nil {
+		if recheck, err := missingWorkItemLinksViaExtRelations(ctx, c, mrExtIdentityFrom(mr, projectID, localID), wanted); err == nil {
 			missing = recheck
 		} else {
 			missing = still
@@ -384,7 +393,8 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 		localID = lid
 	}
 
-	missing, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted)
+	id := mrExtIdentityFrom(mr, repositoryID, localID)
+	missing, err := missingWorkItemLinksViaExtRelations(ctx, c, id, wanted)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -438,12 +448,14 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 	}
 	if dryRun {
 		prev := c.Preview("POST", path, nil, body)
+		already := alreadyLinkedIDs(wanted, missing)
 		return map[string]any{
-			"method":  prev.Method,
-			"url":     prev.URL,
-			"headers": prev.Headers,
-			"body":    prev.Body,
-			"to_link": missing,
+			"method":         prev.Method,
+			"url":            prev.URL,
+			"headers":        prev.Headers,
+			"body":           prev.Body,
+			"to_link":        missing,
+			"already_linked": already,
 		}, meta, nil
 	}
 
@@ -457,7 +469,7 @@ func applyMRWorkItemLinks(ctx context.Context, c *client.Client, repositoryID, l
 		}
 		created = append(created, id)
 	}
-	if recheck, err := missingWorkItemLinksViaExtRelations(ctx, c, projectID, localID, wanted); err == nil {
+	if recheck, err := missingWorkItemLinksViaExtRelations(ctx, c, id, wanted); err == nil {
 		still = recheck
 	}
 	meta["created"] = created
@@ -494,6 +506,10 @@ func unlinkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, loca
 	}
 	var targets []delTarget
 	var skipped []string
+	id := mrExtIdentity{LocalID: localID, ProjectID: projectID}
+	if mr, err := getChangeRequestMap(ctx, c, repositoryID, localID); err == nil {
+		id = mrExtIdentityFrom(mr, repositoryID, localID)
+	}
 	for _, w := range wanted {
 		rels, err := listWorkItemMRRelations(ctx, c, w.InternalID)
 		if err != nil {
@@ -501,7 +517,7 @@ func unlinkMRWorkItems(ctx context.Context, c *client.Client, repositoryID, loca
 		}
 		found := false
 		for _, rel := range rels {
-			if !relationMatchesMR(rel, projectID, localID) {
+			if !relationMatchesMR(rel, id) {
 				continue
 			}
 			rid := relationRecordID(rel)
