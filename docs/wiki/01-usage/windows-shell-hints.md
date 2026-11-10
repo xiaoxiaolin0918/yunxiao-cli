@@ -30,6 +30,19 @@ CLI 报 `error.subtype=jq_failed`，并在 `error.hint` 给出可操作建议（
 
 将完整 JSON 落到文件可彻底避开控制台编码，但涉及全局输出契约与大量命令接线；**本 issue 不实现**。需要落盘时用外部重定向到 UTF-8 文件，或在 Agent 侧用 subprocess 写文件。
 
+## pipeline run trigger `--params`（#404）
+
+PowerShell 常会剥掉 `--params` JSON 的引号。请改用 `--params-file`（UTF-8，可带 BOM；CLI 会去 BOM）：
+
+```powershell
+@'
+{"envs":{"APP_NAME":"blade-gateway","MOUDULE_NAME":"/"}}
+'@ | Set-Content -Encoding utf8 params.json
+yunxiao pipeline run trigger --pipeline-id 3881489 --branch test --params-file params.json --dry-run
+```
+
+把 `APP_NAME` / `MOUDULE_NAME` 这类运行变量写在 `--params` 顶层时，平台会静默忽略并回落流水线默认值。CLI 会将非保留顶层键自动迁入 `params.envs` 并给出中文提示；也可用 `--envs`。请先 `--dry-run` 确认最终 body。
+
 ## 相关
 
 - README「Agent / scripts on Windows」双语节

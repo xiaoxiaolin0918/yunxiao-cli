@@ -1,6 +1,6 @@
 ---
 name: yunxiao-pipeline
-version: 1.2.2
+version: 1.2.3
 description: "云效 Flow 流水线：列表/详情、YAML、运行 list/get/trigger/cancel/watch、+pending 人工卡点、job pass/refuse --yes。"
 metadata:
   requires:
@@ -51,6 +51,7 @@ yunxiao pipeline run watch --pipeline-id <id> --run-id <rid>   # exit 0/1/2/3(ga
 yunxiao pipeline run trigger --pipeline-id <id> --dry-run
 # 用户确认后：
 yunxiao pipeline run trigger --pipeline-id <id> --yes
+yunxiao pipeline run trigger --pipeline-id <id> --branch test --params-file params.json --dry-run
 yunxiao pipeline run cancel --pipeline-id <id> --run-id <rid> --dry-run
 yunxiao pipeline run cancel --pipeline-id <id> --run-id <rid> --yes
 ```
@@ -158,3 +159,18 @@ yunxiao organization members search --query <name> --include-aliyun-uid
 ## Browse
 
 - `yunxiao browse pipeline --pipeline-id <id> [--run-id <id>] --print-only`
+
+## trigger 运行变量（#404）
+
+CreatePipelineRun 的自定义 / 运行时变量必须放在 `params.envs` 下，不能与 `branchModeBranchs` / `comment` 平级。平台会静默忽略未知顶层键，流水线回落默认 `APP_NAME`（例如误部署 blade-auth）。
+
+CLI 会把 `--params` 里非保留顶层键自动迁入 `envs`（已有 `envs` 不二次包装），并打印中文 hint。也可用 `--envs`。Windows PowerShell 请用 `--params-file`（UTF-8，可带 BOM）。
+
+保留顶层键：`branchModeBranchs`、`comment`、`envs`、`runningBranchs`、`runningTags`、`runningPipelineArtifacts`、`runningAcrArtifacts`、`runningPackagesArtifacts`。
+
+```bash
+# params.json
+# {"envs":{"APP_NAME":"blade-gateway","MOUDULE_NAME":"/"}}
+yunxiao pipeline run trigger --pipeline-id <id> --branch test --params-file params.json --dry-run
+yunxiao pipeline run trigger --pipeline-id <id> --envs '{"APP_NAME":"blade-gateway","MOUDULE_NAME":"/"}' --dry-run
+```

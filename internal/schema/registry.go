@@ -170,7 +170,7 @@ var Registry = []Method{
 		Example: "yunxiao codeup files update --repo <id> --path a.txt --branch master --message 'upd' --content 'y' --dry-run"},
 	{ID: "pipeline.run.trigger", Domain: "pipeline", Description: "Trigger a pipeline run",
 		HTTPMethod: "POST", Path: "/oapi/v1/flow/organizations/{org}/pipelines/{id}/runs", Risk: risk.HighRiskWrite,
-		Example: "yunxiao pipeline run trigger --pipeline-id <id> --branch master --dry-run"},
+		Example: "yunxiao pipeline run trigger --pipeline-id <id> --branch master --params-file params.json --dry-run"},
 	{ID: "pipeline.job.stop", Domain: "pipeline", Description: "Stop a pipeline job",
 		HTTPMethod: "PUT", Path: "/oapi/v1/flow/organizations/{org}/pipelines/{id}/pipelineRuns/{runId}/jobs/{jobId}/stop", Risk: risk.HighRiskWrite,
 		Example: "yunxiao pipeline job stop --pipeline-id <id> --run-id <rid> --job-id <jid> --dry-run"},
