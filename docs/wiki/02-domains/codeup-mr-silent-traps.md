@@ -124,7 +124,7 @@ title/description（官方文档实证），官方 MCP server 也没有 WIP 工�
   GET）并逐条 GET 详情，输出 status/wip/ahead/behind/mergeable/todo/reviewers（含
   review_opinion_status）+ `meta.count` / `meta.wip_count`；`--local-id` 单查一条（仅一次
   详情 GET）；`--all` 跟页（ListAll 上限 50）。典型闭环：
-  push → `+push-review-status` 发现 `wip:true` → 网页取消 WIP → `mrs merge`。
+  push → `+push-review-status` 先看 `cannot_merge_to_master` / `next_step`（为真则不要合入 master，按 `next_step` 处理）→ 发现 `wip:true` → 网页取消 WIP → `mrs merge`。
   若目标分支等于源分支，或源为 commit SHA 且目标不是 master/main/develop（#407），输出会带
   `cannot_merge_to_master: true` 与中文 `next_step`（「该 MR 不可直接合入 master」，并提示
   `mrs update --target-branch master`）。`mergeable` 仍反映 `allRequirementsPass`，不能单独当作可合入 master。

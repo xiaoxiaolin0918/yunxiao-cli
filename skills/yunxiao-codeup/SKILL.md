@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.2.3
+version: 1.2.4
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -41,7 +41,7 @@ WIP**（`UpdateChangeRequest` 仅 title/description）——需网页操作：MR
 - `mrs list --status UNDER_DEV`：**客户端过滤**（服务端可能忽略 status 参数），配 `--all` 才是全量。
 - `mrs merge` 失败时错误自动带 `error.details.mr`（status/wip/todo…）+ hint（UNDER_DEV → 网页
   取消 WIP + 重试命令；`WIP: ` 标题前缀 → 提示改名，注意改名**不能**解除 UNDER_DEV）。
-- 典型闭环：push → `+push-review-status` 看到 `wip:true` → 网页取消 WIP → `mrs merge`。
+- 典型闭环：push → `+push-review-status` 先看 `cannot_merge_to_master` / `next_step`（为真则不要合入 master，按 `next_step` 处理）→ 看到 `wip:true` 再网页取消 WIP → `mrs merge`。
 - 若 targetBranch 等于源分支，或 sourceBranch 为 commit SHA 且目标不是 master/main/develop（推送评审新分支偶发异常，#407）：条目会带 `cannot_merge_to_master: true` 与中文 `next_step`（「不可直接合入 master」，并提示 `mrs update --target-branch master`）。`mergeable` 仍是 API 的 `allRequirementsPass`，不要只看它就当成可合入 master。
 
 
