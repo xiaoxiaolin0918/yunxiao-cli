@@ -93,7 +93,7 @@ func newMrsMergeServer(t *testing.T, detailBody string) *mrsMergeServer {
 
 func runMrsMergeCmd(t *testing.T, dryRun, yes bool, extra ...string) (string, string, int) {
 	t.Helper()
-	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "remove-source-branch")
+	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "remove-source-branch", "ensure-approved", "reviewer")
 	args := append([]string{
 		"codeup", "mrs", "merge", "--repo", "4951320", "--local-id", "125",
 		"--merge-type", "ff-only",

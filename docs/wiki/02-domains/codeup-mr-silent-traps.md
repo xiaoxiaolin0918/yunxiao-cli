@@ -187,3 +187,15 @@ Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `
 这两种情况都**不能**把该 MR 直接合入 master。`yunxiao codeup mrs +push-review-status` 会打上 `cannot_merge_to_master` 与中文下一步提示。
 
 `mrs update --target-branch` 旗标已提供，便于 Agent 找到「改目标分支」入口；但官方 `UpdateChangeRequest` 只接受 title/description（[文档](https://help.aliyun.com/zh/yunxiao/developer-reference/updatechangerequest-update-merge-request-basic-information)），CLI **不编造** `targetBranch` 字段，调用该旗标会本地失败（`subtype=target_branch_unsupported`，含 `--dry-run`），并提示到 Codeup 网页修改目标分支。壳仓 SOP 若禁止手动 `mrs +create`，不要用再建一个 MR 的方式绕过。
+
+## mrs merge --ensure-approved（#408）
+
+网页点「合入」时常会把加评审人、提交 PASS 一并走完。CLI 的 `mrs merge` 默认仍只 POST merge；加上可选的 `--ensure-approved`（默认关闭）且 `--yes`、预检通过后，会按需执行：
+
+1. 当前账号（或 `--reviewer`）不在评审人列表 → `POST .../person/REVIEWER`；已在则跳过；
+2. 该身份尚未 PASS，且 MR 不是 `TO_BE_MERGED` → `POST .../review`（`reviewOpinion=PASS`）；已 PASS 则跳过；
+3. 再 POST merge。
+
+`--dry-run` 只打印 `request.ensure_approved.steps`（add → PASS → merge），不写。当前账号是作者且仍需 PASS 时，本地拒绝（`review_as_author`），不会自评也不会合入。`--reviewer` 必须与 `--ensure-approved` 一起使用。
+
+合入仍失败时：`error.details.rejection_class` 为 `approval_gate`（`subtype=merge_rejected`，如 WIP /「该状态下的评审不允许合并」）或 `push_permission`（`subtype=merge_push_permission`，如保护分支 403「无权限推送」）。后者不要再补 PASS。CLI **不绕过**保护分支。冲突 / 已合并 / 已关闭等仍由现有 precheck 拒绝。
