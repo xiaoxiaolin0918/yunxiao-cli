@@ -322,6 +322,41 @@ func TestCodeupMrsCommentsCreatePatchsetOptional(t *testing.T) {
 
 // #132: push-review status shortcut is a read; mrs list documents the
 // client-side --status filter.
+
+func TestMrsMergeEnsureApprovedSchema(t *testing.T) {
+	m := Find("codeup.mrs.merge")
+	if m == nil {
+		t.Fatal("missing codeup.mrs.merge")
+	}
+	var ensure, reviewer *Param
+	for i := range m.Params {
+		switch m.Params[i].Name {
+		case "ensure-approved":
+			ensure = &m.Params[i]
+		case "reviewer":
+			reviewer = &m.Params[i]
+		}
+	}
+	if ensure == nil {
+		t.Fatal("codeup.mrs.merge Params missing ensure-approved")
+	}
+	if ensure.Required || ensure.Type != "bool" {
+		t.Fatalf("ensure-approved should be optional bool: %+v", ensure)
+	}
+	if reviewer == nil {
+		t.Fatal("codeup.mrs.merge Params missing reviewer")
+	}
+	if reviewer.Required {
+		t.Fatal("reviewer should be optional")
+	}
+	if !strings.Contains(reviewer.Desc, "PASS") {
+		t.Fatalf("reviewer desc should say it does not submit PASS: %q", reviewer.Desc)
+	}
+	if m.Example == "" || !strings.Contains(m.Example, "--ensure-approved") {
+		t.Fatalf("example should mention --ensure-approved: %q", m.Example)
+	}
+}
+
 func TestCodeupMrsPushReviewStatusSchema(t *testing.T) {
 	m := Find("codeup.mrs.push_review_status")
 	if m == nil {

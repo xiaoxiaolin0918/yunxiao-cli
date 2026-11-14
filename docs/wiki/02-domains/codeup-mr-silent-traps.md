@@ -192,10 +192,10 @@ Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `
 
 网页点「合入」时常会把加评审人、提交 PASS 一并走完。CLI 的 `mrs merge` 默认仍只 POST merge；加上可选的 `--ensure-approved`（默认关闭）且 `--yes`、预检通过后，会按需执行：
 
-1. 当前账号（或 `--reviewer`）不在评审人列表 → `POST .../person/REVIEWER`；已在则跳过；
-2. 该身份尚未 PASS，且 MR 不是 `TO_BE_MERGED` → `POST .../review`（`reviewOpinion=PASS`）；已 PASS 则跳过；
+1. 把评审人加入列表（`POST .../person/REVIEWER`）：`--reviewer` 只影响「要加入谁」；若 `--reviewer` 与当前账号不同且仍需 PASS，当前账号也会被加入。已在则跳过；
+2. 若仍需 PASS（只看**当前登录账号**是否已 PASS，或 MR 是否已是 `TO_BE_MERGED`）→ 由当前登录账号 `POST .../review`（`reviewOpinion=PASS`）；已 PASS 则跳过。`--reviewer` 不会代为提交 PASS，也不能让作者绕过自评限制；
 3. 再 POST merge。
 
-`--dry-run` 只打印 `request.ensure_approved.steps`（add → PASS → merge），不写。当前账号是作者且仍需 PASS 时，本地拒绝（`review_as_author`），不会自评也不会合入。`--reviewer` 必须与 `--ensure-approved` 一起使用。
+`--dry-run` 只打印 `request.ensure_approved.steps`（`action` 为 `reviewers_add` / `review_pass` 等，`status` 为 `will_run` / `skip_*`），不写。当前账号是作者且仍需 PASS 时，即使带了 `--reviewer` 也会本地拒绝（`review_as_author`），不会自评也不会合入。`--reviewer` 必须与 `--ensure-approved` 一起使用。
 
 合入仍失败时：`error.details.rejection_class` 为 `approval_gate`（`subtype=merge_rejected`，如 WIP /「该状态下的评审不允许合并」）或 `push_permission`（`subtype=merge_push_permission`，如保护分支 403「无权限推送」）。后者不要再补 PASS。CLI **不绕过**保护分支。冲突 / 已合并 / 已关闭等仍由现有 precheck 拒绝。

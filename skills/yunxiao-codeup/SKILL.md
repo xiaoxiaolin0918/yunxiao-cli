@@ -1,6 +1,6 @@
 ---
 name: yunxiao-codeup
-version: 1.2.4
+version: 1.2.5
 description: "云效 Codeup：列仓库/分支/MR、评论/标签/评审人、创建/合并/关闭合并请求、推送评审状态感知。用户问代码库、分支、MR 时使用。创建/合并等为 high-risk-write。"
 metadata:
   requires:
@@ -180,7 +180,7 @@ hint。取消 WIP 需网页（MR 页「…」→ 取消 WIP）——没有 OpenA
 UNDER_DEV 无效（标题前缀是另一套 WIP 信号，见 #135）。
 **merge 预检（#130）**：真正 POST 前（`--dry-run` 下也会做只读 GET）CLI 先取一次 MR 详情，校验状态一致性（MERGED/CLOSED 直接拒绝）、`conflictCheckStatus`（HAS_CONFLICT / CHECKING）、`mergeable=false`，并在详情携带合并方式配置时校验 `--merge-type`（详情缺省时回退 `GET .../repositories/{id}`）（`mergeTypes` / `supportedMergeTypes` / `mergeSetting`，或 `supportMergeFastForwardOnly=false` 拒 ff-only；网页端「创建合并节点」等写法会归一化）。不满足时 exit 1 + 结构化错误（`merge_type_not_supported` 等）+ 可行动 hint（列出可用方式，如 `available: ff-only, no-fast-forward`），**不发 POST**；通过时成功输出带 `meta.precheck`（dry-run 为 `request.precheck`）。详情 GET 失败则拒绝合并（fail closed）。无 `--yes` 时确认门仍先行（exit 10，不发任何请求）。
 
-`--ensure-approved`（#408，默认关闭）：预检通过且 `--yes` 后，对齐网页合入路径——若当前账号（或 `--reviewer`）不在评审人列表则先 `reviewers add`；若该身份尚未 PASS（且 MR 不是 `TO_BE_MERGED`）则提交 `reviewOpinion PASS`；再 POST merge。已是评审人 / 已 PASS 则幂等跳过。`--dry-run` 在 `request.ensure_approved.steps` 打印将要执行的步骤（add → PASS → merge），不写。当前账号是作者且仍需 PASS 时，本地 `subtype=review_as_author`，不合入。`--reviewer` 只能与 `--ensure-approved` 一起用。合入仍失败时区分审批闸（`merge_rejected` / `rejection_class=approval_gate`）与推送/保护分支权限（`subtype=merge_push_permission`，如 403「无权限推送」），避免误以为还缺 PASS。不绕过保护分支；现有 precheck 对冲突 / 已合并 / 已关闭等的拒绝不变。
+`--ensure-approved`（#408，默认关闭）：预检通过且 `--yes` 后，对齐网页合入路径。PASS **始终由当前登录账号提交**；是否需要 PASS 只看当前账号是否已 PASS，或 MR 是否已是 `TO_BE_MERGED`。`--reviewer` 只决定要加入的评审人，不会代为提交 PASS，也不能让作者绕过自评限制。若指定的 `--reviewer` 与当前账号不同且仍需 PASS，当前账号也会被加入评审人列表。当前账号是作者且仍需 PASS 时，即使带了 `--reviewer` 也会 `subtype=review_as_author`，不会合入。缺评审人则 `reviewers add`；已是评审人 / 已 PASS 则跳过。`--dry-run` 在 `request.ensure_approved.steps` 打印将要执行的步骤（`action` 为 `reviewers_add` / `review_pass` 等，`status` 为 `will_run` / `skip_*`），不写。`--reviewer` 只能与 `--ensure-approved` 一起用。合入仍失败时区分审批闸（`merge_rejected` / `rejection_class=approval_gate`）与推送/保护分支权限（`subtype=merge_push_permission`，如 403「无权限推送」），避免误以为还缺 PASS。不绕过保护分支；现有 precheck 对冲突 / 已合并 / 已关闭等的拒绝不变。
 
 `mrs merge` 若遇服务端拒绝（405「该状态下的评审不允许合并」等）时做可行动诊断（#127）：`error.subtype=merge_rejected`；`error.details` 含 `current_status`（失败后 best-effort GET 一次 MR 详情）、`state_gap`（状态机差距，如 `UNDER_DEV(开发中/WIP)` 需先清 WIP）、`suggested_actions`（下一步：`CLOSED`→`mrs reopen`，`UNDER_REVIEW`→`mrs review --opinion PASS`，`UNDER_DEV`→网页「更多」菜单→「取消 WIP」——尚无 OpenAPI，#124）、以及可复制的重试命令）、`mr`（localId/title/status/url）与 `diagnose.source`；`hint` 汇总差距+下一步。诊断 GET 失败时原样透传平台错误（不编造状态）。
 
@@ -297,4 +297,4 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 ## mrs merge --ensure-approved（#408）
 
-自动化只需一条 merge 时，加 `--ensure-approved --yes`：CLI 会按需补齐「加评审人 → PASS」再合入，已具备则跳过。默认不加该旗标，以免意外以当前身份提交 PASS。作者不能自评；保护分支 403 会标成 `merge_push_permission`，不是审批问题。
+自动化只需一条 merge 时，加 `--ensure-approved --yes`：CLI 会按需补齐「加评审人 → PASS」再合入，已具备则跳过。默认不加该旗标，以免意外以当前身份提交 PASS。PASS 只由当前登录账号提交；`--reviewer` 只加评审人、不提交 PASS。作者即使带 `--reviewer` 也不能自评合入。保护分支 403 会标成 `merge_push_permission`，不是审批问题。

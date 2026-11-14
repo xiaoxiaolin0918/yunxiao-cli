@@ -257,9 +257,13 @@ var Registry = []Method{
 	{ID: "codeup.files.delete", Domain: "codeup", Description: "Delete a file",
 		HTTPMethod: "DELETE", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/files/{path}", Risk: risk.HighRiskWrite,
 		Example: "yunxiao codeup files delete --repo <id> --path a.txt --branch master --message 'rm' --dry-run"},
-	{ID: "codeup.mrs.merge", Domain: "codeup", Description: "Merge a merge request (prechecks status/conflicts/merge-type before POST, meta.precheck #130; optional --ensure-approved add reviewer + PASS then merge #408; on API rejection: merge_rejected or merge_push_permission + current_status/state_gap/suggested_actions + details.mr #124/#127/#408)",
+	{ID: "codeup.mrs.merge", Domain: "codeup", Description: "Merge a merge request (prechecks status/conflicts/merge-type before POST, meta.precheck #130; optional --ensure-approved add reviewer + PASS then merge #408; PASS is always submitted by the current login; --reviewer only adds reviewers and cannot bypass author self-review; on API rejection: merge_rejected or merge_push_permission + current_status/state_gap/suggested_actions + details.mr #124/#127/#408)",
 		HTTPMethod: "POST", Path: "/oapi/v1/codeup/organizations/{org}/repositories/{repo}/changeRequests/{id}/merge", Risk: risk.HighRiskWrite,
-		Example: "yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --dry-run"},
+		Params: []Param{
+			{Name: "ensure-approved", Type: "bool", Required: false, Desc: "optional; after precheck and --yes, add reviewers then have the current login submit PASS if needed, then merge (off by default)"},
+			{Name: "reviewer", Type: "string", Required: false, Desc: "optional userId(s) to add as reviewers; only valid with --ensure-approved; does not submit PASS and cannot bypass author self-review"},
+		},
+		Example: "yunxiao codeup mrs merge --repo <id> --local-id 1 --merge-type no-fast-forward --ensure-approved --dry-run"},
 	{ID: "codeup.mrs.push_review_status", Domain: "codeup", Description: "Shortcut: push-review status of a repo's open MRs (list + one detail GET per MR: status/wip/ahead/behind/mergeable/review, #132)",
 		HTTPMethod: "GET", Path: ".../changeRequests?state=opened + .../changeRequests/{localId}", Risk: risk.Read,
 		Params: []Param{
