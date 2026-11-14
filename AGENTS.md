@@ -127,6 +127,8 @@ Global `--dry-run` previews without executing (API or local write previews).
 
 - `codeup mrs update --target-branch` (#407): the flag is registered so agents can name a retarget, but official UpdateChangeRequest only accepts title/description. The CLI fails locally with `subtype=target_branch_unsupported` (including `--dry-run`) and a Codeup web-UI hint; it does not invent a `targetBranch` body field. `mrs +push-review-status` labels `cannot_merge_to_master` plus a Chinese `next_step` when `targetBranch` equals `sourceBranch`, or when `sourceBranch` looks like a commit SHA and the target is not master/main/develop. `mergeable` remains `allRequirementsPass` — do not treat that alone as "ready to merge to master".
 
+- `codeup mrs merge --ensure-approved` (#408, default off): after precheck and `--yes`, optionally adds the current/configured reviewer, submits PASS if needed, then POSTs merge (idempotent skips). `--dry-run` prints `request.ensure_approved.steps` and writes nothing. Author + needed PASS → `review_as_author`, no merge. A rejected merge is classified `approval_gate` (`merge_rejected`) vs `push_permission` (`merge_push_permission`, e.g. protected-branch 403); the CLI does not bypass branch protection. Existing precheck refusals stay.
+
 Filter with `--jq '<expr>'`. Prefer `--format pretty` only for humans. On **Windows**, prefer `*-file` for Chinese text and avoid complex inline `--jq` (see [windows-shell-hints.md](docs/wiki/01-usage/windows-shell-hints.md), #370); `yunxiao doctor` prints `meta.windows_shell_hint`.
 
 ## Auth

@@ -791,7 +791,28 @@ behind/mergeable/todo/url), plus an actionable hint. A 405 SYSTEM_FORBIDDEN_ERRO
 on a push-review MR usually means status UNDER_DEV (开发中/WIP) — there is no
 OpenAPI to cancel WIP (UpdateChangeRequest only edits title/description); cancel
 it in the Codeup web UI (MR page → 更多(…) → 取消 WIP), then retry. Track WIP
-MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
+MRs with: yunxiao codeup mrs +push-review-status --repo <r>.
+
+--ensure-approved (#408) is optional and off by default. After precheck passes
+and --yes, it aligns with the web merge path. PASS is always submitted by the
+current login account; whether a PASS is needed depends only on whether that
+account already PASSed, or the MR is already TO_BE_MERGED. --reviewer only
+chooses who is added as a reviewer — it does not submit PASS and cannot bypass
+the author-cannot-self-review rule. If --reviewer differs from the current
+account and a PASS is still required, the current account is also added to the
+reviewer list. Missing reviewers are added first via reviewers add; already a reviewer / already
+PASS is idempotent. --dry-run prints request.ensure_approved.steps
+(action reviewers_add / review_pass, status will_run / skip_*) and writes
+nothing. If the current account is the MR author and a PASS is still required,
+the command refuses with subtype review_as_author even when --reviewer is set,
+and does not merge. Optional --reviewer <userId> is only valid together with
+--ensure-approved.
+
+A merge POST that still fails is classified: approval_gate (subtype
+merge_rejected, e.g. WIP / 该状态下的评审不允许合并) vs push_permission
+(subtype merge_push_permission, e.g. 403 无权限推送 / protected branch).
+The CLI does not bypass branch protection. Existing precheck refusals
+(MERGED / CLOSED / conflict / mergeable=false / unsupported merge-type) stay.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -799,6 +820,13 @@ MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
 		mergeType, _ := cmd.Flags().GetString("merge-type")
 		mergeMessage, _ := cmd.Flags().GetString("message")
 		removeSource, _ := cmd.Flags().GetBool("remove-source-branch")
+		ensureApproved, _ := cmd.Flags().GetBool("ensure-approved")
+		reviewer, _ := cmd.Flags().GetString("reviewer")
+		reviewer = strings.TrimSpace(reviewer)
+		if reviewer != "" && !ensureApproved {
+			handleErr(fmt.Errorf("--reviewer is only valid together with --ensure-approved"))
+			return
+		}
 		if err := requireFlags("repo", repo, "local-id", localID, "merge-type", mergeType); err != nil {
 			handleErr(err)
 			return
@@ -839,13 +867,22 @@ MRs with: yunxiao codeup mrs +push-review-status --repo <r>.`,
 				handleErr(perr)
 				return
 			}
-			handleErr(output.DryRunResult(string(risk.HighRiskWrite), requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}))
+			preview := requestPreviewWithPrecheck{RequestPreview: rp, Precheck: pre}
+			if ensureApproved {
+				plan, eerr := planEnsureApprovedFromAPI(cmd.Context(), c, repo, repositoryID, localID, reviewer)
+				if eerr != nil {
+					handleErr(eerr)
+					return
+				}
+				preview.EnsureApproved = plan.asMap()
+			}
+			handleErr(output.DryRunResult(string(risk.HighRiskWrite), preview))
 			return
 		}
 		// Gate first (exit 10 without --yes, unchanged), then precheck + merge
 		// inside the exec step: the POST only runs after the precheck passes
 		// (#130), and a failing POST is enriched with structured merge_rejected diagnostics (#124/#127).
-		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body, mergeType, rp))
+		handleErr(runMrsMerge(cmd.Context(), c, repo, repositoryID, localID, path, body, mergeType, rp, ensureApproved, reviewer))
 	},
 }
 
@@ -1959,6 +1996,8 @@ func init() {
 	codeupMrsMergeCmd.Flags().String("merge-type", "", "ff-only|no-fast-forward|squash|rebase (required)")
 	codeupMrsMergeCmd.Flags().String("message", "", "merge commit message")
 	codeupMrsMergeCmd.Flags().Bool("remove-source-branch", false, "delete source branch after merge")
+	codeupMrsMergeCmd.Flags().Bool("ensure-approved", false, "optional: add current/configured reviewer and submit PASS if needed, then merge (off by default; #408)")
+	codeupMrsMergeCmd.Flags().String("reviewer", "", "optional reviewer userId for --ensure-approved (defaults to the current account)")
 	codeupMrsCloseCmd.Flags().String("repo", "", "repository id, alias, org/repo path, or bare name (required)")
 	codeupMrsCloseCmd.Flags().String("local-id", "", "MR local id (required)")
 	codeupMrsReviewCmd.Flags().String("repo", "", "repository id, alias, org/repo path, or bare name (required)")

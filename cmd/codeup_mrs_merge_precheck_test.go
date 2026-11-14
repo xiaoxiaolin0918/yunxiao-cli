@@ -131,7 +131,7 @@ func runMrsMergeCase(t *testing.T, s *mergeSrv, dryRun, yes bool, mergeType stri
 	processExit = func(c int) { code = c; panic(exitPanic{code}) }
 	t.Cleanup(func() { processExit = prevExit })
 
-	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "remove-source-branch")
+	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "remove-source-branch", "ensure-approved", "reviewer")
 	args := append([]string{"codeup", "mrs", "merge", "--repo", "123", "--local-id", "9", "--merge-type", mergeType}, extra...)
 	rootCmd.SetArgs(args)
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })

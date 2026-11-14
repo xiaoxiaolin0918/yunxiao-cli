@@ -20,17 +20,31 @@ import (
 // enriches the error with error.details.mr (current status/wip/ahead/behind/
 // mergeable/todo) plus an actionable hint. Success output keeps the raw API object
 // (meta gains url/status/precheck).
-func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, localID, path string, body map[string]any, mergeType string, rp client.RequestPreview) error {
+func runMrsMerge(ctx context.Context, c *client.Client, repoArg, repositoryID, localID, path string, body map[string]any, mergeType string, rp client.RequestPreview, ensureApproved bool, reviewer string) error {
 	return runMutating("codeup mrs merge", risk.HighRiskWrite, globalDryRun, globalYes, rp, func() error {
 		pre, perr := precheckMrsMerge(ctx, c, client.EncodeRepoID(repositoryID), localID, mergeType)
 		if perr != nil {
 			return perr
+		}
+		var ensureMeta map[string]any
+		if ensureApproved {
+			plan, eerr := planEnsureApprovedFromAPI(ctx, c, repoArg, repositoryID, localID, reviewer)
+			if eerr != nil {
+				return eerr
+			}
+			if err := executeEnsureApprovedPlan(ctx, c, repoArg, repositoryID, localID, plan); err != nil {
+				return err
+			}
+			ensureMeta = plan.asMap()
 		}
 		var out any
 		if _, err := c.Do(ctx, "POST", path, nil, body, &out); err != nil {
 			return enrichMrsMergeError(ctx, c, repoArg, repositoryID, localID, mergeType, err)
 		}
 		meta := map[string]any{"risk": risk.HighRiskWrite, "precheck": pre}
+		if ensureMeta != nil {
+			meta["ensure_approved"] = ensureMeta
+		}
 		mr := zhiyi.StabilizeMergeRequest(zhiyi.UnwrapMergeRequestPayload(asStringMap(out)))
 		zhiyi.EnrichMergeRequestMeta(meta, mr)
 		return output.Success(out, meta)
@@ -80,7 +94,14 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 	if status != "" {
 		details["current_status"] = status
 	}
+	rejectionClass := classifyMergeRejection(mergeErr)
+	details["rejection_class"] = rejectionClass
+	subtype := "merge_rejected"
 	hint := mergeRejectionHint(status, actions, ae, mergeType)
+	if rejectionClass == mergeRejectionPushPermission {
+		subtype = "merge_push_permission"
+		hint = pushPermissionHint()
+	}
 	// Keep #124 extras that the structured table may not cover.
 	if failed := mrsMergeFailedTodoTypes(mr); len(failed) > 0 {
 		hint += ". merge requirements not met: " + strings.Join(failed, ", ") +
@@ -94,7 +115,7 @@ func enrichMrsMergeError(ctx context.Context, c *client.Client, repoArg, reposit
 	}
 	return &contextError{
 		Context: "merge MR " + localID + " blocked",
-		Subtype: "merge_rejected",
+		Subtype: subtype,
 		Hint:    hint,
 		Err:     mergeErr,
 		Details: details,

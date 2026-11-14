@@ -35,7 +35,8 @@ func workitemFieldsPath(ctx context.Context, c *client.Client, spaceID, typeID s
 // requestPreviewWithPrecheck adds the create precheck outcome to a dry-run preview.
 type requestPreviewWithPrecheck struct {
 	client.RequestPreview
-	Precheck map[string]any `json:"precheck,omitempty"`
+	Precheck       map[string]any `json:"precheck,omitempty"`
+	EnsureApproved map[string]any `json:"ensure_approved,omitempty"`
 }
 
 // precheckWorkitemCreate (#95) reads the type's field config once and compares it with

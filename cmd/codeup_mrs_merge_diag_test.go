@@ -108,7 +108,7 @@ func runMrsMergeDiagCmd(t *testing.T, yes bool, extra ...string) (string, string
 	}
 	t.Cleanup(func() { processExit = prevExit })
 
-	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message")
+	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "ensure-approved", "reviewer")
 	args := append([]string{"codeup", "mrs", "merge", "--repo", "4951320", "--local-id", "139", "--merge-type", "ff-only"}, extra...)
 	rootCmd.SetArgs(args)
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
@@ -389,7 +389,7 @@ func TestMrsMergeRejectUnsupportedMergeType(t *testing.T) {
 	processExit = func(c int) { code = c; panic(exitPanic{code: c}) }
 	t.Cleanup(func() { processExit = prevExit })
 
-	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message")
+	resetStringFlags(t, codeupMrsMergeCmd, "repo", "local-id", "merge-type", "message", "ensure-approved", "reviewer")
 	rootCmd.SetArgs([]string{"codeup", "mrs", "merge", "--repo", "4951320", "--local-id", "139", "--merge-type", "fast-forward-only", "--yes"})
 	t.Cleanup(func() { rootCmd.SetArgs(nil) })
 	func() {
