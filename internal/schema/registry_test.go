@@ -159,6 +159,37 @@ func TestMrsReviewersAddSchema(t *testing.T) {
 	}
 }
 
+func TestMrsUpdateTargetBranchSchema(t *testing.T) {
+	m := Find("codeup.mrs.update")
+	if m == nil {
+		t.Fatal("missing codeup.mrs.update")
+	}
+	var param *Param
+	for i := range m.Params {
+		if m.Params[i].Name == "target-branch" {
+			param = &m.Params[i]
+			break
+		}
+	}
+	if param == nil {
+		t.Fatal("codeup.mrs.update Params missing target-branch")
+	}
+	if param.Required {
+		t.Fatal("target-branch should be optional")
+	}
+	if param.Type != "string" {
+		t.Fatalf("target-branch type=%q", param.Type)
+	}
+	if !strings.Contains(param.Desc, "OpenAPI") || !strings.Contains(strings.ToLower(param.Desc), "put") {
+		t.Fatalf("target-branch desc should say OpenAPI cannot retarget and no PUT: %q", param.Desc)
+	}
+	if !strings.Contains(m.Description, "--target-branch") {
+		t.Fatalf("description should mention --target-branch: %q", m.Description)
+	}
+	if m.Example == "" || !strings.Contains(m.Example, "--target-branch") {
+		t.Fatalf("example should mention --target-branch: %q", m.Example)
+	}
+}
 
 func TestWorkitemCreateSchemaDocumentsFileFlags(t *testing.T) {
 	m := Find("workitem.create")
@@ -189,7 +220,6 @@ func TestWorkitemCreateSchemaDocumentsFileFlags(t *testing.T) {
 		t.Fatalf("example should show *-file: %s", m.Example)
 	}
 }
-
 
 func TestWorkitemBugCreateSchemaDocumentsFileFlags(t *testing.T) {
 	m := Find("workitem.bug_create")
@@ -334,7 +364,6 @@ func TestCodeupMrsPushReviewStatusSchema(t *testing.T) {
 		t.Fatalf("merge schema should document the #124 error enrichment: %+v", merge)
 	}
 }
-
 
 func TestOrganizationMemberResolveSchema(t *testing.T) {
 	m := Find("organization.member_resolve")
