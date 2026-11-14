@@ -42,6 +42,7 @@ WIP**（`UpdateChangeRequest` 仅 title/description）——需网页操作：MR
 - `mrs merge` 失败时错误自动带 `error.details.mr`（status/wip/todo…）+ hint（UNDER_DEV → 网页
   取消 WIP + 重试命令；`WIP: ` 标题前缀 → 提示改名，注意改名**不能**解除 UNDER_DEV）。
 - 典型闭环：push → `+push-review-status` 看到 `wip:true` → 网页取消 WIP → `mrs merge`。
+- 若 targetBranch 等于源分支，或 sourceBranch 为 commit SHA 且目标不是 master/main/develop（推送评审新分支偶发异常，#407）：条目会带 `cannot_merge_to_master: true` 与中文 `next_step`（「不可直接合入 master」，并提示 `mrs update --target-branch master`）。`mergeable` 仍是 API 的 `allRequirementsPass`，不要只看它就当成可合入 master。
 
 
 ## MR `url`（CLI 0.15.x）
@@ -187,6 +188,7 @@ yunxiao codeup mrs update --repo <id> --local-id 1 --title "WIP: docs" --dry-run
 yunxiao codeup mrs update --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs update --repo <id> --local-id 1 --wip --dry-run    # 加 WIP: 前缀（#97）
 yunxiao codeup mrs update --repo <id> --local-id 1 --unwip            # 去掉 WIP:/WIP 前缀（#97）
+yunxiao codeup mrs update --repo <id> --local-id 194 --target-branch master  # #407：旗标存在，但 OpenAPI 不能改目标分支
 yunxiao codeup mrs link --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-run
 ```
@@ -196,6 +198,8 @@ yunxiao codeup mrs unlink --repo <id> --local-id 1 --work-item ZYPT-5573 --dry-r
 `mrs update --wip/--unwip`（#97）：WIP 前缀 = 行首 `WIP`（大小写不敏感）后跟冒号（冒号两侧空格可选）或空白（`WIP: x` / `wip x` / `Wip:x`；`WIPfix` 不算）。两者都需要先 GET 当前标题（`--dry-run` 下也会发这次 GET）；前缀已加/已无 → 幂等无操作（不发 PUT，`meta.wip_changed=false`）；成功路径 `meta.wip_action` + `meta.wip_changed`，dry-run `request.resolved.{before,after,changed}`。与 `--title` 互斥（`--wip` 与 `--unwip` 也互斥）；可与 `--description` / `--work-item` 组合。
 
 `mrs update` 的数字 `--repo` 会校验是否属于当前 organization/profile 可达仓（profile.repositories ∪ org GET）；不匹配直接报错（无 `--yes` 放行）。别名未注册仍按 #49 失败。
+
+`mrs update --target-branch`（#407）：旗标已注册，可作为「把目标分支改回 master」的命名入口。官方 `UpdateChangeRequest` **只接受 title/description**，CLI **不会**编造 `targetBranch` 请求体；传该旗标（含与 `--title`/`--wip` 组合、含 `--dry-run`）会本地失败，`error.subtype=target_branch_unsupported`，hint 指向 Codeup 网页改目标分支。不要用 `mrs +create` 绕过已开推送评审模式的仓库规范。
 
 ### read
 
@@ -283,3 +287,7 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 ## mrs link dry-run 已挂判定（#402）
 
 `yunxiao codeup mrs link --dry-run` 以工作项 `GET .../extRelationRecords?category=codeupMergeRequest` 为准，匹配 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}` 或 `repo!localId`），并正确处理 JSON 数字型 `projectId`。已正式关联的 WI **不会**出现在 `to_link`。字段要按情况读：全部已挂时，`request.body.alreadyLinked` 为布尔 `true`（另有 `body.linked` 为已挂 ID 列表），请求体上没有 `to_link`；部分已挂时，已挂 ID 在与 `to_link` 同级的 `already_linked`（蛇形、数组），`body` 只是即将 POST 的关系体，不含 `alreadyLinked`。`meta.already_linked` / `meta.to_link` 是计数，不是 ID 列表。不要用 `mrs get` 的 `relatedWorkItems` 判定是否挂单（#354 仍是上游问题）。
+
+## 推送评审目标分支异常（#407）
+
+部分仓在首次 `git push -o review=new` 后，自动评审 MR 的 targetBranch 会指向被 push 的源分支（或 sourceBranch 变成 commit SHA、目标不是 master）。`+push-review-status` 会标注 `cannot_merge_to_master` + 中文 `next_step`。`mrs update --target-branch master` 是命名入口，但 OpenAPI 无法改目标分支，需到 Codeup 网页修改；不要为此再 `mrs +create`。

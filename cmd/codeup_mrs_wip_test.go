@@ -31,7 +31,7 @@ func newMrsWipServer(t *testing.T, title string) *mrsWipServer {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		switch {
-		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories/4951320") :
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories/4951320"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "4951320", "name": "demo"})
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/changeRequests/125"):
 			s.mrGETs++
@@ -90,11 +90,11 @@ func runMrsUpdateWip(t *testing.T, dryRun bool, extra ...string) (string, string
 	}
 	t.Cleanup(func() { processExit = prevExit })
 
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "wip", "unwip")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "wip", "unwip", "target-branch")
 	// Later tests reuse this shared command and only reset the flags they know;
 	// never leak --wip/--unwip into them.
 	t.Cleanup(func() {
-		resetStringFlags(t, codeupMrsUpdateCmd, "title", "description", "work-item", "wip", "unwip")
+		resetStringFlags(t, codeupMrsUpdateCmd, "title", "description", "work-item", "wip", "unwip", "target-branch")
 	})
 	args := append([]string{"codeup", "mrs", "update", "--repo", "4951320", "--local-id", "125"}, extra...)
 	rootCmd.SetArgs(args)
@@ -253,8 +253,8 @@ func TestMrsUpdateUnwipDryRun(t *testing.T) {
 // toggles). None of these may reach the network with a PUT.
 func TestMrsUpdateWipFlagConflicts(t *testing.T) {
 	cases := []struct {
-		name     string
-		args     []string
+		name      string
+		args      []string
 		wantInErr []string
 	}{
 		{name: "wip with title", args: []string{"--wip", "--title", "t"}, wantInErr: []string{"--wip", "--title"}},

@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,7 +91,6 @@ func TestMrsUnlinkRegisteredAndHelp(t *testing.T) {
 		t.Fatalf("help missing relationRecordId: %s", s)
 	}
 }
-
 
 func TestCollectWorkItemRefs(t *testing.T) {
 	got := collectWorkItemRefs("a, b", []string{"b", "c"})
@@ -277,7 +276,7 @@ func TestMrsUpdateWorkItemOnlyDryRun(t *testing.T) {
 	t.Setenv("YUNXIAO_PROFILE", "")
 
 	stdout := withCmdJSONCapture(t)
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "4951320",
@@ -305,7 +304,6 @@ func TestMrsUpdateWorkItemOnlyDryRun(t *testing.T) {
 	}
 }
 
-
 func TestMrsUpdateCombinedDryRunIncludesLink(t *testing.T) {
 	var gotMethods []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -332,7 +330,7 @@ func TestMrsUpdateCombinedDryRunIncludesLink(t *testing.T) {
 	t.Setenv("YUNXIAO_PROFILE", "")
 
 	stdout := withCmdJSONCapture(t)
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "4951320",

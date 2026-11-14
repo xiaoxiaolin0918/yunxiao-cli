@@ -298,7 +298,7 @@ var Registry = []Method{
 	{ID: "codeup.mrs.get", Domain: "codeup", Description: "Get merge request (default summary view: brief + mergeable/conflictCheckStatus/checkList/reviewers; --brief minimal, --full raw, env YUNXIAO_MRS_GET_VIEW)",
 		HTTPMethod: "GET", Path: ".../changeRequests/{localId}", Risk: risk.Read,
 		Example: "yunxiao codeup mrs get --repo <id> --local-id 1"},
-	{ID: "codeup.mrs.update", Domain: "codeup", Description: "Update MR title/description and/or link work items; --wip/--unwip toggle the WIP: title prefix",
+	{ID: "codeup.mrs.update", Domain: "codeup", Description: "Update MR title/description and/or link work items; --wip/--unwip toggle the WIP: title prefix; --target-branch is recognized but OpenAPI cannot retarget",
 		HTTPMethod: "PUT", Path: ".../changeRequests/{localId}", Risk: risk.Write,
 		Params: []Param{
 			{Name: "title", Type: "string", Required: false, Desc: "new title (mutually exclusive with --wip/--unwip)"},

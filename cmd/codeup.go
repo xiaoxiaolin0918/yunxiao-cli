@@ -1100,13 +1100,13 @@ func (v mrsGetView) previewProjection() map[string]any {
 
 var codeupMrsUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update merge request title/description and/or link work items (write)",
+	Short: "Update merge request title/description and/or link work items (write); --target-branch is recognized but OpenAPI cannot retarget",
 	Long: `Risk: write
 HTTP: PUT .../changeRequests/{localId} (title/description);
       POST .../workitems/{id}/extRelationRecords when --work-item is set
 
 Prefer --dry-run first; real writes run only when not dry-run (Write risk).
-At least one of --title / --description / --work-item / --wip / --unwip required.
+At least one of --title / --description / --work-item / --wip / --unwip / --target-branch required.
 --work-item is additive (same as mrs link); does not use UpdateChangeRequest for links.
 Numeric --repo is validated against profile.repositories and organization-reachable
 repos (mismatch → clear error; aliases already fail when unregistered).
@@ -1127,11 +1127,21 @@ GET of the MR first (also under --dry-run, like #93 patchset resolution):
     (fold the prefix into --title yourself). --description / --work-item may be
     combined (PUT body then carries the resolved title too).
 
+--target-branch (#407) is accepted so agents have a named flag to retarget an MR
+(for example a push-review MR whose targetBranch equals the source branch, or
+whose sourceBranch is a commit SHA and target is not master). Official
+UpdateChangeRequest only accepts title/description — the CLI does not invent a
+targetBranch body field. Passing --target-branch (alone or with other change
+flags) fails locally with subtype target_branch_unsupported, even under
+--dry-run; nothing is PUT. Change the target branch in the Codeup web UI (网页)
+instead; do not work around this with mrs +create on a push-review repository.
+
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --dry-run
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --work-item YXCLI-1 --dry-run
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --title "WIP: docs" --work-item YXCLI-1
   yunxiao codeup mrs update --repo <alias|id> --local-id 125 --wip --dry-run
-  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --unwip`,
+  yunxiao codeup mrs update --repo <alias|id> --local-id 125 --unwip
+  yunxiao codeup mrs update --repo <alias|id> --local-id 194 --target-branch master`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repo, _ := cmd.Flags().GetString("repo")
@@ -1141,6 +1151,8 @@ GET of the MR first (also under --dry-run, like #93 patchset resolution):
 		workItemCSV, _ := cmd.Flags().GetString("work-item")
 		wip, _ := cmd.Flags().GetBool("wip")
 		unwip, _ := cmd.Flags().GetBool("unwip")
+		targetBranch, _ := cmd.Flags().GetString("target-branch")
+		targetBranch = strings.TrimSpace(targetBranch)
 		if err := requireFlags("repo", repo, "local-id", localID); err != nil {
 			handleErr(err)
 			return
@@ -1156,8 +1168,12 @@ GET of the MR first (also under --dry-run, like #93 patchset resolution):
 			return
 		}
 		refs := collectWorkItemRefs(workItemCSV, nil)
-		if title == "" && desc == "" && len(refs) == 0 && !wip && !unwip {
-			handleErr(fmt.Errorf("provide --title and/or --description and/or --work-item and/or --wip/--unwip"))
+		if title == "" && desc == "" && len(refs) == 0 && !wip && !unwip && targetBranch == "" {
+			handleErr(fmt.Errorf("provide --title and/or --description and/or --work-item and/or --wip/--unwip and/or --target-branch"))
+			return
+		}
+		if targetBranch != "" {
+			handleErr(targetBranchUnsupportedError(localID, targetBranch))
 			return
 		}
 		repositoryID, err := resolveCodeupRepo(repo)
@@ -1963,6 +1979,7 @@ func init() {
 	codeupMrsUpdateCmd.Flags().String("work-item", "", "work item serial(s) or id(s), comma-separated; additive link via extRelationRecords")
 	codeupMrsUpdateCmd.Flags().Bool("wip", false, "prefix \"WIP: \" to the current title (idempotent; GETs the MR first; mutually exclusive with --title/--unwip)")
 	codeupMrsUpdateCmd.Flags().Bool("unwip", false, "strip one leading WIP/WIP: prefix from the current title (idempotent no-op when absent; GETs the MR first; mutually exclusive with --title/--wip)")
+	codeupMrsUpdateCmd.Flags().String("target-branch", "", "requested new target branch; OpenAPI cannot change targetBranch (fails with subtype target_branch_unsupported and a web-UI hint)")
 	codeupMrsUpdateCmd.Flags().Bool("full", false, "print full MR object instead of brief summary")
 	codeupMrsLinkCmd.Flags().String("repo", "", "repository id, alias, org/repo path, or bare name (required)")
 	codeupMrsLinkCmd.Flags().String("local-id", "", "MR local id (required)")
