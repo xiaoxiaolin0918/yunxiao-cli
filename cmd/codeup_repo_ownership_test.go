@@ -80,7 +80,7 @@ func TestMrsUpdateNumericRepoRejectedWhenNotReachable(t *testing.T) {
 	}
 	t.Cleanup(func() { processExit = prevExit })
 
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "9999999",
@@ -141,7 +141,7 @@ func TestMrsUpdateNumericRepoAllowedWhenInProfile(t *testing.T) {
 	stdout := withCmdJSONCapture(t)
 	globalProfile = "t63ok"
 	t.Cleanup(func() { globalProfile = "" })
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "7472289",
@@ -181,7 +181,7 @@ func TestMrsUpdateNumericRepoAllowedViaOrgGet(t *testing.T) {
 
 	stdout := withCmdJSONCapture(t)
 	globalProfile = ""
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "4951320",
@@ -227,7 +227,7 @@ func TestMrsUpdateAliasSkipsNumericOwnership(t *testing.T) {
 	stdout := withCmdJSONCapture(t)
 	globalProfile = "t63alias"
 	t.Cleanup(func() { globalProfile = "" })
-	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full")
+	resetStringFlags(t, codeupMrsUpdateCmd, "repo", "local-id", "title", "description", "work-item", "full", "target-branch")
 	rootCmd.SetArgs([]string{
 		"codeup", "mrs", "update",
 		"--repo", "sandbox",

@@ -257,23 +257,26 @@ func mrReviewPassed(mr map[string]any) *bool {
 // plus the detail-only ahead/behind/merge-requirements. Built by
 // codeup mrs +push-review-status from one detail GET per listed open MR.
 type MRSummaryView struct {
-	LocalID        string           `json:"localId"`
-	Title          string           `json:"title"`
-	Status         string           `json:"status,omitempty"`
-	State          string           `json:"state,omitempty"`
-	StatusDisplay  string           `json:"status_display,omitempty"`
-	WIP            *bool            `json:"wip,omitempty"`
-	SourceBranch   string           `json:"sourceBranch,omitempty"`
-	TargetBranch   string           `json:"targetBranch,omitempty"`
-	Ahead          any              `json:"ahead,omitempty"`
-	Behind         any              `json:"behind,omitempty"`
-	Mergeable      *bool            `json:"mergeable,omitempty"`
-	Todo           []map[string]any `json:"todo,omitempty"`
-	Reviewers      []map[string]any `json:"reviewers,omitempty"`
-	ReviewPassed   *bool            `json:"review_passed,omitempty"`
-	AuthorName     string           `json:"author_name,omitempty"`
-	CreationMethod string           `json:"creation_method,omitempty"`
-	DetailURL      string           `json:"url,omitempty"`
+	LocalID             string           `json:"localId"`
+	Title               string           `json:"title"`
+	Status              string           `json:"status,omitempty"`
+	State               string           `json:"state,omitempty"`
+	StatusDisplay       string           `json:"status_display,omitempty"`
+	WIP                 *bool            `json:"wip,omitempty"`
+	SourceBranch        string           `json:"sourceBranch,omitempty"`
+	TargetBranch        string           `json:"targetBranch,omitempty"`
+	Ahead               any              `json:"ahead,omitempty"`
+	Behind              any              `json:"behind,omitempty"`
+	Mergeable           *bool            `json:"mergeable,omitempty"`
+	Todo                []map[string]any `json:"todo,omitempty"`
+	Reviewers           []map[string]any `json:"reviewers,omitempty"`
+	ReviewPassed        *bool            `json:"review_passed,omitempty"`
+	AuthorName          string           `json:"author_name,omitempty"`
+	CreationMethod      string           `json:"creation_method,omitempty"`
+	DetailURL           string           `json:"url,omitempty"`
+	TargetEqualsSource  *bool            `json:"target_equals_source,omitempty"`
+	CannotMergeToMaster *bool            `json:"cannot_merge_to_master,omitempty"`
+	NextStep            string           `json:"next_step,omitempty"`
 }
 
 // BuildMRSummaryView composes the #132 push-review summary for one MR. detail is
@@ -305,6 +308,13 @@ func BuildMRSummaryView(list, detail map[string]any) MRSummaryView {
 		view.AuthorName = stringField(author, "name", "username")
 	}
 	view.CreationMethod = stringField(merged, "creationMethod", "createFrom")
+	if eq, blocked, _ := ClassifyMRTarget(view.SourceBranch, view.TargetBranch); blocked {
+		view.CannotMergeToMaster = boolPtr(true)
+		if eq {
+			view.TargetEqualsSource = boolPtr(true)
+		}
+		view.NextStep = MRTargetNextStep(view.LocalID, view.SourceBranch, view.TargetBranch)
+	}
 	if detail != nil {
 		if v, ok := detail["ahead"]; ok && v != nil {
 			view.Ahead = v

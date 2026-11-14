@@ -35,6 +35,14 @@ rejected while WIP (#124, 405 SYSTEM_FORBIDDEN_ERROR); cancel it in the web UI
 (MR page → 更多(…) → 取消 WIP — no OpenAPI exists for that transition), then merge.
 UNDER_REVIEW 评审中. TO_BE_MERGED 待合并 — mergeable when requirements pass.
 
+When targetBranch equals sourceBranch, or sourceBranch looks like a commit SHA
+while targetBranch is not master/main/develop (a known push-review anomaly),
+each item is labelled cannot_merge_to_master=true with a Chinese next_step
+telling the user the MR 不可直接合入 master and to run
+"mrs update --target-branch master" (that flag then explains the OpenAPI
+limit and points at the Codeup web UI). mergeable stays the API
+allRequirementsPass value so the new fields are the explicit do-not-merge-to-master signal.
+
 --local-id skips the list and GETs just that MR (works regardless of page order).
 --all follows list pages via client.ListAll (cap 50); otherwise the first page
 (--per-page, default 20) is inspected. --dry-run previews the read(s) only.

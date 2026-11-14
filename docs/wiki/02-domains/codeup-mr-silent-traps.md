@@ -124,7 +124,10 @@ title/description（官方文档实证），官方 MCP server 也没有 WIP 工�
   GET）并逐条 GET 详情，输出 status/wip/ahead/behind/mergeable/todo/reviewers（含
   review_opinion_status）+ `meta.count` / `meta.wip_count`；`--local-id` 单查一条（仅一次
   详情 GET）；`--all` 跟页（ListAll 上限 50）。典型闭环：
-  push → `+push-review-status` 发现 `wip:true` → 网页取消 WIP → `mrs merge`。
+  push → `+push-review-status` 先看 `cannot_merge_to_master` / `next_step`（为真则不要合入 master，按 `next_step` 处理）→ 发现 `wip:true` → 网页取消 WIP → `mrs merge`。
+  若目标分支等于源分支，或源为 commit SHA 且目标不是 master/main/develop（#407），输出会带
+  `cannot_merge_to_master: true` 与中文 `next_step`（「该 MR 不可直接合入 master」，并提示
+  `mrs update --target-branch master`）。`mergeable` 仍反映 `allRequirementsPass`，不能单独当作可合入 master。
 
 ## mrs merge 拒绝错误可行动化（0.16.36+ / #127）
 
@@ -173,3 +176,14 @@ Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `
 `yunxiao codeup mrs link --dry-run` 必须以工作项侧 `GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest` 为准，而不是 `mrs get` 的 `relatedWorkItems`（该字段不可靠，见 #354）。
 
 匹配时认 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}`、`repo!localId`），并按十进制比较 `projectId`（JSON 数字不要用 `%v` 打成科学计数法）。已正式关联的工作项不得进入 `to_link`。dry-run 字段要按情况读：全部已挂时，`request.body.alreadyLinked` 为布尔 `true`（另有 `body.linked` 为已挂 ID 列表），请求体上没有 `to_link`；部分已挂时，已挂 ID 在与 `to_link` 同级的 `already_linked`（蛇形、数组），`body` 只是即将 POST 的关系体，不含 `alreadyLinked`。`meta.already_linked` / `meta.to_link` 是计数，不是 ID 列表。
+
+## 推送评审 MR 目标分支指向源分支（#407）
+
+已开推送评审模式的仓库，首次向新分支 `git push -o review=new` 时，自动创建的 MR 有时会出现：
+
+- `targetBranch` 等于被 push 的源分支（而不是 master）；或
+- `sourceBranch` 为 commit SHA，`targetBranch` 为特性分支。
+
+这两种情况都**不能**把该 MR 直接合入 master。`yunxiao codeup mrs +push-review-status` 会打上 `cannot_merge_to_master` 与中文下一步提示。
+
+`mrs update --target-branch` 旗标已提供，便于 Agent 找到「改目标分支」入口；但官方 `UpdateChangeRequest` 只接受 title/description（[文档](https://help.aliyun.com/zh/yunxiao/developer-reference/updatechangerequest-update-merge-request-basic-information)），CLI **不编造** `targetBranch` 字段，调用该旗标会本地失败（`subtype=target_branch_unsupported`，含 `--dry-run`），并提示到 Codeup 网页修改目标分支。壳仓 SOP 若禁止手动 `mrs +create`，不要用再建一个 MR 的方式绕过。
