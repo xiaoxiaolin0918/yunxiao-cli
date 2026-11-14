@@ -548,6 +548,7 @@ CI/CD **仅使用 GitHub Actions**（本仓库在 GitHub 维护，不再镜像�
 
 ## 变更摘要
 
+- **0.16.47** — feat: `mrs merge --ensure-approved` 对齐网页「加评审人 → PASS → 合入」路径（#408）；揭示推送评审目标分支异常并提供 `--target-branch`（OpenAPI 无法改目标）（#407）；`mrs link --dry-run` 按 extRelationRecords 输出已挂字段（#402）；流水线 trigger 运行时变量写入 `params.envs`（#404）；WorkBuddy/非 TTY 打印裸授权 URL（#394）；工作项 browse 使用 `serial_url`（#400）；merge-type 仓库回退与目录 profile（#399）；当前身份是作者时预检 `mrs review`（#395）；镜像失败时 `yunxiao update` 提示 `YUNXIAO_CLI_DOWNLOAD_BASE`（#397）；cli-manager 清单（#391 #392 #393）；doctor 诚实报告与 refresh `invalid_grant`（#389）；packages 脱敏、`types.space_id`、请求 assignee self（#386 #385 #387）
 - **0.16.46** — feat: 按 profile 分槽凭证 (#380)；packages artifacts upload GENERIC/MAVEN (#379)；流转 dry-run 拒用户型字段显示名 (#378)；+member-resolve / serial_url / search subject-all+recent-days / status 空值刷新 / mrs 路径 projectId / Windows *-file+jq hint (#367 #371 #368 #369 #366 #370)
 - **0.16.45** — fix: mrs get 补分支与剥空评论数 (#358)；pipeline +status 默认精简 / --full (#359)；comments 作者字段归一 (#360)；testhub cases create --assigned-to 预校验与 customCode refresh (#357)；testhub meta.url (#361)
 - **0.16.44** — feat: `yunxiao pipeline copy` / `clone` — 同企业 get YAML + create；无官方 CopyPipeline；high-risk-write；`--dry-run` 会 GET 预览；YAML 引用按 ID 原样带走 (#356)
