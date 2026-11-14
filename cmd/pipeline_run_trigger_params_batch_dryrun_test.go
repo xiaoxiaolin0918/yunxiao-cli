@@ -36,7 +36,7 @@ func pipeTriggerSetup(t *testing.T, tag string) (stdout *bytes.Buffer, hits *int
 	t.Cleanup(func() { globalYes = prevYes; globalDryRun = prevDry })
 
 	stdout = withCmdJSONCapture(t)
-	resetStringFlags(t, pipelineRunTriggerCmd, "pipeline-id", "branch", "params", "comment")
+	resetStringFlags(t, pipelineRunTriggerCmd, "pipeline-id", "branch", "params", "params-file", "envs", "comment")
 	return stdout, hits
 }
 
@@ -174,13 +174,17 @@ func TestPipelineRunTriggerParamsObjectDryRun(t *testing.T) {
 	}
 	pipeTriggerAssert(t, stdout, hits, func(t *testing.T, params any, _ map[string]any) {
 		m := decodeParamsObject(t, params)
-		if m["env"] != "prod" {
-			t.Fatalf("env=%v m=%v", m["env"], m)
+		if _, ok := m["env"]; ok {
+			t.Fatalf("env must move into envs: %v", m)
+		}
+		envs, _ := m["envs"].(map[string]any)
+		if envs["env"] != "prod" {
+			t.Fatalf("env=%v m=%v", envs["env"], m)
 		}
 		// JSON numbers decode as float64
-		retry, _ := m["retry"].(float64)
+		retry, _ := envs["retry"].(float64)
 		if retry != 2 {
-			t.Fatalf("retry=%v m=%v", m["retry"], m)
+			t.Fatalf("retry=%v m=%v", envs["retry"], m)
 		}
 	})
 }
@@ -220,8 +224,12 @@ func TestPipelineRunTriggerParamsObjectPlusBranchDryRun(t *testing.T) {
 	}
 	pipeTriggerAssert(t, stdout, hits, func(t *testing.T, params any, _ map[string]any) {
 		m := decodeParamsObject(t, params)
-		if m["env"] != "staging" || m["comment"] != "ship" {
-			t.Fatalf("m=%v", m)
+		envs, _ := m["envs"].(map[string]any)
+		if envs["env"] != "staging" || m["comment"] != "ship" {
+			t.Fatalf("m=%v envs=%v", m, envs)
+		}
+		if _, ok := m["env"]; ok {
+			t.Fatalf("env must move into envs: %v", m)
 		}
 		brRaw, _ := json.Marshal(m["branchModeBranchs"])
 		if !strings.Contains(string(brRaw), "release/1") {

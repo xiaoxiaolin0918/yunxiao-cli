@@ -398,6 +398,8 @@ yunxiao pipeline run latest --pipeline-id <id>
 yunxiao pipeline +failed --pipeline-id <id>
 yunxiao pipeline job log --pipeline-id <id> --run-id <rid> --job-id <jid>
 yunxiao pipeline run trigger --pipeline-id <id> --branch master --dry-run
+# 运行变量须放在 params.envs；Windows 请用 --params-file（#404）
+yunxiao pipeline run trigger --pipeline-id <id> --branch master --params-file params.json --dry-run
 yunxiao pipeline run cancel --pipeline-id <id> --run-id <rid> --dry-run
 
 # packages (upload skipped — see Known gaps)

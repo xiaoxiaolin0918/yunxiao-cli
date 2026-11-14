@@ -274,12 +274,30 @@ var pipelineRunTriggerCmd = &cobra.Command{
 HTTP: POST .../pipelines/{id}/runs
 
 Optional --params is a JSON object (or string) passed as API params.
-Optional --branch sets branchModeBranchs via params shorthand.`,
+Runtime / runningConfig variables (APP_NAME, MOUDULE_NAME, ...) must live
+under params.envs — the platform silently ignores unknown top-level keys
+and falls back to pipeline defaults (#404). This command moves non-reserved
+top-level keys into envs (reserved: branchModeBranchs, comment, envs,
+runningBranchs, runningTags, runningPipelineArtifacts, runningAcrArtifacts,
+runningPackagesArtifacts) without wrapping an existing envs object again,
+and prints a Chinese hint when it does so.
+
+Optional --envs is a JSON object merged into params.envs (wins on conflict).
+Optional --params-file reads the same JSON as --params (UTF-8, BOM stripped;
+preferred on Windows PowerShell where inline quotes are often stripped).
+Optional --branch sets branchModeBranchs via params shorthand.
+
+Use --dry-run to print the final request body before --yes.
+
+  yunxiao pipeline run trigger --pipeline-id <id> --branch test --params-file params.json --dry-run
+  yunxiao pipeline run trigger --pipeline-id <id> --envs '{"APP_NAME":"blade-gateway","MOUDULE_NAME":"/"}' --dry-run`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pid, _ := cmd.Flags().GetString("pipeline-id")
 		branch, _ := cmd.Flags().GetString("branch")
 		paramsJSON, _ := cmd.Flags().GetString("params")
+		paramsFile, _ := cmd.Flags().GetString("params-file")
+		envsJSON, _ := cmd.Flags().GetString("envs")
 		comment, _ := cmd.Flags().GetString("comment")
 		if err := requireFlags("pipeline-id", pid); err != nil {
 			handleErr(err)
@@ -295,33 +313,17 @@ Optional --branch sets branchModeBranchs via params shorthand.`,
 			handleErr(err)
 			return
 		}
+		paramsField, ok, hint, err := preparePipelineRunTriggerParams(paramsJSON, paramsFile, envsJSON, branch, comment)
+		if err != nil {
+			handleErr(err)
+			return
+		}
+		if hint != "" {
+			fmt.Fprintln(output.Stderr, hint)
+		}
 		body := map[string]any{}
-		paramsObj := map[string]any{}
-		if paramsJSON != "" {
-			var raw any
-			if err := json.Unmarshal([]byte(paramsJSON), &raw); err != nil {
-				handleErr(fmt.Errorf("--params must be JSON: %w", err))
-				return
-			}
-			switch v := raw.(type) {
-			case string:
-				body["params"] = v
-			case map[string]any:
-				paramsObj = v
-			default:
-				handleErr(fmt.Errorf("--params must be a JSON object or string"))
-				return
-			}
-		}
-		if branch != "" {
-			paramsObj["branchModeBranchs"] = []string{branch}
-		}
-		if comment != "" {
-			paramsObj["comment"] = comment
-		}
-		if _, ok := body["params"]; !ok && len(paramsObj) > 0 {
-			b, _ := json.Marshal(paramsObj)
-			body["params"] = string(b)
+		if ok {
+			body["params"] = paramsField
 		}
 		handleErr(runJSONMutating(cmd.Context(), c, "pipeline run trigger", risk.HighRiskWrite, "POST", path, nil, body, func(out any, meta map[string]any) (any, map[string]any) {
 			meta["pipeline_id"] = pid
@@ -1145,7 +1147,9 @@ func init() {
 
 	pipelineRunTriggerCmd.Flags().String("pipeline-id", "", "pipeline id (required)")
 	pipelineRunTriggerCmd.Flags().String("branch", "", "optional branch (branchModeBranchs)")
-	pipelineRunTriggerCmd.Flags().String("params", "", "JSON params object or string")
+	pipelineRunTriggerCmd.Flags().String("params", "", "JSON params object or string; runtime vars belong in envs")
+	pipelineRunTriggerCmd.Flags().String("params-file", "", "UTF-8 file for --params JSON (BOM stripped; preferred on Windows)")
+	pipelineRunTriggerCmd.Flags().String("envs", "", "JSON object of runtime variables, merged into params.envs")
 	pipelineRunTriggerCmd.Flags().String("comment", "", "run comment")
 	pipelineJobStopCmd.Flags().String("pipeline-id", "", "pipeline id (required)")
 	pipelineJobStopCmd.Flags().String("run-id", "", "pipeline run id (required)")
