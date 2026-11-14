@@ -22,6 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 VERSION_GO = ROOT / "internal" / "version" / "version.go"
 README_EN = ROOT / "README.md"
 README_ZH = ROOT / "README.zh-CN.md"
+MANIFEST = ROOT / "cli.manifest.json"
 WIKI_DIR = ROOT / "docs" / "wiki" / "changelog"
 
 VERSION_RE = re.compile(r"^var Version = \"([^\"]+)\"", re.M)
@@ -42,6 +43,17 @@ def write_version(new: str) -> None:
     if n != 1:
         raise SystemExit("failed to rewrite Version")
     VERSION_GO.write_text(text2, encoding="utf-8", newline="\n")
+
+
+MANIFEST_VERSION_RE = re.compile(r'("version"\s*:\s*")([^"]+)(")')
+
+
+def write_manifest(new: str) -> None:
+    text = MANIFEST.read_text(encoding="utf-8")
+    text2, n = MANIFEST_VERSION_RE.subn(rf"\g<1>{new}\g<3>", text, count=1)
+    if n != 1:
+        raise SystemExit(f"failed to rewrite version in {MANIFEST}")
+    MANIFEST.write_text(text2, encoding="utf-8", newline="\n")
 
 
 def insert_changelog(path: pathlib.Path, version: str, bullet: str, heading_prefix: str = "- **") -> None:
@@ -130,10 +142,11 @@ def main() -> int:
     print(f"notes: {bullet}")
 
     if args.dry_run:
-        print("dry-run: would update version.go, README.md, README.zh-CN.md, docs/wiki/changelog/")
+        print("dry-run: would update version.go, cli.manifest.json, README.md, README.zh-CN.md, docs/wiki/changelog/")
         return 0
 
     write_version(new)
+    write_manifest(new)
     insert_changelog(README_EN, new, bullet)
     insert_changelog(README_ZH, new, bullet)
     wiki = write_wiki(new, bullet, dry=False)
@@ -141,7 +154,7 @@ def main() -> int:
     print(f"wrote changelogs + {wiki.relative_to(ROOT)}")
 
     if args.commit:
-        run(["git", "add", str(VERSION_GO.relative_to(ROOT)), "README.md", "README.zh-CN.md", str(wiki.relative_to(ROOT))])
+        run(["git", "add", str(VERSION_GO.relative_to(ROOT)), "cli.manifest.json", "README.md", "README.zh-CN.md", str(wiki.relative_to(ROOT))])
         run(["git", "commit", "-m", f"chore: bump version to {new}"])
     if args.tag:
         run(["git", "tag", "-a", f"v{new}", "-m", f"v{new}"])

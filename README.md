@@ -188,7 +188,7 @@ yunxiao doctor --check-update
 
 Disable opportunistic hints and doctor `--check-update`:
 
-Maintainers: `python scripts/bump_release.py <new> --notes "..."` (rewrites `version.go` + bilingual Changelog + wiki stub; `--commit --tag` is local only; push the tag to trigger `release.yml`).
+Maintainers: `python scripts/bump_release.py <new> --notes "..."` (rewrites `version.go`, `cli.manifest.json`, bilingual Changelog, and a wiki stub; `--commit --tag` is local only; push the tag to trigger `release.yml`).
 
 
 ```bash

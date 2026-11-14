@@ -211,7 +211,7 @@ yunxiao doctor --check-update
 
 关闭机会性提示以及 doctor 的 `--check-update`：
 
-维护者发版：`python scripts/bump_release.py <new> --notes "..."`（改 `version.go` + 双语 Changelog + wiki stub；`--commit --tag` 仅本地；推 tag 触发 `release.yml`）。
+维护者发版：`python scripts/bump_release.py <new> --notes "..."`（改 `version.go`、`cli.manifest.json`、双语 Changelog 与 wiki stub；`--commit --tag` 仅本地；推 tag 触发 `release.yml`）。
 
 
 ```bash
