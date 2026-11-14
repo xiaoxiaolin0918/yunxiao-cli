@@ -167,3 +167,9 @@ CLI 现行为：路径 / alias / bare name 在发请求（含 `--dry-run` 预览
 ## mrs review：作者自评 403（#395）
 
 Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `can not submit review opinion as the author`）。CLI 在 POST 前用 `author.userId` vs `/platform/user` id 预检；命中则本地 `subtype=review_as_author`，并给出 `mrs reviewers add --reviewer <otherUserId>` / 换身份。服务端 403 原文也会被同样包装。`mrs merge` 在 `UNDER_REVIEW` 的 `suggested_actions` 会顺带提示作者勿自评。
+
+## mrs link dry-run 已挂判定（#402）
+
+`yunxiao codeup mrs link --dry-run` 必须以工作项侧 `GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest` 为准，而不是 `mrs get` 的 `relatedWorkItems`（该字段不可靠，见 #354）。
+
+匹配时认 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}`、`repo!localId`），并按十进制比较 `projectId`（JSON 数字不要用 `%v` 打成科学计数法）。已正式关联的工作项不得进入 `to_link`。dry-run 字段要按情况读：全部已挂时，`request.body.alreadyLinked` 为布尔 `true`（另有 `body.linked` 为已挂 ID 列表），请求体上没有 `to_link`；部分已挂时，已挂 ID 在与 `to_link` 同级的 `already_linked`（蛇形、数组），`body` 只是即将 POST 的关系体，不含 `alreadyLinked`。`meta.already_linked` / `meta.to_link` 是计数，不是 ID 列表。
