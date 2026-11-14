@@ -282,4 +282,4 @@ yunxiao codeup repos create --name my-repo --path my-repo --visibility private -
 
 ## mrs link dry-run 已挂判定（#402）
 
-`yunxiao codeup mrs link --dry-run` 以工作项 `GET .../extRelationRecords?category=codeupMergeRequest` 为准，匹配 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}` 或 `repo!localId`），并正确处理 JSON 数字型 `projectId`。已正式关联的 WI 归入 `alreadyLinked`，**不会**出现在 `to_link`。不要用 `mrs get` 的 `relatedWorkItems` 判定是否挂单（#354 仍是上游问题）。
+`yunxiao codeup mrs link --dry-run` 以工作项 `GET .../extRelationRecords?category=codeupMergeRequest` 为准，匹配 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}` 或 `repo!localId`），并正确处理 JSON 数字型 `projectId`。已正式关联的 WI **不会**出现在 `to_link`。字段要按情况读：全部已挂时，`request.body.alreadyLinked` 为布尔 `true`（另有 `body.linked` 为已挂 ID 列表），请求体上没有 `to_link`；部分已挂时，已挂 ID 在与 `to_link` 同级的 `already_linked`（蛇形、数组），`body` 只是即将 POST 的关系体，不含 `alreadyLinked`。`meta.already_linked` / `meta.to_link` 是计数，不是 ID 列表。不要用 `mrs get` 的 `relatedWorkItems` 判定是否挂单（#354 仍是上游问题）。

@@ -172,4 +172,4 @@ Codeup 禁止 MR **作者**提交 `reviewOpinion`（`SYSTEM_FORBIDDEN_ERROR` / `
 
 `yunxiao codeup mrs link --dry-run` 必须以工作项侧 `GET .../workitems/{id}/extRelationRecords?category=codeupMergeRequest` 为准，而不是 `mrs get` 的 `relatedWorkItems`（该字段不可靠，见 #354）。
 
-匹配时认 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}`、`repo!localId`），并按十进制比较 `projectId`（JSON 数字不要用 `%v` 打成科学计数法）。已正式关联的工作项应出现在 `alreadyLinked`，不得进入 `to_link`。
+匹配时认 `businessId` / `bizId` / `mergeRequestId` / URL（`/change/{localId}`、`repo!localId`），并按十进制比较 `projectId`（JSON 数字不要用 `%v` 打成科学计数法）。已正式关联的工作项不得进入 `to_link`。dry-run 字段要按情况读：全部已挂时，`request.body.alreadyLinked` 为布尔 `true`（另有 `body.linked` 为已挂 ID 列表），请求体上没有 `to_link`；部分已挂时，已挂 ID 在与 `to_link` 同级的 `already_linked`（蛇形、数组），`body` 只是即将 POST 的关系体，不含 `alreadyLinked`。`meta.already_linked` / `meta.to_link` 是计数，不是 ID 列表。
