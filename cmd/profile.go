@@ -207,7 +207,7 @@ var profileInstallExampleCmd = &cobra.Command{
 		}
 		handleErr(output.Success(map[string]any{
 			"installed": dst,
-			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, then refresh graphs via `workitem +explore-workflow --cleanup --write-profile --yes`. WARNING: that shortcut is a write operation (creates/moves/deletes a probe work item); run it in a sandbox project first and never auto-run it against a production space (`--dry-run` previews the plan offline). Verify with `profile doctor`; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
+			"hint":      fmt.Sprintf("example uses placeholders only — edit org/space/type IDs in %s, then refresh graphs via `workitem +explore-workflow --profile play --cleanup --write-profile --yes`. WARNING: that shortcut is a write operation (creates/moves/deletes a probe work item). Real runs are gated (#412): only a YXCLI sandbox (serial_prefix=YXCLI, or profile name play with an empty prefix); --cleanup is required when creating probes; --id needs --i-know-this-mutates-real-item (a terminal status cannot be reverted via CLI/API); non-sandbox/ZYPT also needs --allow-non-sandbox. `--dry-run` previews the plan offline. Verify with `profile doctor`; then: export YUNXIAO_PROFILE=%s  # or --profile %s", dst, name, name),
 		}, map[string]any{"risk": risk.Write}))
 	},
 }

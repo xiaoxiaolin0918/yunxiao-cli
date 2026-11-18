@@ -7,9 +7,9 @@ import (
 
 // WorkflowResolve is the status graph used by workitem +transition.
 type WorkflowResolve struct {
-	TypeID   string
-	Category string
-	Name     string
+	TypeID      string
+	Category    string
+	Name        string
 	Edges       map[string][]string
 	HintedEdges map[string][]string
 	Statuses    map[string]string // alias/displayName → status id
@@ -71,7 +71,7 @@ func (p *Profile) ResolveWorkflow(typeID string) (WorkflowResolve, error) {
 		edges := p.StatusGraph()
 		if len(edges) == 0 {
 			return WorkflowResolve{}, fmt.Errorf(
-				"profile %q has no workflow edges for bug type %s; run: yunxiao workitem +explore-workflow --type-id %s --category Bug --write-profile --yes; for one-off status set use: yunxiao workitem update --id <id> --status <id> [--cancel-reason …]",
+				"profile %q has no workflow edges for bug type %s; run: yunxiao workitem +explore-workflow --profile play --type-id %s --category Bug --cleanup --write-profile --yes; for one-off status set use: yunxiao workitem update --id <id> --status <id> [--cancel-reason …]",
 				p.Name, typeID, typeID)
 		}
 		statuses := p.BugStatuses
@@ -89,6 +89,6 @@ func (p *Profile) ResolveWorkflow(typeID string) (WorkflowResolve, error) {
 	}
 
 	return WorkflowResolve{}, fmt.Errorf(
-		"profile %q missing workflows[%s] edges; run: yunxiao workitem +explore-workflow --type-id %s --write-profile --yes (sandbox first); for one-off status set use: yunxiao workitem update --id <id> --status <id> [--cancel-reason …]",
+		"profile %q missing workflows[%s] edges; run: yunxiao workitem +explore-workflow --profile play --type-id %s --cleanup --write-profile --yes (YXCLI sandbox; #412); for one-off status set use: yunxiao workitem update --id <id> --status <id> [--cancel-reason …]",
 		p.Name, typeID, typeID)
 }

@@ -200,7 +200,7 @@ func runExploreWorkflowCmd(t *testing.T, dryRun bool, args ...string) (string, s
 	t.Cleanup(func() { processExit = prevExit })
 
 	resetStringFlags(t, workitemExploreWorkflowCmd, "type-id", "space-id", "id", "category", "type-name", "custom-fields", "fields", "from")
-	for _, b := range []string{"cleanup", "write-profile"} {
+	for _, b := range []string{"cleanup", "write-profile", "allow-non-sandbox", "i-know-this-mutates-real-item"} {
 		if f := workitemExploreWorkflowCmd.Flags().Lookup(b); f != nil {
 			_ = workitemExploreWorkflowCmd.Flags().Set(b, f.DefValue)
 			f.Changed = false

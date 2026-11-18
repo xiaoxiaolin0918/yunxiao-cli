@@ -485,9 +485,13 @@ export YUNXIAO_PROFILE=zhiyi            # or play (or pass --profile zhiyi per c
 yunxiao profile use zhiyi               # writes "profile" into ~/.config/yunxiao/config.json; --unset clears
 yunxiao profile show
 # Refresh the state graph. WRITES data: creates a probe workitem, moves it through states,
-# and --cleanup deletes it. Verify in a sandbox (play) first; never auto-run on a production space.
-# --dry-run only prints the plan; to write back, drop --dry-run and add --yes.
-yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
+# and --cleanup deletes it. Real runs are gated (#412): only a YXCLI sandbox
+# (serial_prefix=YXCLI, or profile name play with an empty prefix). --cleanup is required
+# when the command creates the probe. --id needs --i-know-this-mutates-real-item (real
+# status PUTs may reach a terminal status that cannot be reverted via CLI/API).
+# A non-sandbox space (zhiyi / ZYPT) also needs --allow-non-sandbox; do not use that on production.
+# --dry-run only prints the plan (offline); to write back, drop --dry-run and add --yes.
+yunxiao workitem +explore-workflow --profile play --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
 yunxiao profile doctor                 # diff profile vs live fields/workflow + allowed_* enums (read);
                                        # findings carry live displayName/nameEn/fieldName + --fix-suggest (#120)
 yunxiao profile doctor --write --dry-run  # preview backfilling suggested status ids into the profile
@@ -509,7 +513,7 @@ yunxiao workitem +req-create --assignee "displayName" --title "req" --descriptio
 yunxiao workitem +bug-transition --id YXCLI-1 --to processing \
 yunxiao workitem +bug-transition（BFS 无路时 direct_fallback / --direct，#123） --id YXCLI-1 --to processing \
   --plan-due-date 2026-09-20 --developer <uid> --dry-run
-yunxiao workitem +explore-workflow --type-id <bug_type_id> --cleanup --dry-run
+yunxiao workitem +explore-workflow --profile play --type-id <bug_type_id> --cleanup --dry-run
 yunxiao workitem relations create --id <id> --related-id <rid> --relation-type ASSOCIATED --dry-run
 # Codeup --content-file accepts cwd-relative or absolute paths
 # codeup --repo aliases live in profile.repositories; register with
@@ -520,7 +524,7 @@ yunxiao codeup mrs +create --repo iipmes_gy --source feat/x \
   --title "fix" --work-item YXCLI-1 --wip --dry-run
 ```
 
-See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem, so try it in a sandbox first and never auto-run it on a production space; `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
+See skill `yunxiao-zhiyi-ops`, `profiles/zhiyi.example.json`, and `profiles/play.example.json`. Both examples are embedded in the binary and also ship inside the GitHub Release archives (next to the binary), so `install-example` works from any install; an on-disk `profiles/<name>.example.json` takes precedence (#92). The installed profile only has placeholders: fill org/space/type ids by editing the file (`yunxiao profile path <name>`) and refresh workflow graphs with `workitem +explore-workflow --profile play --cleanup --write-profile --yes` (writes: creates/moves/deletes a probe workitem. Real runs are gated, #412: YXCLI/play sandbox only; `--cleanup` is required for self-created probes; `--id` needs `--i-know-this-mutates-real-item` because a terminal status cannot be reverted via CLI/API; non-sandbox/ZYPT also needs `--allow-non-sandbox`. `--dry-run` only prints the plan — fully offline, zero API requests, #110); check with `yunxiao profile doctor` — its `unknown_in_profile` findings include live displayName/nameEn and `--fix-suggest` alias suggestions, and `--write` (after `--dry-run`) backfills them into the profile (#120).
 
 **Usage constraints (wrapped, not gaps):** Topic / Risk types that do not enable the sprint field return `未启用此字段【迭代】` (sprint field not enabled) — omit `--sprint` (CLI surfaces a hint). Relation types that work: `ASSOCIATED`, `DEPEND_ON`; `RELATED` / `PARENT_SUB` often fail type constraints; Task parent via `--parent-id` on create.
 
