@@ -21,8 +21,8 @@ Accepts --id or positional; Yunxiao accepts serial numbers like ZYPT-xxxx.
 
 Output views (0.16.34+, #98; exactly one of):
   (default) / --brief  id, serialNumber, subject, status {id, displayName}, assignedTo,
-                       sprint, priority, workitemType {id, name}, categoryId,
-                       gmtModified, and description_summary
+                       verifier (when present), sprint, priority, workitemType {id, name},
+                       categoryId, gmtModified, and description_summary
                        "(description: <n> chars, use --full or --fields description)"
                        instead of the description text (RICHTEXT/HTML: "<n> chars of
                        text excluding HTML tags"). Null / "" values are omitted.

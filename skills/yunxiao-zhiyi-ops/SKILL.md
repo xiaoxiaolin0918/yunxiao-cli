@@ -1,6 +1,6 @@
 ---
 name: yunxiao-zhiyi-ops
-version: 1.3.8
+version: 1.3.9
 description: "智衣云效运维：ZYPT 工作项查询、缺陷创建/流转、迭代建议、Codeup MR 挂单。触发词：开缺陷 / ZYPT / 智衣云效运维 / bug create / bug transition / sprint current / 建 MR。"
 metadata:
   requires:
@@ -156,6 +156,8 @@ Risk: **high-risk-write**（`--dry-run` / 真发需 `--yes`）。`--repo` 可为
 ## `refresh_ok`（流转）
 
 `workitem +bug-transition` / `+transition` 成功时信封可能含 `refresh_ok`。PUT 已成功；若随后刷新 GET 失败则为 `false` 并打 stderr warning——**不要当成流转失败**（见 yunxiao-shared）。
+
+**assignedTo 联动提示（#414）**：`+bug-transition` **不会**在 PUT 里写 `assignedTo`（没有 `--assigned-to` 旗标）。但平台在流转到待测试等状态时，可能把 `assignedTo` 改成 verifier。成功并 refresh 后，CLI 会对比 `assignedTo` / `verifier` / developer / responsible person；有变化即在 stderr 与信封 `data.personnel_changes` / `meta.warnings` 提示「assignedTo 已由 X 变为 Y（平台或字段联动）」，并给出恢复命令 `yunxiao workitem update --id <serial> --assigned-to <原来的 uid>`。brief 投影在字段有值时会带上 `assignedTo` / `verifier`（空值省略，避免误判为 None）；`workitem get` 默认 brief 同样在有值时保留 `verifier`。
 
 ## 坑位
 

@@ -45,6 +45,14 @@ CLI maps the Chinese names back to field ids via the type's field config
 
 User-typed values (--developer / --responsible-person) must be userId-shaped on both --dry-run and real PUT (#378); display names are rejected with a hint to: yunxiao organization +member-resolve --name <display>.
 
++bug-transition does not write assignedTo (there is no --assigned-to flag). After a
+successful transition the CLI refreshes the item and diffs assignedTo, verifier, and
+profile developer / responsible-person fields. If any of those changed — whether the
+platform did it or a field linkage did — it prints a warning such as
+「assignedTo 已由 X 变为 Y（平台或字段联动）」 and a restore command:
+yunxiao workitem update --id <id> --assigned-to <original uid> (#414). Brief output includes
+assignedTo / verifier when they are present (empty values are omitted, never shown as None).
+
 Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		view, err := transitionItemViewFromFlags(cmd)
@@ -201,10 +209,7 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 
 		planned := make([]map[string]any, 0, len(steps))
 		for _, st := range steps {
-			body := map[string]any{"status": st}
-			for k, v := range provided {
-				body[k] = v
-			}
+			body := bugTransitionStepBody(st, provided)
 			planned = append(planned, map[string]any{
 				"method": "PUT",
 				"path":   putPath,
@@ -281,10 +286,7 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 
 		applied := []string{}
 		for i, st := range steps {
-			body := map[string]any{"status": st}
-			for k, v := range provided {
-				body[k] = v
-			}
+			body := bugTransitionStepBody(st, provided)
 			var out any
 			if err := c.Put(cmd.Context(), putPath, body, &out); err != nil {
 				bugTypeID := workitemTypeID(item)
@@ -315,6 +317,30 @@ Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,
 		result["item"] = view.itemValue(refreshed, item)
 		if view.mode != "full" {
 			addTransitionStatusBriefs(result, item, refreshed, refreshOK, target, pf.BugStatuses)
+			if m, ok := result["item"].(map[string]any); ok {
+				src := refreshed
+				if src == nil {
+					src = item
+				}
+				zhiyi.AttachPersonnelBrief(m, src)
+			}
+		}
+		if refreshOK && refreshed != nil {
+			changes := zhiyi.DiffWorkItemPersonnel(item, refreshed, zhiyi.PersonnelDiffOpts{
+				ID:                 id,
+				DeveloperFieldID:   fidDev,
+				ResponsibleFieldID: fidResp,
+			})
+			if len(changes) > 0 {
+				result["personnel_changes"] = changes
+				warns := make([]string, 0, len(changes))
+				for _, ch := range changes {
+					warns = append(warns, ch.Warning)
+					fmt.Fprintf(output.Stderr, "warning: %s\n", ch.Warning)
+				}
+				metaBase["personnel_changed"] = true
+				metaBase["warnings"] = warns
+			}
 		}
 		urlItem := refreshed
 		if urlItem == nil {
@@ -371,4 +397,18 @@ func annotateBugTransitionPutErr(err error, transitionMode, noPathNote, current,
 			"platform_error":  err.Error(),
 		},
 	}
+}
+
+// bugTransitionStepBody builds one status PUT. assignedTo is never copied from
+// provided: +bug-transition has no --assigned-to flag and must not silently
+// reassign the owner (#414).
+func bugTransitionStepBody(status string, provided map[string]any) map[string]any {
+	body := map[string]any{"status": status}
+	for k, v := range provided {
+		if k == "assignedTo" {
+			continue
+		}
+		body[k] = v
+	}
+	return body
 }

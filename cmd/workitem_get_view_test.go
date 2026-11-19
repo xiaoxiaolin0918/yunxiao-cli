@@ -27,6 +27,8 @@ var workitemGetFixture = `{
  "id":"wi-5916","serialNumber":"ZYPT-5916","subject":"产品类需求",
  "status":{"id":"100005","name":"处理中","displayName":"处理中","nameEn":"DOING"},
  "assignedTo":{"id":"u-1","name":"肖晓霖"},
+ "verifier":{"id":"u-2","name":"验证人"},
+ "verifier":{"id":"u-2","name":"验证人"},
  "sprint":{"id":"sp-1","name":"S39"},
  "gmtModified":"2026-09-29T10:00:00Z","gmtCreate":"2026-09-01T10:00:00Z",
  "description":"` + strings.Repeat("需求说明", 800) + `",
@@ -496,11 +498,11 @@ func TestWorkitemGetFalseBoolIsNotAConflict(t *testing.T) {
 	}
 }
 
-// A GetWorkitem schema key this item lacks (fixture has no verifier) is null and listed
+// A GetWorkitem schema key this item lacks (ZYPT-7 has no verifier) is null and listed
 // in meta.absent_fields, not unknown_fields.
 func TestWorkitemGetFieldsKnownButAbsentIsNull(t *testing.T) {
 	newWorkitemGetServer(t)
-	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-5916", "--fields", "subject,verifier")
+	stdout, stderr, code := runWorkitemGet(t, false, "ZYPT-7", "--fields", "subject,verifier")
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, stderr)
 	}

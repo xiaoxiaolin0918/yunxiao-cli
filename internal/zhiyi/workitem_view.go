@@ -23,10 +23,10 @@ const WorkItemPriorityFieldID = "priority"
 var workItemPriorityFieldNames = []string{"优先级", "Priority"}
 
 // workItemGetBriefKeys are copied as-is from the raw item when present and non-null.
-var workItemGetBriefKeys = []string{"assignedTo", "sprint", "categoryId", "gmtModified"}
+var workItemGetBriefKeys = []string{"assignedTo", "verifier", "sprint", "categoryId", "gmtModified"}
 
 // WorkItemGetBriefFields lists the brief view's keys in documentation order.
-var WorkItemGetBriefFields = []string{"id", "serialNumber", "subject", "status", "assignedTo", "sprint", "priority", "workitemType", "categoryId", "gmtModified", "description_summary"}
+var WorkItemGetBriefFields = []string{"id", "serialNumber", "subject", "status", "assignedTo", "verifier", "sprint", "priority", "workitemType", "categoryId", "gmtModified", "description_summary"}
 
 // workItemSchemaFields are the top-level keys of the official GetWorkitem response
 // (help.aliyun.com/zh/yunxiao/developer-reference/getworkitem). --fields accepts them
@@ -54,7 +54,7 @@ func WorkItemKnownField(name string) bool {
 }
 
 // WorkItemGetBrief returns id, serialNumber, subject, status (id + displayName),
-// assignedTo, sprint, priority, workitemType (id + name), categoryId, gmtModified and
+// assignedTo, verifier (when present), sprint, priority, workitemType (id + name), categoryId, gmtModified and
 // a description_summary placeholder. Absent / null / empty values are omitted.
 func WorkItemGetBrief(item map[string]any) map[string]any {
 	out := BriefWorkItem(item)
