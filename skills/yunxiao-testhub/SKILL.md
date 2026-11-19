@@ -1,6 +1,6 @@
 ---
 name: yunxiao-testhub
-version: 1.0.1
+version: 1.0.3
 description: "云效 Testhub：测试计划/结果/计划用例评论。用户问测试计划、执行结果、用例评论时使用。"
 metadata:
   requires:
@@ -32,8 +32,8 @@ Risk: list*=**read**；`results update` / `plan-comments create`=**write**。
 ```bash
 yunxiao testhub directories list --repo-id <id>
 yunxiao testhub directories create --repo-id <id> --name folder --dry-run
-yunxiao testhub cases search --repo-id <id>
-yunxiao testhub cases get --repo-id <id> --id <caseId>   # meta.url when profile.space_id set (#361)
+yunxiao testhub cases search --repo-id <id>   # item url = /testhub/case/{customCode} (#415)   # item url = /testhub/case/{customCode} (#415)
+yunxiao testhub cases get --repo-id <id> --id <caseId>   # meta.url = /testhub/case/{customCode} (#415)
 yunxiao testhub cases create --repo-id <id> --subject "case" --assigned-to <userId> --dry-run
 ```
 
@@ -41,4 +41,10 @@ yunxiao testhub cases create --repo-id <id> --subject "case" --assigned-to <user
 
 `--data` 提示：`testSteps` 可用 `{"contentType":"TABLE","content":[{"step":"...","expected":"..."}]}`；`preCondition` 建议 RICHTEXT（`<article class="4ever-article">...</article>`）或 `preConditionFormat: TEXT`。
 
-**meta.url (#361)**：`cases get` / `repos list` / `plans list` / `directories list` 在已知 `profile.space_id`（或 plan 自带 `spaceIdentifier`）时拼 Projex 直链；否则 `meta.webPathHint`。`repos list` 另补 `id` 别名（= `testRepoIdentifier`）。
+**meta.url (#415)**：用例/仓库/目录链接走 TestHub 控制台，不再拼 `/projex/project/{spaceId}/testcase`（登录后白屏）。
+
+- 单条用例：`https://devops.aliyun.com/testhub/case/{customCode}`（控制台「复制链接」形态；`cases get` / `cases create` refresh 后 / `cases search` 列表项可拿到 `customCode`）。缺 `customCode` 时退到所属仓库页 `/testhub/repo/{repoId}/case`（内部 case id 暂无可靠官方 hash）。
+- 目录：`https://devops.aliyun.com/testhub/repo/{repoId}/case#selectedTreeIdentifier={directoryId}`
+- 仓库：`https://devops.aliyun.com/testhub/repo/{repoId}/case`
+- 测试计划：`https://devops.aliyun.com/testhub/plan/{planId}/case`（`plans list` 的 item `url`）。有 directoryId 时加 `#selectedTreeIdentifier={directoryId}`（如 `plans directories`）。不要用 `/projex/project/{spaceId}/testplan/{planId}`（登录后 404）。缺必要 id 时给 `meta.webPathHint`。`repos list` 另补 `id` 别名（= `testRepoIdentifier`）。
+- `yunxiao browse testhub` 子命令仍未提供，后续再补。`results list` / `plan-comments` 本轮仍不挂 URL。`results list` / `plan-comments` 本轮仍不挂 URL。
