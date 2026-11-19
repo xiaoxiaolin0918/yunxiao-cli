@@ -491,8 +491,11 @@ export YUNXIAO_PROFILE=zhiyi            # 或 play（也可每条命令带 --pro
 yunxiao profile use zhiyi               # 写 config.json 的 "profile"；--unset 清除
 yunxiao profile show
 # 回填状态图。会写数据：创建探测工作项、流转其状态，--cleanup 会删除它。
-# 先在沙箱（play）验证；切勿对生产空间 自动执行。--dry-run 只打印计划；要写回请去掉 --dry-run 并加 --yes。
-yunxiao workitem +explore-workflow --profile zhiyi --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
+# 真实运行有硬门禁（#412）：仅允许 YXCLI 沙箱（serial_prefix=YXCLI，或 profile 名为 play 且前缀为空）。
+# 自建探针必须带 --cleanup；--id 需同时加 --i-know-this-mutates-real-item（会真实改状态，终态可能无法经 CLI/API 回退）。
+# 业务空间（zhiyi / ZYPT）还需 --allow-non-sandbox，请勿对生产 ZYPT 使用。
+# --dry-run 只打印计划（完全离线）；要写回请去掉 --dry-run 并加 --yes。
+yunxiao workitem +explore-workflow --profile play --type-id <type-id> --category Bug --cleanup --write-profile --dry-run
 yunxiao profile doctor                  # 对比 profile 与线上 fields/workflow 及 allowed_* 枚举（只读）
                                        # findings 带 displayName/nameEn/fieldName，默认 --fix-suggest（#120）
 yunxiao profile doctor --write --dry-run   # 预览将建议状态 id 回填到 profile
@@ -509,7 +512,7 @@ yunxiao workitem relations create --id <id> --related-id <rid> --relation-type A
 # `yunxiao profile repo-add <别名> <repo-id|org/repo路径|仓库名>` 注册（#125）
 ```
 
-详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制，GitHub Release 归档也随二进制携带，任何安装方式下 `install-example` 都可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile <name> --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项：先在沙箱验证，切勿对生产空间 自动执行；`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
+详见 skill `yunxiao-zhiyi-ops`、`profiles/zhiyi.example.json`、`profiles/play.example.json`。两个示例已内嵌进二进制，GitHub Release 归档也随二进制携带，任何安装方式下 `install-example` 都可直接使用；磁盘上存在 `profiles/<name>.example.json` 时优先（#92）。安装后的 profile 只有占位符：编辑该文件（`yunxiao profile path <name>`）填 org/space/type id，用 `workitem +explore-workflow --profile play --cleanup --write-profile --yes` 回填状态图（会创建/流转/删除探测工作项。真实运行有硬门禁 #412：仅 YXCLI/play 沙箱；自建探针必须 `--cleanup`；`--id` 需 `--i-know-this-mutates-real-item`，终态可能无法经 CLI/API 回退；业务空间/ZYPT 还需 `--allow-non-sandbox`。`--dry-run` 只打印计划），再用 `yunxiao profile doctor` 校验。
 
 **使用约束（已封装，非缺口）：** 部分 Topic / Risk 类型未启用**迭代**字段时会返回 `未启用此字段【迭代】`，请省略 `--sprint`（CLI 会提示）。关联类型可用 `ASSOCIATED` / `DEPEND_ON`（`RELATED` / `PARENT_SUB` 常因类型约束失败）；Task 父子关系在创建时用 `--parent-id`。
 

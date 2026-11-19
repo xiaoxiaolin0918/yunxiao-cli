@@ -12,8 +12,6 @@ import (
 	"github.com/yunxiao-cli/yunxiao/internal/output"
 )
 
-
-
 func TestTesthubCasesCreateMissingAssignedToPrecheck(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +145,7 @@ func TestTesthubCasesGetMetaURL(t *testing.T) {
 	t.Setenv(config.EnvOrganizationID, "org-th-get-url")
 	t.Setenv(config.EnvEdition, "central")
 	t.Setenv(config.EnvAPIBaseURL, srv.URL)
-	// no profile space → webPathHint
+	// #415: customCode is enough; space_id is not required
 	t.Setenv("YUNXIAO_PROFILE", "")
 
 	stdout := withCmdJSONCapture(t)
@@ -163,8 +161,8 @@ func TestTesthubCasesGetMetaURL(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
 		t.Fatalf("json: %v / %s", err, stdout.Bytes())
 	}
-	if env.Meta["webPathHint"] == nil && env.Meta["url"] == nil {
-		t.Fatalf("meta should have url or webPathHint: meta=%v env=%+v raw=%s", env.Meta, env, stdout.String())
+	if env.Meta["url"] != "https://devops.aliyun.com/testhub/case/HEGL-1" {
+		t.Fatalf("meta.url=%v env=%+v raw=%s", env.Meta["url"], env, stdout.String())
 	}
 }
 

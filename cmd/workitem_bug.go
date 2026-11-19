@@ -18,8 +18,8 @@ var workitemBugTransitionCmd = &cobra.Command{
 Needs active profile with bug_statuses (e.g. --profile zhiyi / YUNXIAO_PROFILE=zhiyi).
 
 Profile bug_edges are an unverified template topology (OpenAPI exposes statuses only;
-run workitem +explore-workflow --write-profile in a sandbox to probe and persist real
-edges). When BFS finds no path in profile edges but current->target may still be a legal
+run workitem +explore-workflow --profile play --cleanup --write-profile --yes in a YXCLI sandbox to probe and persist real
+edges; #412 refuses non-sandbox writes unless --allow-non-sandbox). When BFS finds no path in profile edges but current->target may still be a legal
 single step on the platform, the CLI falls back to one direct status PUT
 (meta.transition_mode=direct_fallback) unless --direct is already forcing that path (#123).
 Failures distinguish cause: no path in profile edges (dry-run note / profile_edges) vs
@@ -387,7 +387,7 @@ func annotateBugTransitionPutErr(err error, transitionMode, noPathNote, current,
 	return &detailedError{
 		Subtype: cause,
 		Message: msg,
-		Hint:    "profile bug_edges are an unverified template; probe with: yunxiao workitem +explore-workflow --write-profile (sandbox). Retry with --direct to force a single-step PUT, or fix edges.",
+		Hint:    "profile bug_edges are an unverified template; probe with: yunxiao workitem +explore-workflow --profile play --cleanup --write-profile --yes (YXCLI sandbox; #412). Retry with --direct to force a single-step PUT, or fix edges.",
 		Details: map[string]any{
 			"cause":           cause,
 			"transition_mode": transitionMode,

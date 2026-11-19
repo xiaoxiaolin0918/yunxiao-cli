@@ -81,7 +81,8 @@ yunxiao workitem +bug-transition --id ZYPT-5768 --to processing --dry-run
 
 ```bash
 yunxiao workitem statuses --space-id <id> --type-id <id>
-yunxiao workitem +explore-workflow --type-id <id> --cleanup --dry-run
+yunxiao workitem +explore-workflow --profile play --type-id <id> --cleanup --dry-run
+# 真实运行仅限 YXCLI 沙箱（再加 --yes）。请勿对生产 ZYPT 使用 --allow-non-sandbox。
 ```
 
 ## 读取与评论
