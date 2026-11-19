@@ -28,7 +28,7 @@ named flags (--plan-due-date, --developer, …).
   yunxiao workitem +transition --id <id> --to <alias|statusId> \
     --fields '{"80":"2026-09-20T00:00:00+08:00"}' --yes
 
-Needs active profile. Discover graphs with +explore-workflow --write-profile.
+Needs active profile. Discover graphs with +explore-workflow --profile play --cleanup --write-profile --yes (YXCLI sandbox; #412).
 When profile edges are missing, falls back to a single-step status PUT if --to matches a
 unique status from GET workitem workflow (meta.transition_mode=direct_status). For one-off
 sets you can also use: workitem update --status <id> [--cancel-reason …].
@@ -224,11 +224,11 @@ edge_validation=skipped with a warning — do not treat that as "transition will
 		}
 
 		if err := validateTransitionProvidedUserFields(pf, extraFields); err != nil {
-		handleErr(err)
-		return
-	}
+			handleErr(err)
+			return
+		}
 
-	if globalDryRun {
+		if globalDryRun {
 			req := map[string]any{
 				"work_item":       id,
 				"resolved_id":     resolvedID,
@@ -351,7 +351,6 @@ type profileWorkflowView struct {
 	Statuses    map[string]string
 	Source      string
 }
-
 
 // transitionDryRunEdgeValidation reports whether --dry-run validated current→target
 // against profile workflow edges (issue #59). Kept for older unit tests.

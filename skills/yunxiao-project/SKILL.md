@@ -1,6 +1,6 @@
 ---
 name: yunxiao-project
-version: "1.4.12"
+version: "1.4.13"
 description: "云效 Projex：列项目、搜/看/建工作项、评论、关联、自定义字段、附件上传。用户问需求/任务/缺陷/主题/风险/关联/项目列表时使用。"
 metadata:
   requires:
@@ -133,11 +133,12 @@ yunxiao workitem +transition --id <id|serial> --to <alias|statusId> --dry-run
 yunxiao workitem +transition --id <id> --to 处理中 --fields '{"80":"2026-09-20T00:00:00+08:00"}' --yes
 ```
 
-Risk: **write**（真发需 `--yes`）。缺图时先 `+explore-workflow --cleanup --write-profile --yes`（写操作：沙箱先行；`--cleanup` 删探测工作项）。
+Risk: **write**（真发需 `--yes`）。缺图时先在 YXCLI 沙箱跑 `+explore-workflow --profile play --cleanup --write-profile --yes`（#412 硬门禁：自建探针必须 `--cleanup`；业务空间默认拒绝，勿对生产 ZYPT / 智衣自动执行）。
 `--dry-run`（#75/#82）：按 edges∪hinted_edges 分类——实证边 → `validated`；仅 hinted（**含 verified `edges` 为空但 `hinted_edges` 非空**）→ `hinted`+warning；两边皆有图但目标不在并集（含源不在边表）→ `ok:false`。仅当 **edges 与 hinted_edges 皆空**（或 `direct_status`）→ `edge_validation=skipped` + `warning`（#59）。勿把 `skipped`/`hinted` 当成必能流转。
 `--write-profile`：`MergeWorkflow` 对 verified `edges` 做**并集**（保留手工回填实证边）；`hinted_edges` 若写入方非空则**整表替换**（非并集）。
 +explore-workflow：--category 默认 Bug；会按 type-id 自动覆盖（勿对 Req 硬塞 Bug）（#60）。
 +explore-workflow 边契约（#61 MVP）：`edges`/`verified_edges` = 实测成功；`hinted_edges`+`required_hints`/`missing_fields` = needs_fields 假阳性（勿当 verified 消费）。可用 `--custom-fields`（create）与 `--fields`（每次 PUT）补齐字段，`--from` 先定位再探。`--write-profile` 写入 `workflows[].edges`（verified）与 `hinted_edges`。逐状态必填表（通用化 bug_transition_required）仍待做。
++explore-workflow 安全门禁（#412）：真实写入默认只允许 YXCLI 沙箱（`serial_prefix=YXCLI`，或 profile 名为 `play` 且前缀为空）。自建探针必须带 `--cleanup`，禁止跑完留下 `[cli-explore] workflow probe …`。`--id` 会真实改状态，终态可能不可回退，默认拒绝，需同时传 `--i-know-this-mutates-real-item`。业务空间（zhiyi / `serial_prefix=ZYPT`）的创建探针、`--id`、`--write-profile` 一律拒绝，除非显式 `--allow-non-sandbox`（**禁止**对生产 ZYPT / 智衣使用）。`--dry-run` 仍完全离线，计划里带 `sandbox` / `real_run_blocked`。
 
 **成功输出默认 brief（#114，对齐 create/get）**：`data.item` 为简要投影（id/serialNumber/status`{id,displayName}`/subject，无 description），并新增 `from_status` / `to_status`（`{id,displayName}`）；`serial_number` / `steps` / `applied` / `refresh_ok` / `url` 保留。`--full` 输出刷新后的完整对象（旧版行为）；`YUNXIAO_WORKITEM_GET_VIEW=full|brief` 同 `workitem get` 的兼容开关（flag > env > 默认 brief；非法值在任何请求前报 `invalid_env`）。`+bug-transition（BFS 无路时 direct_fallback / --direct，#123）` 同样适用。
 
