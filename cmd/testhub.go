@@ -78,7 +78,7 @@ var testhubPlansListCmd = &cobra.Command{
 var testhubReposListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List test case repositories",
-	Long:  "Risk: read\nHTTP: GET .../testhub/.../testRepo/list",
+	Long:  "Risk: read\nHTTP: GET .../testhub/.../testRepo/list\nitem url: https://devops.aliyun.com/testhub/repo/{repoId}/case (#415).",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		name, _ := cmd.Flags().GetString("name")
@@ -394,7 +394,7 @@ var testhubDirectoriesCreateCmd = &cobra.Command{
 var testhubCasesSearchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search testcases in a repo",
-	Long:  "Risk: read\nHTTP: POST .../testRepos/{repo}/testcases:search",
+	Long:  "Risk: read\nHTTP: POST .../testRepos/{repo}/testcases:search\nitem url: https://devops.aliyun.com/testhub/case/{customCode} when customCode is present (#415). If customCode is missing, falls back to the repo page /testhub/repo/{repoId}/case.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoID, _ := cmd.Flags().GetString("repo-id")

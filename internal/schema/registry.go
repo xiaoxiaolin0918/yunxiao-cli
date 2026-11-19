@@ -511,7 +511,7 @@ var Registry = []Method{
 	{ID: "appstack.global_vars.list", Domain: "appstack", Description: "List global vars",
 		HTTPMethod: "POST", Path: ".../globalVars:search", Risk: risk.Read,
 		Example: "yunxiao appstack global-vars list"},
-	{ID: "testhub.cases.search", Domain: "testhub", Description: "Search testcases",
+	{ID: "testhub.cases.search", Domain: "testhub", Description: "Search testcases; item url is /testhub/case/{customCode} or repo page fallback (#415)",
 		HTTPMethod: "POST", Path: ".../testcases:search", Risk: risk.Read,
 		Example: "yunxiao testhub cases search --repo-id <id>"},
 	{ID: "testhub.cases.get", Domain: "testhub", Description: "Get a testcase; meta.url is /testhub/case/{customCode} or repo page fallback (#415)",

@@ -8,8 +8,10 @@ import (
 // TestHub console paths (#415). Directory / repo links live under /testhub/repo/{repoId}/case
 // (verified by the issue reporter). Single-case deep links use /testhub/case/{customCode}
 // (console "复制链接"). The old /projex/project/{spaceId}/testcase templates white-screen
-// after login and must not be emitted. Test plan links stay on Projex until a verified
-// TestHub template exists.
+// after login and must not be emitted. Test plan pages use /testhub/plan/{planId}/case,
+// with #selectedTreeIdentifier={directoryId} when a directory id is known. spaceID may
+// remain in function signatures for compatibility but is not used in these paths.
+// /projex/project/{spaceId}/testplan/{planId} 404s after login and must not be emitted.
 
 // TestCaseURL builds a TestHub case deep link from customCode when known (#415).
 // spaceID is kept for call-site compatibility and is not used in the path.
