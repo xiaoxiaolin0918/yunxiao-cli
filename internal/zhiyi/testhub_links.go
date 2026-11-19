@@ -10,7 +10,6 @@ import (
 // (console "复制链接"). The old /projex/project/{spaceId}/testcase templates white-screen
 // after login and must not be emitted. Test plan links stay on Projex until a verified
 // TestHub template exists.
-const testhubPlanPath = "testplan"
 
 // TestCaseURL builds a TestHub case deep link from customCode when known (#415).
 // spaceID is kept for call-site compatibility and is not used in the path.
@@ -33,15 +32,19 @@ func TestRepoURL(spaceID, repoID string) string {
 	return "https://devops.aliyun.com/testhub/repo/" + repoID + "/case"
 }
 
-// TestPlanURL builds a Projex test plan page URL.
-func TestPlanURL(spaceID, planID string) string {
-	spaceID = strings.TrimSpace(spaceID)
+// TestPlanURL builds the TestHub plan page (#415). The path key is planId;
+// spaceID is accepted for compatibility and is not used in the path.
+// If directoryID is set, the official #selectedTreeIdentifier= hash is appended.
+func TestPlanURL(spaceID, planID, directoryID string) string {
 	planID = strings.TrimSpace(planID)
-	if spaceID == "" || planID == "" {
+	if planID == "" {
 		return ""
 	}
-	return fmt.Sprintf("https://devops.aliyun.com/projex/project/%s/%s/%s",
-		spaceID, testhubPlanPath, planID)
+	u := "https://devops.aliyun.com/testhub/plan/" + planID + "/case"
+	if d := strings.TrimSpace(directoryID); d != "" {
+		return u + "#selectedTreeIdentifier=" + d
+	}
+	return u
 }
 
 // TestDirectoryURL points at the TestHub library page with the official directory hash (#415).
@@ -56,7 +59,7 @@ func TestDirectoryURL(spaceID, repoID, dirID string) string {
 	return u
 }
 
-const testhubWebPathHint = "云效 TestHub → 用例库（仓库页 /testhub/repo/{repoId}/case；目录加 #selectedTreeIdentifier={directoryId}；单条直链 /testhub/case/{customCode}，缺 customCode 时退到所属仓库页）"
+const testhubWebPathHint = "云效 TestHub → 用例库（仓库页 /testhub/repo/{repoId}/case；目录加 #selectedTreeIdentifier={directoryId}；单条直链 /testhub/case/{customCode}，缺 customCode 时退到所属仓库页；测试计划 /testhub/plan/{planId}/case，有目录时加 #selectedTreeIdentifier=）"
 
 // EnrichTestCaseMeta sets meta.url from customCode (preferred) or the repo page (#415);
 // otherwise webPathHint.
@@ -100,12 +103,12 @@ func EnrichTestRepoMeta(meta map[string]any, spaceID, repoID string) map[string]
 	return meta
 }
 
-// EnrichTestPlanMeta sets meta.url for a plan when space+plan id known.
-func EnrichTestPlanMeta(meta map[string]any, spaceID, planID string) map[string]any {
+// EnrichTestPlanMeta sets meta.url for a plan when planID is known (#415).
+func EnrichTestPlanMeta(meta map[string]any, spaceID, planID, directoryID string) map[string]any {
 	if meta == nil {
 		meta = map[string]any{}
 	}
-	if u := TestPlanURL(spaceID, planID); u != "" {
+	if u := TestPlanURL(spaceID, planID, directoryID); u != "" {
 		meta["url"] = u
 		delete(meta, "webPathHint")
 		return meta
@@ -153,7 +156,8 @@ func AttachTestRepoIDsAndURLs(data any, spaceID string) any {
 	})
 }
 
-// AttachTestPlanIDsAndURLs adds id alias from testPlanIdentifier and url (#361).
+// AttachTestPlanIDsAndURLs adds id alias from testPlanIdentifier and url (#361/#415).
+// directoryId is used only when the item itself has one; plans list usually does not.
 func AttachTestPlanIDsAndURLs(data any) any {
 	return mapListItems(data, func(m map[string]any) {
 		pid := firstStringField(m, "id", "testPlanIdentifier")
@@ -163,8 +167,18 @@ func AttachTestPlanIDsAndURLs(data any) any {
 		if _, has := m["id"]; !has || m["id"] == nil || strings.TrimSpace(fmt.Sprint(m["id"])) == "" {
 			m["id"] = pid
 		}
-		sid := firstStringField(m, "spaceIdentifier", "spaceId")
-		if u := TestPlanURL(sid, pid); u != "" {
+		dirID := firstStringField(m, "directoryId", "directoryIdentifier", "selectedTreeIdentifier")
+		if u := TestPlanURL("", pid, dirID); u != "" {
+			m["url"] = u
+		}
+	})
+}
+
+// AttachTestPlanDirectoryURLs adds plan-page urls on directory maps when planID is known (#415).
+func AttachTestPlanDirectoryURLs(data any, planID string) any {
+	return mapListItems(data, func(m map[string]any) {
+		did := firstStringField(m, "id", "directoryId", "directoryIdentifier")
+		if u := TestPlanURL("", planID, did); u != "" {
 			m["url"] = u
 		}
 	})

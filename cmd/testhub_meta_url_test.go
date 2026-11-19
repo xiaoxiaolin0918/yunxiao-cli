@@ -223,3 +223,84 @@ func TestTesthubCasesCreateRefreshURL(t *testing.T) {
 		t.Fatalf("data.url=%v", data["url"])
 	}
 }
+
+func TestTesthubPlansListURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"testPlanIdentifier":"caa1821c698424d2a972bb72fc","spaceIdentifier":"sid","name":"plan"}]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	t.Setenv(config.EnvAccessToken, "test-token-th-plans-url-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-th-plans-url")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+
+	stdout := withCmdJSONCapture(t)
+	globalDryRun = false
+	resetStringFlags(t, testhubPlansListCmd, "project-id", "sprint-id", "name", "status")
+	rootCmd.SetArgs([]string{"testhub", "plans", "list", "--project-id", "proj-1"})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, stdout.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("json: %v / %s", err, stdout.Bytes())
+	}
+	raw, _ := json.Marshal(env.Data)
+	var items []map[string]any
+	if err := json.Unmarshal(raw, &items); err != nil {
+		t.Fatalf("data=%s", raw)
+	}
+	want := "https://devops.aliyun.com/testhub/plan/caa1821c698424d2a972bb72fc/case"
+	if len(items) != 1 || items[0]["url"] != want || items[0]["id"] != "caa1821c698424d2a972bb72fc" {
+		t.Fatalf("items=%v", items)
+	}
+	if strings.Contains(stdout.String(), "/projex/") && strings.Contains(stdout.String(), "/testplan/") {
+		t.Fatalf("must not emit Projex testplan URL: %s", stdout.String())
+	}
+}
+
+func TestTesthubPlansDirectoriesURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"03d997825eaf15c0bec271a907","name":"dir"}]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	t.Setenv(config.EnvAccessToken, "test-token-th-plandir-url-not-real")
+	t.Setenv(config.EnvOrganizationID, "org-th-plandir-url")
+	t.Setenv(config.EnvEdition, "central")
+	t.Setenv(config.EnvAPIBaseURL, srv.URL)
+	t.Setenv("YUNXIAO_PROFILE", "")
+
+	stdout := withCmdJSONCapture(t)
+	globalDryRun = false
+	resetStringFlags(t, testhubPlansDirectoriesCmd, "plan-id")
+	rootCmd.SetArgs([]string{"testhub", "plans", "directories", "--plan-id", "caa1821c698424d2a972bb72fc"})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, stdout.String())
+	}
+	var env output.Envelope
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("json: %v / %s", err, stdout.Bytes())
+	}
+	raw, _ := json.Marshal(env.Data)
+	var items []map[string]any
+	if err := json.Unmarshal(raw, &items); err != nil {
+		t.Fatalf("data=%s", raw)
+	}
+	wantItem := "https://devops.aliyun.com/testhub/plan/caa1821c698424d2a972bb72fc/case#selectedTreeIdentifier=03d997825eaf15c0bec271a907"
+	if len(items) != 1 || items[0]["url"] != wantItem {
+		t.Fatalf("items=%v raw=%s", items, stdout.String())
+	}
+	wantMeta := "https://devops.aliyun.com/testhub/plan/caa1821c698424d2a972bb72fc/case"
+	if env.Meta["url"] != wantMeta {
+		t.Fatalf("meta.url=%v", env.Meta["url"])
+	}
+}

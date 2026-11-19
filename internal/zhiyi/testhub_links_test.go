@@ -48,10 +48,21 @@ func TestTestDirectoryURL(t *testing.T) {
 }
 
 func TestTestPlanURL(t *testing.T) {
-	u := TestPlanURL("sid", "pid")
-	want := "https://devops.aliyun.com/projex/project/sid/testplan/pid"
+	u := TestPlanURL("sid", "caa1821c698424d2a972bb72fc", "")
+	want := "https://devops.aliyun.com/testhub/plan/caa1821c698424d2a972bb72fc/case"
 	if u != want {
-		t.Fatalf("got %q", u)
+		t.Fatalf("got %q want %q", u, want)
+	}
+	withDir := TestPlanURL("sid", "caa1821c698424d2a972bb72fc", "03d997825eaf15c0bec271a907")
+	wantDir := "https://devops.aliyun.com/testhub/plan/caa1821c698424d2a972bb72fc/case#selectedTreeIdentifier=03d997825eaf15c0bec271a907"
+	if withDir != wantDir {
+		t.Fatalf("got %q want %q", withDir, wantDir)
+	}
+	if TestPlanURL("sid", "", "") != "" || TestPlanURL("", "", "d") != "" {
+		t.Fatal("plan URL requires planId, not spaceId")
+	}
+	if TestPlanURL("", "pid", "") != "https://devops.aliyun.com/testhub/plan/pid/case" {
+		t.Fatalf("planId alone should be enough, got %q", TestPlanURL("", "pid", ""))
 	}
 }
 
@@ -104,9 +115,35 @@ func TestAttachTestPlanIDsAndURLs(t *testing.T) {
 	if m["id"] != "p1" {
 		t.Fatalf("id=%v", m["id"])
 	}
-	want := "https://devops.aliyun.com/projex/project/sid/testplan/p1"
+	want := "https://devops.aliyun.com/testhub/plan/p1/case"
+	if m["url"] != want {
+		t.Fatalf("url=%v want %v", m["url"], want)
+	}
+}
+
+func TestAttachTestPlanIDsAndURLsWithDirectory(t *testing.T) {
+	out := AttachTestPlanIDsAndURLs([]any{
+		map[string]any{"id": "p1", "directoryId": "d1"},
+	})
+	m := out.([]any)[0].(map[string]any)
+	want := "https://devops.aliyun.com/testhub/plan/p1/case#selectedTreeIdentifier=d1"
 	if m["url"] != want {
 		t.Fatalf("url=%v", m["url"])
+	}
+}
+
+func TestEnrichTestPlanMeta(t *testing.T) {
+	meta := EnrichTestPlanMeta(map[string]any{"risk": "read"}, "sid", "", "")
+	if meta["url"] != nil || meta["webPathHint"] == nil {
+		t.Fatalf("expected hint without planId: %v", meta)
+	}
+	meta2 := EnrichTestPlanMeta(map[string]any{"risk": "read"}, "", "pid", "")
+	if meta2["url"] != "https://devops.aliyun.com/testhub/plan/pid/case" || meta2["webPathHint"] != nil {
+		t.Fatalf("%v", meta2)
+	}
+	meta3 := EnrichTestPlanMeta(map[string]any{"risk": "read"}, "", "pid", "d1")
+	if meta3["url"] != "https://devops.aliyun.com/testhub/plan/pid/case#selectedTreeIdentifier=d1" {
+		t.Fatalf("%v", meta3)
 	}
 }
 

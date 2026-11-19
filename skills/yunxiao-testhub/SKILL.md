@@ -46,5 +46,5 @@ yunxiao testhub cases create --repo-id <id> --subject "case" --assigned-to <user
 - 单条用例：`https://devops.aliyun.com/testhub/case/{customCode}`（控制台「复制链接」形态；`cases get` / `cases create` refresh 后可拿到 `customCode`）。缺 `customCode` 时退到所属仓库页 `/testhub/repo/{repoId}/case`（内部 case id 暂无可靠官方 hash）。
 - 目录：`https://devops.aliyun.com/testhub/repo/{repoId}/case#selectedTreeIdentifier={directoryId}`
 - 仓库：`https://devops.aliyun.com/testhub/repo/{repoId}/case`
-- 测试计划仍用 Projex `/projex/project/{spaceId}/testplan/{planId}`（本变更未改）。缺必要 id 时给 `meta.webPathHint`。`repos list` 另补 `id` 别名（= `testRepoIdentifier`）。
+- 测试计划：`https://devops.aliyun.com/testhub/plan/{planId}/case`（`plans list` 的 item `url`）。有 directoryId 时加 `#selectedTreeIdentifier={directoryId}`（如 `plans directories`）。不要用 `/projex/project/{spaceId}/testplan/{planId}`（登录后 404）。缺必要 id 时给 `meta.webPathHint`。`repos list` 另补 `id` 别名（= `testRepoIdentifier`）。
 - `yunxiao browse testhub` 子命令仍未提供，后续再补。

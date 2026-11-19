@@ -34,7 +34,7 @@ var testhubReposCmd = &cobra.Command{Use: "repos", Short: "Test case repositorie
 var testhubPlansListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List test plans",
-	Long:  "Risk: read\nHTTP: POST .../projex/.../testPlan/list",
+	Long:  "Risk: read\nHTTP: POST .../projex/.../testPlan/list\nitem url: https://devops.aliyun.com/testhub/plan/{planId}/case (#415). Add #selectedTreeIdentifier={directoryId} when a directory id is known. Not a /projex/.../testplan link (404 when logged in).",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		projectID, _ := cmd.Flags().GetString("project-id")
@@ -69,6 +69,7 @@ var testhubPlansListCmd = &cobra.Command{
 		}
 		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
 			out = zhiyi.AttachTestPlanIDsAndURLs(out)
+			// list meta.url is omitted: there is no single planId for the collection
 			return out, meta
 		}))
 	},
@@ -111,7 +112,7 @@ var testhubResultsCmd = &cobra.Command{Use: "results", Short: "Test plan results
 var testhubPlansProgressCmd = &cobra.Command{
 	Use:   "progress",
 	Short: "Get test plan progress rate",
-	Long:  "Risk: read\nHTTP: GET .../testhub/.../{planId}/progressRate",
+	Long:  "Risk: read\nHTTP: GET .../testhub/.../{planId}/progressRate\nmeta.url: https://devops.aliyun.com/testhub/plan/{planId}/case (#415).",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		planID, _ := cmd.Flags().GetString("plan-id")
@@ -129,14 +130,17 @@ var testhubPlansProgressCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			zhiyi.EnrichTestPlanMeta(meta, "", planID, "")
+			return out, meta
+		}))
 	},
 }
 
 var testhubPlansDirectoriesCmd = &cobra.Command{
 	Use:   "directories",
 	Short: "List result directories of a test plan",
-	Long:  "Risk: read\nHTTP: GET .../testhub/.../{planId}/result/directory/list",
+	Long:  "Risk: read\nHTTP: GET .../testhub/.../{planId}/result/directory/list\nitem url: https://devops.aliyun.com/testhub/plan/{planId}/case#selectedTreeIdentifier={directoryId} (#415).",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		planID, _ := cmd.Flags().GetString("plan-id")
@@ -154,7 +158,11 @@ var testhubPlansDirectoriesCmd = &cobra.Command{
 			handleErr(err)
 			return
 		}
-		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, nil))
+		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
+			out = zhiyi.AttachTestPlanDirectoryURLs(out, planID)
+			zhiyi.EnrichTestPlanMeta(meta, "", planID, "")
+			return out, meta
+		}))
 	},
 }
 

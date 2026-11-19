@@ -15,11 +15,11 @@ yunxiao testhub cases create --repo-id <id> --subject "case" --assigned-to <user
 
 ## meta.url / webPathHint（#361，模板已在 #415 纠正）
 
-`cases get` / `cases create`（refresh 后）/ `repos list` / `directories list` 的 `meta.url` / 资源 `url` 使用 TestHub 控制台路由，不再依赖 `profile.space_id`，也不再拼 `/projex/project/{spaceId}/testcase`（登录后白屏）：
+`cases get` / `cases create`（refresh 后）/ `repos list` / `directories list` / `plans list` 的 `meta.url` / 资源 `url` 使用 TestHub 控制台路由，不再依赖 `profile.space_id`，也不再拼 `/projex/project/{spaceId}/testcase` 或 `/projex/project/{spaceId}/testplan/{planId}`（前者登录后白屏，后者登录后 404）：
 
 - 单条用例：`https://devops.aliyun.com/testhub/case/{customCode}`。缺 `customCode` 时退到所属仓库页 `/testhub/repo/{repoId}/case`（内部 case id 暂无可靠官方 hash，目录链接为准）。
 - 目录：`https://devops.aliyun.com/testhub/repo/{repoId}/case#selectedTreeIdentifier={directoryId}`
 - 仓库：`https://devops.aliyun.com/testhub/repo/{repoId}/case`
-- 测试计划仍用 Projex：`https://devops.aliyun.com/projex/project/{spaceId}/testplan/{planId}`（#415 未改）。
+- 测试计划：`https://devops.aliyun.com/testhub/plan/{planId}/case`。有 directoryId 时加 `#selectedTreeIdentifier={directoryId}`。不要用 `/projex/.../testplan/{planId}`（登录后 404）。
 
 缺必要 id 时给出 `meta.webPathHint`。Agents 展示用例时优先给可点击 `meta.url`。`yunxiao browse testhub` 尚未提供。
