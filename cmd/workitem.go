@@ -22,7 +22,7 @@ var workitemCmd = &cobra.Command{
   yunxiao workitem +bug-create --title "…" --description "…" --expected-completion YYYY-MM-DD --sprint <id> --dry-run
   yunxiao workitem +risk-create --title "…" --description "…" --dry-run   # profile risk_type_id (#128)
   yunxiao workitem +req-create --assignee 崔健 --title "…" --dry-run      # profile req_type_id (#128)
-  yunxiao workitem +explore-workflow --type-id <id> --cleanup --dry-run
+  yunxiao workitem +explore-workflow --profile play --type-id <id> --cleanup --dry-run
   yunxiao workitem comments list --id <id>
   yunxiao workitem comment --id <id> --content '…' [--dry-run]
   yunxiao workitem comment --id <id> --content-file ./note.md [--dry-run]  # UTF-8; avoids PS mojibake

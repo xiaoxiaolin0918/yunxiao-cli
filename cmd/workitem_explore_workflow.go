@@ -75,7 +75,7 @@ MVP (#61): needs_fields outcomes are hinted_edges (not verified edges). Pass
 each PUT. Optional --from <status> repositions before probing. Per-status required-field
 tables (generalized bug_transition_required) are deferred.
 
-Do not run against production ZYPT without --allow-non-sandbox and review.`,
+Do not use --allow-non-sandbox on production ZYPT.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		pf, err := applyActiveProfileOrg()
