@@ -325,7 +325,7 @@ var testhubCaseCommentsCmd = &cobra.Command{Use: "case-comments", Short: "Commen
 var testhubDirectoriesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List directories in a test repo",
-	Long:  "Risk: read\nHTTP: GET .../testRepos/{repo}/directories\nSource: listDirectories",
+	Long:  "Risk: read\nHTTP: GET .../testRepos/{repo}/directories\nSource: listDirectories\nmeta.url / item url: https://devops.aliyun.com/testhub/repo/{repoId}/case#selectedTreeIdentifier={directoryId} (#415). Does not use /projex/.../testcase (white-screens when logged in).",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoID, _ := cmd.Flags().GetString("repo-id")
@@ -413,7 +413,7 @@ var testhubCasesSearchCmd = &cobra.Command{
 		}
 		handleErr(runRead(cmd.Context(), c, "POST", path, nil, body, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
 			space := profileSpaceID()
-			out = zhiyi.AttachTestCaseURLs(out, space)
+			out = zhiyi.AttachTestCaseURLs(out, space, repoID)
 			zhiyi.EnrichTestRepoMeta(meta, space, repoID)
 			return out, meta
 		}))
@@ -423,7 +423,7 @@ var testhubCasesSearchCmd = &cobra.Command{
 var testhubCasesGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a testcase",
-	Long:  "Risk: read\nHTTP: GET .../testRepos/{repo}/testcases/{id}",
+	Long:  "Risk: read\nHTTP: GET .../testRepos/{repo}/testcases/{id}\nmeta.url / data.url: https://devops.aliyun.com/testhub/case/{customCode} when customCode is present (#415). If customCode is missing, falls back to the repo page /testhub/repo/{repoId}/case (no reliable official hash on the internal case id). Not a /projex/.../testcase link.",
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoID, _ := cmd.Flags().GetString("repo-id")
@@ -445,11 +445,11 @@ var testhubCasesGetCmd = &cobra.Command{
 		handleErr(runRead(cmd.Context(), c, "GET", path, nil, nil, map[string]any{"risk": risk.Read}, func(out any, meta map[string]any) (any, map[string]any) {
 			space := profileSpaceID()
 			if m, ok := out.(map[string]any); ok {
-				if u := zhiyi.TestCaseURL(space, id); u != "" {
-					m["url"] = u
-				}
+				zhiyi.AttachTestCaseURLToMap(m, space, repoID)
+				zhiyi.EnrichTestCaseMetaFromItem(meta, space, repoID, m)
+			} else {
+				zhiyi.EnrichTestCaseMeta(meta, space, repoID, "")
 			}
-			zhiyi.EnrichTestCaseMeta(meta, space, id)
 			return out, meta
 		}))
 	},
@@ -468,7 +468,9 @@ Body tips (from live GetTestCase shapes):
   - testSteps: {"contentType":"TABLE","content":[{"step":"...","expected":"..."}]}
   - preCondition: prefer RICHTEXT (article wrapper) or TEXT + preConditionFormat
 
-Success: platform create only returns {id}; CLI refreshes with GET to include customCode/subject when possible.`,
+Success: platform create only returns {id}; CLI refreshes with GET to include customCode/subject when possible.
+
+meta.url / data.url after refresh: https://devops.aliyun.com/testhub/case/{customCode} when customCode is present (#415); otherwise the repo page /testhub/repo/{repoId}/case. Not a /projex/.../testcase link.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flagOrg(globalOrg)
 		repoID, _ := cmd.Flags().GetString("repo-id")
@@ -550,10 +552,8 @@ Success: platform create only returns {id}; CLI refreshes with GET to include cu
 			}
 			meta["refresh_ok"] = true
 			space := profileSpaceID()
-			if u := zhiyi.TestCaseURL(space, id); u != "" {
-				full["url"] = u
-			}
-			zhiyi.EnrichTestCaseMeta(meta, space, id)
+			zhiyi.AttachTestCaseURLToMap(full, space, repoID)
+			zhiyi.EnrichTestCaseMetaFromItem(meta, space, repoID, full)
 			return full, meta
 		}
 		handleErr(runJSONMutating(cmd.Context(), c, "testhub cases create", risk.Write, "POST", path, nil, body, after))

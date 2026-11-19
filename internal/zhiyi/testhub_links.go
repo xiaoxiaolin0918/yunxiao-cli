@@ -5,35 +5,32 @@ import (
 	"strings"
 )
 
-// TestHub console paths under Projex (central edition).
-// Verified as live routes (302→login); hash openers mirror workitem openWorkitemIdentifier.
-const (
-	testhubCasePath = "testcase"
-	testhubPlanPath = "testplan"
-)
+// TestHub console paths (#415). Directory / repo links live under /testhub/repo/{repoId}/case
+// (verified by the issue reporter). Single-case deep links use /testhub/case/{customCode}
+// (console "复制链接"). The old /projex/project/{spaceId}/testcase templates white-screen
+// after login and must not be emitted. Test plan links stay on Projex until a verified
+// TestHub template exists.
+const testhubPlanPath = "testplan"
 
-// TestCaseURL builds a Projex TestHub case page URL when space and case id are known.
-func TestCaseURL(spaceID, caseID string) string {
-	spaceID = strings.TrimSpace(spaceID)
-	caseID = strings.TrimSpace(caseID)
-	if spaceID == "" || caseID == "" {
-		return ""
+// TestCaseURL builds a TestHub case deep link from customCode when known (#415).
+// spaceID is kept for call-site compatibility and is not used in the path.
+// If customCode is empty, falls back to the repo library page when repoID is set
+// (there is no reliable official hash on the internal case id).
+func TestCaseURL(spaceID, repoID, customCode string) string {
+	if code := strings.TrimSpace(customCode); code != "" {
+		return "https://devops.aliyun.com/testhub/case/" + code
 	}
-	return fmt.Sprintf("https://devops.aliyun.com/projex/project/%s/%s#openTestcaseIdentifier=%s",
-		spaceID, testhubCasePath, caseID)
+	return TestRepoURL(spaceID, repoID)
 }
 
-// TestRepoURL builds the project TestHub library page (space required).
+// TestRepoURL builds the TestHub library page. The path key is repoId (#415);
+// spaceID is accepted for compatibility and is not used in the path.
 func TestRepoURL(spaceID, repoID string) string {
-	spaceID = strings.TrimSpace(spaceID)
-	if spaceID == "" {
+	repoID = strings.TrimSpace(repoID)
+	if repoID == "" {
 		return ""
 	}
-	base := fmt.Sprintf("https://devops.aliyun.com/projex/project/%s/%s", spaceID, testhubCasePath)
-	if r := strings.TrimSpace(repoID); r != "" {
-		return base + "?testRepoIdentifier=" + r
-	}
-	return base
+	return "https://devops.aliyun.com/testhub/repo/" + repoID + "/case"
 }
 
 // TestPlanURL builds a Projex test plan page URL.
@@ -47,29 +44,27 @@ func TestPlanURL(spaceID, planID string) string {
 		spaceID, testhubPlanPath, planID)
 }
 
-// TestDirectoryURL points at the library page with directory hint (best-effort).
+// TestDirectoryURL points at the TestHub library page with the official directory hash (#415).
 func TestDirectoryURL(spaceID, repoID, dirID string) string {
 	u := TestRepoURL(spaceID, repoID)
 	if u == "" {
 		return ""
 	}
 	if d := strings.TrimSpace(dirID); d != "" {
-		if strings.Contains(u, "?") {
-			return u + "&directoryId=" + d
-		}
-		return u + "?directoryId=" + d
+		return u + "#selectedTreeIdentifier=" + d
 	}
 	return u
 }
 
-const testhubWebPathHint = "云效项目 → 测试 → 用例库/测试计划（需项目 space_id；可设 profile.space_id）"
+const testhubWebPathHint = "云效 TestHub → 用例库（仓库页 /testhub/repo/{repoId}/case；目录加 #selectedTreeIdentifier={directoryId}；单条直链 /testhub/case/{customCode}，缺 customCode 时退到所属仓库页）"
 
-// EnrichTestCaseMeta sets meta.url from space+case id; otherwise webPathHint (#361).
-func EnrichTestCaseMeta(meta map[string]any, spaceID, caseID string) map[string]any {
+// EnrichTestCaseMeta sets meta.url from customCode (preferred) or the repo page (#415);
+// otherwise webPathHint.
+func EnrichTestCaseMeta(meta map[string]any, spaceID, repoID, customCode string) map[string]any {
 	if meta == nil {
 		meta = map[string]any{}
 	}
-	if u := TestCaseURL(spaceID, caseID); u != "" {
+	if u := TestCaseURL(spaceID, repoID, customCode); u != "" {
 		meta["url"] = u
 		delete(meta, "webPathHint")
 		return meta
@@ -80,7 +75,16 @@ func EnrichTestCaseMeta(meta map[string]any, spaceID, caseID string) map[string]
 	return meta
 }
 
-// EnrichTestRepoMeta sets meta.url for a repo list/get when space is known.
+// EnrichTestCaseMetaFromItem sets meta.url from item.customCode or repoID.
+func EnrichTestCaseMetaFromItem(meta map[string]any, spaceID, repoID string, item map[string]any) map[string]any {
+	code := ""
+	if item != nil {
+		code = firstStringField(item, "customCode")
+	}
+	return EnrichTestCaseMeta(meta, spaceID, repoID, code)
+}
+
+// EnrichTestRepoMeta sets meta.url for a repo list/get when repoID is known.
 func EnrichTestRepoMeta(meta map[string]any, spaceID, repoID string) map[string]any {
 	if meta == nil {
 		meta = map[string]any{}
@@ -112,24 +116,25 @@ func EnrichTestPlanMeta(meta map[string]any, spaceID, planID string) map[string]
 	return meta
 }
 
-// AttachTestCaseURLs adds url on each case map when spaceID is set.
-func AttachTestCaseURLs(data any, spaceID string) any {
-	spaceID = strings.TrimSpace(spaceID)
-	if spaceID == "" {
-		return data
+// AttachTestCaseURLToMap sets m["url"] from customCode or the repo library page.
+func AttachTestCaseURLToMap(m map[string]any, spaceID, repoID string) {
+	if m == nil {
+		return
 	}
+	if u := TestCaseURL(spaceID, repoID, firstStringField(m, "customCode")); u != "" {
+		m["url"] = u
+	}
+}
+
+// AttachTestCaseURLs adds url on each case map from customCode or repoID (#415).
+func AttachTestCaseURLs(data any, spaceID, repoID string) any {
+	repoID = strings.TrimSpace(repoID)
 	return mapListItems(data, func(m map[string]any) {
-		id := firstStringField(m, "id")
-		if id == "" {
-			return
-		}
-		if u := TestCaseURL(spaceID, id); u != "" {
-			m["url"] = u
-		}
+		AttachTestCaseURLToMap(m, spaceID, repoID)
 	})
 }
 
-// AttachTestRepoIDsAndURLs adds id alias from testRepoIdentifier and optional url (#357/#361).
+// AttachTestRepoIDsAndURLs adds id alias from testRepoIdentifier and optional url (#357/#361/#415).
 func AttachTestRepoIDsAndURLs(data any, spaceID string) any {
 	return mapListItems(data, func(m map[string]any) {
 		rid := firstStringField(m, "id", "testRepoIdentifier")
@@ -165,7 +170,7 @@ func AttachTestPlanIDsAndURLs(data any) any {
 	})
 }
 
-// AttachTestDirectoryURLs adds url on directory maps when space+repo known.
+// AttachTestDirectoryURLs adds url on directory maps when repoID is known (#415).
 func AttachTestDirectoryURLs(data any, spaceID, repoID string) any {
 	return mapListItems(data, func(m map[string]any) {
 		did := firstStringField(m, "id")
