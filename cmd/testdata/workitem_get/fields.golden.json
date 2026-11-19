@@ -10,12 +10,12 @@
       "name": "S39"
     },
     "subject": "产品类需求",
-    "verifier": null
+    "verifier": {
+      "id": "u-2",
+      "name": "验证人"
+    }
   },
   "meta": {
-    "absent_fields": [
-      "verifier"
-    ],
     "has_more": false,
     "page": 1,
     "pagination": {

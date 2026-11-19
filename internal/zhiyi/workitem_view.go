@@ -26,7 +26,7 @@ var workItemPriorityFieldNames = []string{"优先级", "Priority"}
 var workItemGetBriefKeys = []string{"assignedTo", "verifier", "sprint", "categoryId", "gmtModified"}
 
 // WorkItemGetBriefFields lists the brief view's keys in documentation order.
-var WorkItemGetBriefFields = []string{"id", "serialNumber", "subject", "status", "assignedTo", "sprint", "priority", "workitemType", "categoryId", "gmtModified", "description_summary"}
+var WorkItemGetBriefFields = []string{"id", "serialNumber", "subject", "status", "assignedTo", "verifier", "sprint", "priority", "workitemType", "categoryId", "gmtModified", "description_summary"}
 
 // workItemSchemaFields are the top-level keys of the official GetWorkitem response
 // (help.aliyun.com/zh/yunxiao/developer-reference/getworkitem). --fields accepts them

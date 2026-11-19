@@ -50,7 +50,7 @@ successful transition the CLI refreshes the item and diffs assignedTo, verifier,
 profile developer / responsible-person fields. If any of those changed — whether the
 platform did it or a field linkage did — it prints a warning such as
 「assignedTo 已由 X 变为 Y（平台或字段联动）」 and a restore command:
-yunxiao workitem update --assigned-to <original uid> (#414). Brief output includes
+yunxiao workitem update --id <id> --assigned-to <original uid> (#414). Brief output includes
 assignedTo / verifier when they are present (empty values are omitted, never shown as None).
 
 Ports zhiyi domain.ts TransitionSteps + bug.ts required-field union.`,

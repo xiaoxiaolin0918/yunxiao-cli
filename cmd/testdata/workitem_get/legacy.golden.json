@@ -49,6 +49,10 @@
       "nameEn": "DOING"
     },
     "subject": "产品类需求",
+    "verifier": {
+      "id": "u-2",
+      "name": "验证人"
+    },
     "workitemType": {
       "id": "type-req",
       "name": "产品类需求",

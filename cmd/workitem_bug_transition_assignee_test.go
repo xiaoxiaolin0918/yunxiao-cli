@@ -237,7 +237,7 @@ func TestBugTransitionNoPersonnelWarningWhenUnchanged(t *testing.T) {
 }
 
 func TestBugTransitionHelpDocumentsAssigneeWarning(t *testing.T) {
-	for _, want := range []string{"assignedTo", "平台或字段联动", "workitem update --assigned-to", "#414"} {
+	for _, want := range []string{"assignedTo", "平台或字段联动", "workitem update --id <id> --assigned-to", "#414"} {
 		if !strings.Contains(workitemBugTransitionCmd.Long, want) {
 			t.Fatalf("help missing %q", want)
 		}

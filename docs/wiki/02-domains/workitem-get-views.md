@@ -8,7 +8,7 @@ GetWorkitem 的 `description` 常有数千字（2026-09-29 查 ZYPT-5916 时一�
 
 | 视图 | `data` | `meta.projection` |
 |------|--------|-------------------|
-| 默认 / `--brief` | `id`、`serialNumber`、`subject`、`status {id, displayName}`、`assignedTo`、`sprint`、`priority`、`workitemType {id, name}`、`categoryId`、`gmtModified`、`description_summary` | `brief` |
+| 默认 / `--brief` | `id`、`serialNumber`、`subject`、`status {id, displayName}`、`assignedTo`、`verifier`（有值时）、`sprint`、`priority`、`workitemType {id, name}`、`categoryId`、`gmtModified`、`description_summary` | `brief` |
 | `--full` | 原始 GetWorkitem 对象（与 0.16.33 相同，含 `meta.pagination*` 等） | 无 |
 | `--fields a,b,c` | 仅这些顶层字段的原始值 | `fields` |
 
